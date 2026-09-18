@@ -16,5 +16,7 @@
     "build": "tsc -b",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@hmedic/communication": "workspace:*"
+  }
 }

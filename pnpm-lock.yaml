@@ -347,11 +347,38 @@ importers:
 
   packages/clinical: {}
 
-  packages/communication: {}
+  packages/communication:
+    dependencies:
+      '@hmedic/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@hmedic/database':
+        specifier: workspace:*
+        version: link:../database
+      '@hmedic/jobs':
+        specifier: workspace:*
+        version: link:../jobs
+      '@hmedic/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@hmedic/observability':
+        specifier: workspace:*
+        version: link:../observability
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
 
-  packages/communication-adapters/mock: {}
+  packages/communication-adapters/mock:
+    dependencies:
+      '@hmedic/communication':
+        specifier: workspace:*
+        version: link:../../communication
 
-  packages/communication-adapters/zamanit: {}
+  packages/communication-adapters/zamanit:
+    dependencies:
+      '@hmedic/communication':
+        specifier: workspace:*
+        version: link:../../communication
 
   packages/config:
     dependencies:

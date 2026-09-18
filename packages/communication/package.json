@@ -21,5 +21,12 @@
     "build": "tsc -b",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@hmedic/audit": "workspace:*",
+    "@hmedic/database": "workspace:*",
+    "@hmedic/jobs": "workspace:*",
+    "@hmedic/kernel": "workspace:*",
+    "@hmedic/observability": "workspace:*",
+    "zod": "3.25.76"
+  }
 }
