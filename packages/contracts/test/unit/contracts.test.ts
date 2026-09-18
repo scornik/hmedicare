@@ -49,7 +49,7 @@ describe('OpenAPI documents (FOUND-010)', () => {
 });
 
 describe('createApiClient', () => {
-  it('adds bearer and tenant headers and includes credentials', async () => {
+  it('adds bearer and tenant headers and omits cookies by default', async () => {
     const seen: Request[] = [];
     const client = createApiClient({
       baseUrl: 'https://api.example.invalid/',
@@ -74,6 +74,6 @@ describe('createApiClient', () => {
     expect(seen[0]!.url).toBe('https://api.example.invalid/health/live');
     expect(seen[0]!.headers.get('authorization')).toBe('Bearer token-in-memory');
     expect(seen[0]!.headers.get('x-tenant-id')).toBe('01a0b422-fd6f-7480-8586-444e7fc66082');
-    expect(seen[0]!.credentials).toBe('include');
+    expect(seen[0]!.credentials).toBe('omit');
   });
 });

@@ -11,16 +11,21 @@ export interface ApiClientOptions {
   /** Active tenant for `X-Tenant-ID` (validated server-side; never trusted from the body). */
   getTenantId?: () => string | null | undefined;
   fetch?: typeof globalThis.fetch;
+  /**
+   * Cookies are sent only where the auth transport needs them (refresh/CSRF/logout). Ordinary calls use
+   * bearer tokens with `omit` (WEB-IMPLEMENTATION §2).
+   */
+  credentials?: 'omit' | 'same-origin' | 'include';
 }
 
 /**
- * Typed fetch client over the generated OpenAPI 3.1 paths (WEB-IMPLEMENTATION §2). Sends cookies only to
- * the API origin (`credentials: 'include'` for the refresh cookie flow) and adds bearer/tenant headers.
+ * Typed fetch client over the generated OpenAPI 3.1 paths (WEB-IMPLEMENTATION §2). Adds bearer/tenant
+ * headers; cookies are omitted unless a caller opts in for the auth endpoints.
  */
 export function createApiClient(options: ApiClientOptions): ApiClient {
   const client = createClient<paths>({
     baseUrl: options.baseUrl.replace(/\/+$/, ''),
-    credentials: 'include',
+    credentials: options.credentials ?? 'omit',
     ...(options.fetch ? { fetch: options.fetch } : {}),
   });
   const auth: Middleware = {
