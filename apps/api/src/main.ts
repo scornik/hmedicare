@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { ConfigError, type ServerConfig, loadConfig } from '@hmedic/config';
+import { recordAppliedMigrations } from '@hmedic/http-kit';
 import { buildApi } from './compose';
 
 /** Entry point (Hostinger Node app `api.<domain>`): fail fast on configuration, then listen on PORT. */
@@ -17,6 +18,11 @@ async function main(): Promise<void> {
   const api = await buildApi(config);
   await api.app.listen({ port: config.PORT, host: '0.0.0.0' });
   api.runtime.logger.info({ port: config.PORT, jobRunnerMode: config.JOB_RUNNER_MODE }, 'api listening');
+  try {
+    await recordAppliedMigrations(api.runtime);
+  } catch (error) {
+    api.runtime.logger.error({ err: error }, 'recording MIGRATION_APPLIED audit rows failed');
+  }
   const shutdown = (signal: string) => {
     api.runtime.logger.info({ signal }, 'api shutting down');
     void api.close().finally(() => process.exit(0));

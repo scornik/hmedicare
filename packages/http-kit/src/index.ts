@@ -10,3 +10,4 @@ export * from './controllers';
 export * from './http-kit.module';
 export * from './bootstrap';
 export * from './job-composition';
+export * from './migrations';
