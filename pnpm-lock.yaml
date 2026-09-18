@@ -261,7 +261,20 @@ importers:
 
   packages/identity-access: {}
 
-  packages/jobs: {}
+  packages/jobs:
+    dependencies:
+      '@hmedic/database':
+        specifier: workspace:*
+        version: link:../database
+      '@hmedic/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@hmedic/observability':
+        specifier: workspace:*
+        version: link:../observability
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
 
   packages/kernel:
     dependencies:
