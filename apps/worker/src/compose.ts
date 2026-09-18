@@ -7,6 +7,7 @@ import {
   type HttpRuntime,
   type JobComposition,
   composePlatformJobs,
+  createSmsDiagnostics,
   createSmsServices,
   createHttpApp,
   createRuntime,
@@ -16,12 +17,21 @@ import {
 /**
  * Worker composition root (API-IMPLEMENTATION §2): health, metrics and the cron kick only. Context job
  * handlers arrive through `<Context>WorkerModule`s (dependency rule `worker-only-worker-modules`); no
- * write/read API modules are ever imported here. Diagnostics for HOST tasks live in apps/host-probe.
+ * write/read API modules are ever imported here. HOST probes live in apps/host-probe; the only diagnostic here
+ * is the SMS-002 provider probe (staging, `DIAGNOSTICS_ENABLED`), because it must run from the worker.
  */
 @Module({})
 export class WorkerModule {
   static forRoot(runtime: HttpRuntime): DynamicModule {
-    return { module: WorkerModule, imports: [HttpKitModule.forRoot(runtime, { jobsEndpoint: true })] };
+    return {
+      module: WorkerModule,
+      imports: [
+        HttpKitModule.forRoot(runtime, {
+          jobsEndpoint: true,
+          diagnostics: runtime.config.DIAGNOSTICS_ENABLED,
+        }),
+      ],
+    };
   }
 }
 
@@ -42,7 +52,9 @@ export async function buildWorker(
   overrides: { database?: Database } = {},
 ): Promise<WorkerInstance> {
   const { runtime, database } = createRuntime('worker', config, overrides);
-  const jobs = composePlatformJobs(runtime, createSmsServices(runtime));
+  const sms = createSmsServices(runtime);
+  const jobs = composePlatformJobs(runtime, sms);
+  runtime.smsDiagnostics = config.DIAGNOSTICS_ENABLED ? createSmsDiagnostics(runtime, sms) : null;
   runtime.runnerLoop = jobs?.loop ?? null;
   runtime.readinessChecks.push(jobLagCheck(runtime));
   const app = await createHttpApp(WorkerModule.forRoot(runtime), runtime, { cors: false });

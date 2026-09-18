@@ -96,6 +96,13 @@ function crossChecks(env: Env, appEnv: AppEnv, app: AppName): string[] {
   if (appEnv === 'production' && env.OTP_PROVIDER !== undefined && env.OTP_PROVIDER === 'mock') {
     problems.push('OTP_PROVIDER: mock delivery is refused in production');
   }
+  const diagnostics = env.DIAGNOSTICS_ENABLED === 'true' || env.DIAGNOSTICS_ENABLED === '1';
+  if (diagnostics && appEnv === 'production') {
+    problems.push('DIAGNOSTICS_ENABLED: diagnostics endpoints are refused in production');
+  }
+  if (diagnostics && !env.INTERNAL_DIAGNOSTICS_TOKEN) {
+    problems.push('INTERNAL_DIAGNOSTICS_TOKEN: required when DIAGNOSTICS_ENABLED=true');
+  }
   if (env.OTEL_ENABLED === 'true' && !env.OTEL_EXPORTER_OTLP_ENDPOINT) {
     problems.push('OTEL_EXPORTER_OTLP_ENDPOINT: required when OTEL_ENABLED=true');
   }

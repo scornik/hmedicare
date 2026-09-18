@@ -41,7 +41,7 @@ export const ERROR_CODE_CLASS: Readonly<Record<number, SmsErrorClass>> = {
 
 const PROVIDER_PHONE_RE = /^8801[3-9][0-9]{8}$/;
 /** Connection failures that happen before any request byte reaches the provider. */
-const NOT_SENT_CODES = new Set([
+export const NOT_SENT_CODES: ReadonlySet<string> = new Set([
   'ECONNREFUSED',
   'ENOTFOUND',
   'EAI_AGAIN',
@@ -73,7 +73,42 @@ export function findErrorCode(body: unknown, raw: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
-function errorCode(error: unknown): string | undefined {
+/** Fail-closed transport check (ADR-018 §2), shared by the adapter and the SMS-002 diagnostics. */
+export async function zamanItTransportAllowed(
+  config: Pick<ZamanItConfig, 'baseUrl' | 'allowInsecureHttp' | 'appEnv' | 'isHttpGateClosed'>,
+): Promise<boolean> {
+  const base = config.baseUrl;
+  if (base.startsWith('https://')) return true;
+  if (!base.startsWith('http://')) return false;
+  if (!config.allowInsecureHttp) return false;
+  if (config.appEnv !== 'production') return true;
+  return config.isHttpGateClosed();
+}
+
+/** Provisional checkbalance interpretation (ADR-018 §4); SMS-002 fixtures confirm or replace it. */
+export function interpretBalanceResponse(r: {
+  status: number;
+  body: unknown;
+  raw: string;
+}): SmsBalanceResult {
+  if (r.status >= 500) return { outcome: 'ERROR', errorClass: 'UNKNOWN_OUTCOME' };
+  const code = findErrorCode(r.body, r.raw);
+  if (code) return { outcome: 'REJECTED', errorClass: ERROR_CODE_CLASS[code]!, providerCode: String(code) };
+  const b = r.body as { balance?: unknown; currency?: unknown } | undefined;
+  const value =
+    typeof b?.balance === 'number' ? String(b.balance) : typeof b?.balance === 'string' ? b.balance : null;
+  if (value !== null && /^\d{1,10}(\.\d{1,2})?$/.test(value.trim())) {
+    return {
+      outcome: 'OK',
+      parseStatus: 'PARSED',
+      balance: Number(value).toFixed(2),
+      currencyText: typeof b?.currency === 'string' ? b.currency.slice(0, 8) : 'BDT',
+    };
+  }
+  return { outcome: 'OK', parseStatus: 'UNPARSED', balance: null, currencyText: null };
+}
+
+export function errorCode(error: unknown): string | undefined {
   const e = error as { code?: unknown; cause?: { code?: unknown } };
   const c = e?.cause?.code ?? e?.code;
   return typeof c === 'string' ? c : undefined;
@@ -89,13 +124,8 @@ export class ZamanItSmsAdapter implements SmsProvider {
     this.base = config.baseUrl.replace(/\/+$/, '');
   }
 
-  /** Fail-closed transport check (ADR-018 §2). */
-  private async transportAllowed(): Promise<boolean> {
-    if (this.base.startsWith('https://')) return true;
-    if (!this.base.startsWith('http://')) return false;
-    if (!this.config.allowInsecureHttp) return false;
-    if (this.config.appEnv !== 'production') return true;
-    return this.config.isHttpGateClosed();
+  private transportAllowed(): Promise<boolean> {
+    return zamanItTransportAllowed(this.config);
   }
 
   private async post(
@@ -164,20 +194,7 @@ export class ZamanItSmsAdapter implements SmsProvider {
     if (!(await this.transportAllowed())) return { outcome: 'REJECTED', errorClass: 'TRANSPORT_REFUSED' };
     const r = await credential.withKey((apiKey) => this.post('checkbalance', { api_key: apiKey }));
     if (r.kind === 'not_sent') return { outcome: 'ERROR', errorClass: 'PROVIDER_UNAVAILABLE' };
-    if (r.kind === 'unknown' || r.status >= 500) return { outcome: 'ERROR', errorClass: 'UNKNOWN_OUTCOME' };
-    const code = findErrorCode(r.body, r.raw);
-    if (code) return { outcome: 'REJECTED', errorClass: ERROR_CODE_CLASS[code]!, providerCode: String(code) };
-    const b = r.body as { balance?: unknown; currency?: unknown } | undefined;
-    const value =
-      typeof b?.balance === 'number' ? String(b.balance) : typeof b?.balance === 'string' ? b.balance : null;
-    if (value !== null && /^\d{1,10}(\.\d{1,2})?$/.test(value.trim())) {
-      return {
-        outcome: 'OK',
-        parseStatus: 'PARSED',
-        balance: Number(value).toFixed(2),
-        currencyText: typeof b?.currency === 'string' ? b.currency.slice(0, 8) : 'BDT',
-      };
-    }
-    return { outcome: 'OK', parseStatus: 'UNPARSED', balance: null, currencyText: null };
+    if (r.kind === 'unknown') return { outcome: 'ERROR', errorClass: 'UNKNOWN_OUTCOME' };
+    return interpretBalanceResponse(r);
   }
 }

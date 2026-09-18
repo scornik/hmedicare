@@ -56,6 +56,15 @@
 |---|---|---|---|---|---|
 | — | — | — | No results yet (Stage 4) | — | — |
 
+### 3.1 SMS-002 free-probe procedure (implemented in Stage 4)
+
+1. On the **staging** worker only, set `DIAGNOSTICS_ENABLED=true` and a fresh `INTERNAL_DIAGNOSTICS_TOKEN` (config refuses diagnostics in production), plus the platform `ZAMANIT_*` variables.
+2. From a workstation: `WORKER_URL=https://worker-staging.<domain> INTERNAL_DIAGNOSTICS_TOKEN=… pnpm ops:capture-sms-probe`. The script refuses plain http (except localhost) and CI.
+3. The worker (`GET /internal/diagnostics/sms-balance`, bearer token, 6/min) runs one `checkbalance` via POST form body with the same transport rules as the adapter, then a TLS handshake to `<host>:443` **with verification on** (ZAMANIT-VER-01). Certificate subject/validity are recorded only when verification succeeds.
+4. The capture is redacted twice. The worker replaces the key and phone-shaped runs and caps the body at 2 KiB. The script re-checks for the token, `api_key=` and phone numbers, and refuses to write on any hit. It writes `packages/communication-adapters/zamanit/test/fixtures/verified/<date>-checkbalance.json` and prints the §3 row to append.
+5. For the ZAMANIT-VER-02 wrong-key case, repeat once with a deliberately invalid `ZAMANIT_API_KEY` on staging (expect 1001), then restore the real key.
+6. Set `DIAGNOSTICS_ENABLED=false` again when done.
+
 ## 4. Live smoke procedure (SMS-008)
 
 1. **Preconditions:**

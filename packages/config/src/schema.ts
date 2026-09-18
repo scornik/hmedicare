@@ -61,6 +61,9 @@ export const jobsSection = {
   OUTBOX_RETENTION_DAYS: int(30, 1),
   IDEMPOTENCY_TTL_HOURS: int(24, 1),
   INTERNAL_CRON_TOKEN: secret32.optional(),
+  /** SMS-002/HOST diagnostics on the worker; staging only, off by default (ENVIRONMENT-CONTRACT). */
+  DIAGNOSTICS_ENABLED: bool(false),
+  INTERNAL_DIAGNOSTICS_TOKEN: secret32.optional(),
   INTERNAL_METRICS_TOKEN: secret32,
 };
 

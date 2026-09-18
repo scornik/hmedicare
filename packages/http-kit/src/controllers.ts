@@ -1,7 +1,8 @@
 import { Controller, Get, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ping } from '@hmedic/database';
-import { Public, RawResponse } from './decorators';
+import { AppError } from '@hmedic/kernel';
+import { Public, RateLimit, RawResponse } from './decorators';
 import { InternalToken } from './internal-token';
 import { setResponseStatus } from './request';
 import { HTTP_RUNTIME, type HttpRuntime } from './runtime';
@@ -98,5 +99,27 @@ export class InternalJobsController {
     );
     if (result.skipped) setResponseStatus(request, 202);
     return result;
+  }
+}
+
+/**
+ * `GET /internal/diagnostics/sms-balance` (SMS-002; worker, staging only, `DIAGNOSTICS_ENABLED`): one free
+ * `checkbalance` probe plus an HTTPS/TLS probe, returned redacted. No secret is accepted in the URL; the
+ * bearer token is `INTERNAL_DIAGNOSTICS_TOKEN`. Each call reaches the provider, so it is rate-limited.
+ */
+@Public()
+@Controller('internal/diagnostics')
+export class InternalDiagnosticsController {
+  constructor(@Inject(HTTP_RUNTIME) private readonly runtime: HttpRuntime) {}
+
+  @Get('sms-balance')
+  @InternalToken('INTERNAL_DIAGNOSTICS_TOKEN')
+  @RateLimit({ rule: { scope: 'diagnostics:ip', limit: 6, windowSeconds: 60 }, by: 'ip' })
+  async smsBalance() {
+    const probe = this.runtime.smsDiagnostics;
+    if (!probe) throw new AppError('RESOURCE_NOT_FOUND');
+    const result = await probe();
+    this.runtime.logger.info({ probe: 'SMS-002' }, 'sms balance diagnostic executed');
+    return { capturedAt: this.runtime.clock.now().toISOString(), result };
   }
 }

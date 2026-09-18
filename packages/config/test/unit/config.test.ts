@@ -111,6 +111,33 @@ describe('loadConfig (ENVIRONMENT-CONTRACT.md)', () => {
       ),
     ).toContain('INTERNAL_CRON_TOKEN: required when a job runner is active (worker/embedded/cron)');
   });
+
+  it('diagnostics (SMS-002/HOST) need their own token and are refused in production', () => {
+    expect(problemsOf(() => loadConfig('worker', testEnv({ DIAGNOSTICS_ENABLED: 'true' })))).toContain(
+      'INTERNAL_DIAGNOSTICS_TOKEN: required when DIAGNOSTICS_ENABLED=true',
+    );
+    const prod = problemsOf(() =>
+      loadConfig(
+        'worker',
+        testEnv({
+          APP_ENV: 'production',
+          PUSH_TOKEN_KEK_ID: 'prod-push-1',
+          PROVIDER_CREDENTIAL_KEK_ID: 'prod-pc-1',
+          DIAGNOSTICS_ENABLED: 'true',
+          INTERNAL_DIAGNOSTICS_TOKEN: 'd'.repeat(43),
+        }),
+      ),
+    );
+    expect(prod).toContain('DIAGNOSTICS_ENABLED: diagnostics endpoints are refused in production');
+    const ok = loadConfig<{ DIAGNOSTICS_ENABLED: boolean } & Record<string, unknown> & { APP_ENV: 'test' }>(
+      'worker',
+      testEnv({ DIAGNOSTICS_ENABLED: 'true', INTERNAL_DIAGNOSTICS_TOKEN: 'd'.repeat(43) }),
+    );
+    expect(ok.DIAGNOSTICS_ENABLED).toBe(true);
+    expect(
+      loadConfig<Record<string, unknown> & { APP_ENV: 'test' }>('worker', testEnv({})).DIAGNOSTICS_ENABLED,
+    ).toBe(false);
+  });
 });
 
 describe('assertPublicViteEnv', () => {

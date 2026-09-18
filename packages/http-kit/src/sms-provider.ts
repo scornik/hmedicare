@@ -1,6 +1,6 @@
 import type { SmsProvider } from '@hmedic/communication';
 import { MockSmsAdapter } from '@hmedic/communication-adapters-mock';
-import { ZamanItSmsAdapter } from '@hmedic/communication-adapters-zamanit';
+import { ZamanItSmsAdapter, probeZamanItBalance } from '@hmedic/communication-adapters-zamanit';
 import { GateDecisionReader } from '@hmedic/secrets';
 import { type SmsRuntime, createSmsRuntime, registerCommunicationJobs } from '@hmedic/communication/worker';
 import {
@@ -40,6 +40,32 @@ export function createSmsServices(runtime: HttpRuntime): SmsRuntime {
     },
     createSmsProvider(runtime),
   );
+}
+
+/**
+ * SMS-002 diagnostics for the platform account: the redacted Zaman IT `checkbalance` capture + TLS probe, or
+ * the mock adapter result. Same transport rules as the adapter (GATE-SMS-HTTP in production).
+ */
+export function createSmsDiagnostics(runtime: HttpRuntime, sms: SmsRuntime): () => Promise<unknown> {
+  const c = runtime.config;
+  if (c.SMS_PROVIDER !== 'zamanit') {
+    return async () => ({
+      provider: sms.provider.code,
+      balance: await sms.provider.checkBalance(sms.platform),
+    });
+  }
+  const gate = new GateDecisionReader(runtime.prisma, runtime.clock);
+  return () =>
+    probeZamanItBalance(
+      {
+        baseUrl: c.ZAMANIT_BASE_URL!,
+        timeoutMs: c.ZAMANIT_TIMEOUT_MS,
+        allowInsecureHttp: c.ZAMANIT_ALLOW_INSECURE_HTTP,
+        appEnv: c.APP_ENV,
+        isHttpGateClosed: () => gate.isClosed('GATE-SMS-HTTP', 'production'),
+      },
+      sms.platform,
+    );
 }
 
 /**

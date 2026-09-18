@@ -9,7 +9,8 @@ import { routeTemplate } from './request';
 import { HTTP_RUNTIME, type HttpRuntime } from './runtime';
 
 export const INTERNAL_TOKEN = 'hm:internal-token';
-export type InternalTokenName = 'INTERNAL_METRICS_TOKEN' | 'INTERNAL_CRON_TOKEN';
+export type InternalTokenName =
+  'INTERNAL_METRICS_TOKEN' | 'INTERNAL_CRON_TOKEN' | 'INTERNAL_DIAGNOSTICS_TOKEN';
 
 /** Marks a route as protected by `Authorization: Bearer <token from env>` (API-IMPLEMENTATION §3.1). */
 export const InternalToken = (name: InternalTokenName) => SetMetadata(INTERNAL_TOKEN, name);

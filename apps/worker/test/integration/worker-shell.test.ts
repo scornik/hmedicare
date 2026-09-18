@@ -132,3 +132,92 @@ describe('MIGRATION_APPLIED audit (DEPLOYMENT §4.1 step 7)', () => {
     expect(rows.every((r) => r.chainKey === 'platform' && r.actorType === 'SYSTEM')).toBe(true);
   });
 });
+
+describe('SMS-002 diagnostics (GET /internal/diagnostics/sms-balance)', () => {
+  const KEY = 'zit_fake_diag_0123456789abcdef0123456789';
+  const DIAG = 'diag-token-'.padEnd(43, 'x');
+
+  it('is absent unless DIAGNOSTICS_ENABLED, and needs its own bearer token', async () => {
+    const off = await start({ JOB_RUNNER_MODE: 'off' });
+    await request(off.app.getHttpServer())
+      .get('/internal/diagnostics/sms-balance')
+      .set('authorization', `Bearer ${DIAG}`)
+      .expect(404);
+
+    const on = await start({
+      JOB_RUNNER_MODE: 'off',
+      DIAGNOSTICS_ENABLED: 'true',
+      INTERNAL_DIAGNOSTICS_TOKEN: DIAG,
+    });
+    const server = on.app.getHttpServer();
+    await request(server).get('/internal/diagnostics/sms-balance').expect(401);
+    await request(server)
+      .get('/internal/diagnostics/sms-balance')
+      .set('authorization', `Bearer ${on.runtime.config.INTERNAL_METRICS_TOKEN}`)
+      .expect(401);
+    const res = await request(server)
+      .get('/internal/diagnostics/sms-balance')
+      .set('authorization', `Bearer ${DIAG}`)
+      .expect(200);
+    expect(res.body.data.result).toMatchObject({ provider: 'mock', balance: { outcome: 'OK' } });
+  });
+
+  it('probes Zaman IT checkbalance via POST form body and returns only a redacted capture', async () => {
+    const { createServer } = await import('node:http');
+    const seen: Array<{ url: string; method: string; body: string }> = [];
+    const provider = createServer((req, res) => {
+      let body = '';
+      req.on('data', (c: Buffer) => (body += c.toString()));
+      req.on('end', () => {
+        seen.push({ url: req.url ?? '', method: req.method ?? '', body });
+        res.setHeader('content-type', 'application/json');
+        res.end(JSON.stringify({ balance: '742.25', key_echo: KEY }));
+      });
+    });
+    await new Promise<void>((r) => provider.listen(0, '127.0.0.1', () => r()));
+    const port = (provider.address() as { port: number }).port;
+    try {
+      const w = await start({
+        JOB_RUNNER_MODE: 'off',
+        DIAGNOSTICS_ENABLED: 'true',
+        INTERNAL_DIAGNOSTICS_TOKEN: DIAG,
+        SMS_PROVIDER: 'zamanit',
+        ZAMANIT_BASE_URL: `http://127.0.0.1:${port}/api`,
+        ZAMANIT_ALLOW_INSECURE_HTTP: 'true',
+        ZAMANIT_API_KEY: KEY,
+        ZAMANIT_SENDER_ID: 'DEMO',
+        ZAMANIT_API_KEY_ISSUED_ON: '2026-09-01',
+      });
+      const logs: string[] = [];
+      const write = process.stdout.write.bind(process.stdout);
+      process.stdout.write = ((chunk: string | Uint8Array, ...rest: unknown[]) => {
+        logs.push(String(chunk));
+        return (write as (...a: unknown[]) => boolean)(chunk, ...rest);
+      }) as typeof process.stdout.write;
+      let res;
+      try {
+        res = await request(w.app.getHttpServer())
+          .get('/internal/diagnostics/sms-balance')
+          .set('authorization', `Bearer ${DIAG}`)
+          .expect(200);
+      } finally {
+        process.stdout.write = write;
+      }
+      expect(seen).toEqual([
+        { url: '/api/checkbalance', method: 'POST', body: `api_key=${encodeURIComponent(KEY)}` },
+      ]);
+      const result = res.body.data.result;
+      expect(result.checkbalance).toMatchObject({
+        endpoint: `http://127.0.0.1:${port}/api/checkbalance`,
+        outcome: 'response',
+        status: 200,
+        parsed: { outcome: 'OK', parseStatus: 'PARSED', balance: '742.25' },
+      });
+      expect(result.httpsProbe).toMatchObject({ host: '127.0.0.1', port: 443, verified: false });
+      expect(JSON.stringify(res.body)).not.toContain(KEY);
+      expect(logs.join('')).not.toContain(KEY);
+    } finally {
+      provider.close();
+    }
+  });
+});

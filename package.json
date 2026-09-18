@@ -41,8 +41,8 @@
     "dev:worker": "pnpm --filter @hmedic/worker run dev",
     "dev:web": "pnpm --filter @hmedic/web run dev",
     "dev:cron": "node scripts/dev-cron.mjs",
-    "hostinger:build:api": "pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/api... && pnpm db:migrate",
-    "hostinger:build:worker": "pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/worker...",
+    "hostinger:build:api": "pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/api... && pnpm db:migrate && node scripts/host/write-build-info.mjs apps/api",
+    "hostinger:build:worker": "pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/worker... && node scripts/host/write-build-info.mjs apps/worker",
     "hostinger:build:web": "pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/web...",
     "hostinger:build:host-probe": "pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/host-probe...",
     "host:record-results": "node scripts/host/record-results.ts",
@@ -51,7 +51,8 @@
     "mobile:generate-api": "cd mobile && dart run melos run generate:api",
     "mobile:analyze": "cd mobile && dart run melos run analyze",
     "mobile:test": "cd mobile && dart run melos run test",
-    "license:scan": "node scripts/license-scan.mjs"
+    "license:scan": "node scripts/license-scan.mjs",
+    "ops:capture-sms-probe": "node scripts/ops/capture-sms-probe.mjs"
   },
   "devDependencies": {
     "@hmedic/api": "workspace:*",

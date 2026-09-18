@@ -1,7 +1,12 @@
 import { type DynamicModule, Global, Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
-import { HealthController, InternalJobsController, InternalMetricsController } from './controllers';
+import {
+  HealthController,
+  InternalDiagnosticsController,
+  InternalJobsController,
+  InternalMetricsController,
+} from './controllers';
 import { InternalTokenGuard } from './internal-token';
 import {
   EnvelopeInterceptor,
@@ -19,13 +24,17 @@ import { HTTP_RUNTIME, type HttpRuntime } from './runtime';
 @Global()
 @Module({})
 export class HttpKitModule {
-  static forRoot(runtime: HttpRuntime, options: { jobsEndpoint: boolean }): DynamicModule {
+  static forRoot(
+    runtime: HttpRuntime,
+    options: { jobsEndpoint: boolean; diagnostics?: boolean },
+  ): DynamicModule {
     return {
       module: HttpKitModule,
       controllers: [
         HealthController,
         InternalMetricsController,
         ...(options.jobsEndpoint ? [InternalJobsController] : []),
+        ...(options.diagnostics ? [InternalDiagnosticsController] : []),
       ],
       providers: [
         { provide: HTTP_RUNTIME, useValue: runtime },

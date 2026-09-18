@@ -31,6 +31,8 @@ export interface HttpRuntime {
   audit: PrismaAuditPort;
   /** Present when this process serves `POST /internal/jobs/run`. */
   runnerLoop?: RunnerLoop | null;
+  /** Present only on the worker with DIAGNOSTICS_ENABLED (SMS-002 free provider probes). */
+  smsDiagnostics?: (() => Promise<unknown>) | null;
   readinessChecks: ReadinessCheck[];
 }
 
