@@ -1,0 +1,30 @@
+{
+  "name": "@hmedic/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "HMedic HTTP API (NestJS 11 + Fastify) — composition root, no business rules",
+  "main": "./dist/main.js",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@hmedic/audit": "workspace:*",
+    "@hmedic/config": "workspace:*",
+    "@hmedic/database": "workspace:*",
+    "@hmedic/http-kit": "workspace:*",
+    "@hmedic/jobs": "workspace:*",
+    "@hmedic/kernel": "workspace:*",
+    "@hmedic/observability": "workspace:*",
+    "@nestjs/common": "11.2.5",
+    "@nestjs/core": "11.2.5",
+    "@nestjs/platform-fastify": "11.2.5",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@types/supertest": "7.2.1",
+    "supertest": "7.2.2"
+  }
+}
