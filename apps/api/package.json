@@ -12,6 +12,7 @@
   "dependencies": {
     "@hmedic/audit": "workspace:*",
     "@hmedic/config": "workspace:*",
+    "@hmedic/contracts": "workspace:*",
     "@hmedic/database": "workspace:*",
     "@hmedic/http-kit": "workspace:*",
     "@hmedic/jobs": "workspace:*",

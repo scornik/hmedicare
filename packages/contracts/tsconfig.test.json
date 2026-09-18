@@ -8,5 +8,5 @@
     "types": ["node"],
     "customConditions": ["development"]
   },
-  "include": ["src", "test"]
+  "include": ["src", "test", "generated"]
 }

@@ -15,6 +15,7 @@ const PERMISSIVE = new Set([
   'BlueOak-1.0.0',
   'Unlicense',
   'CC0-1.0',
+  'Python-2.0',
   'MIT and ISC',
 ]);
 /** LGPL packages allowed in production (dynamic use of an unmodified library). */
@@ -31,11 +32,19 @@ function list(prod) {
   return JSON.parse(out);
 }
 
+/** SPDX `(A OR B)` expressions pass when any alternative is allowed. */
+function allowed(license, set) {
+  return license
+    .replace(/[()]/g, '')
+    .split(/\s+OR\s+/)
+    .some((l) => set.has(l.trim()));
+}
+
 const problems = [];
 const prod = list(true);
 for (const [license, pkgs] of Object.entries(prod)) {
   for (const p of pkgs) {
-    if (PERMISSIVE.has(license)) continue;
+    if (allowed(license, PERMISSIVE)) continue;
     if (license.startsWith('LGPL') && LGPL_EXCEPTIONS.has(p.name)) continue;
     problems.push(`prod ${p.name}@${p.versions.join(',')}: ${license}`);
   }
@@ -43,7 +52,7 @@ for (const [license, pkgs] of Object.entries(prod)) {
 const all = list(false);
 for (const [license, pkgs] of Object.entries(all)) {
   for (const p of pkgs) {
-    if (PERMISSIVE.has(license) || DEV_ONLY.has(license)) continue;
+    if (allowed(license, PERMISSIVE) || allowed(license, DEV_ONLY)) continue;
     if (license.startsWith('LGPL') && LGPL_EXCEPTIONS.has(p.name)) continue;
     const isProd = (prod[license] ?? []).some((q) => q.name === p.name);
     if (!isProd) problems.push(`dev ${p.name}@${p.versions.join(',')}: ${license}`);

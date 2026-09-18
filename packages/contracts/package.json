@@ -10,11 +10,26 @@
       "development": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./client": {
+      "development": "./src/client/index.ts",
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
     }
   },
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
+    "contracts:generate": "tsc -b && node scripts/generate.mjs",
+    "openapi:check": "tsc -b && node scripts/generate.mjs --check"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "7.3.4",
+    "openapi-fetch": "0.17.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@hmedic/kernel": "workspace:*",
+    "openapi-typescript": "7.13.0"
+  }
 }

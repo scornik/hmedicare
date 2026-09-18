@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type ServerConfig, loadConfig } from '@hmedic/config';
 import { testEnv } from '@hmedic/config/testing';
 import { newId } from '@hmedic/kernel';
+import { HealthLive, HealthReady, ProblemDetails } from '@hmedic/contracts';
 import { type ApiInstance, buildApi } from '../../src/compose';
 import { testDatabaseUrl, truncateAll } from '../../../../tests/support/db';
 
@@ -23,11 +24,11 @@ describe('apps/api shell', () => {
     await api?.close();
   });
 
-  it('serves health without the /api/v1 prefix and 404s under it', async () => {
+  it('serves health without the /api/v1 prefix; responses match the OpenAPI contract', async () => {
     const server = api.app.getHttpServer();
-    await request(server).get('/health/live').expect(200);
-    await request(server).get('/health/ready').expect(200);
-    await request(server).get('/api/v1/health/live').expect(404);
+    HealthLive.parse((await request(server).get('/health/live').expect(200)).body);
+    HealthReady.parse((await request(server).get('/health/ready').expect(200)).body);
+    ProblemDetails.parse((await request(server).get('/api/v1/health/live').expect(404)).body);
   });
 
   it('cron mode: the internal kick runs a bounded batch including maintenance scheduling', async () => {
