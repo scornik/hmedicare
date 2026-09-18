@@ -265,10 +265,16 @@ importers:
       rxjs:
         specifier: 7.8.2
         version: 7.8.2
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
     devDependencies:
       '@hmedic/identity-access':
         specifier: workspace:*
         version: link:../../packages/identity-access
+      '@hmedic/tenant-org':
+        specifier: workspace:*
+        version: link:../../packages/tenant-org
       '@types/supertest':
         specifier: 7.2.1
         version: 7.2.1
@@ -554,7 +560,36 @@ importers:
 
   packages/telemedicine: {}
 
-  packages/tenant-org: {}
+  packages/tenant-org:
+    dependencies:
+      '@hmedic/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@hmedic/database':
+        specifier: workspace:*
+        version: link:../database
+      '@hmedic/identity-access':
+        specifier: workspace:*
+        version: link:../identity-access
+      '@hmedic/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@hmedic/localization':
+        specifier: workspace:*
+        version: link:../localization
+      '@nestjs/common':
+        specifier: 11.2.5
+        version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2)
+      reflect-metadata:
+        specifier: 0.2.2
+        version: 0.2.2
+      rxjs:
+        specifier: 7.8.2
+        version: 7.8.2
+    devDependencies:
+      '@hmedic/config':
+        specifier: workspace:*
+        version: link:../config
 
   packages/timeline: {}
 

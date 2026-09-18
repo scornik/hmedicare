@@ -19,7 +19,8 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
+    "platform-operator": "tsc -b && node dist/cli/platform-operator.js"
   },
   "dependencies": {
     "@hmedic/audit": "workspace:*",

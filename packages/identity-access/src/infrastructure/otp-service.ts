@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { AppError, type Clock, newId, systemClock } from '@hmedic/kernel';
-import { type PrismaClient, lockRow, withTransaction } from '@hmedic/database';
+import { type PrismaClient, type Tx, lockRow, withTransaction } from '@hmedic/database';
 import type { PrismaAuditPort } from '@hmedic/audit';
 import type { RateLimiter } from '@hmedic/jobs';
 import type { Metrics } from '@hmedic/observability';
@@ -126,6 +126,67 @@ export class OtpService {
     return { challengeId, expiresAt, hint: HINT[outcome] };
   }
 
+  /** Locks and consumes the pending challenge (attempts committed on failure). */
+  private async consume(
+    tx: Tx,
+    pendingId: string | null,
+    rawCode: string,
+    now: Date,
+  ): Promise<{ ok: true; challengeId: string } | { ok: false; reason: string }> {
+    const code = /^\d{6}$/.test(rawCode) ? rawCode : '';
+    if (!pendingId || !(await lockRow(tx, 'otp_challenges', pendingId)))
+      return { ok: false, reason: 'NO_CHALLENGE' };
+    const ch = await tx.otpChallenge.findUniqueOrThrow({ where: { id: pendingId } });
+    if (ch.status !== 'PENDING') return { ok: false, reason: 'NO_CHALLENGE' };
+    if (ch.expiresAt <= now) {
+      await tx.otpChallenge.update({ where: { id: ch.id }, data: { status: 'EXPIRED' } });
+      return { ok: false, reason: 'EXPIRED' };
+    }
+    const attempts = ch.attempts + 1;
+    if (code === '' || !safeEqual(this.codeHash(ch.id, code), ch.codeHash)) {
+      await tx.otpChallenge.update({
+        where: { id: ch.id },
+        data: { attempts, ...(attempts >= ch.maxAttempts ? { status: 'LOCKED' } : {}) },
+      });
+      return { ok: false, reason: attempts >= ch.maxAttempts ? 'LOCKED' : 'BAD_CODE' };
+    }
+    await tx.otpChallenge.update({
+      where: { id: ch.id },
+      data: { attempts, status: 'VERIFIED', consumedAt: now },
+    });
+    return { ok: true, challengeId: ch.id };
+  }
+
+  private async pendingId(phoneE164: string, purpose: OtpPurpose): Promise<string | null> {
+    const pending = await this.prisma.otpChallenge.findFirst({
+      where: { destinationHash: this.destinationHash(phoneE164), purpose, status: 'PENDING' },
+      select: { id: true },
+    });
+    return pending?.id ?? null;
+  }
+
+  private async auditFailure(
+    userId: string | null,
+    challengeId: string | null,
+    reason: string,
+    meta: { requestId?: string | undefined; ipHash?: string | null | undefined },
+  ) {
+    await withTransaction(this.prisma, (tx) =>
+      this.audit.append(tx, {
+        tenantId: null,
+        actorUserId: userId,
+        actorType: 'USER',
+        action: 'AUTH_OTP_FAILED',
+        resourceType: 'otp_challenge',
+        resourceId: challengeId,
+        outcome: 'DENIED',
+        requestId: meta.requestId ?? null,
+        ipHash: meta.ipHash ?? null,
+        metadata: { reason },
+      }),
+    );
+  }
+
   /**
    * Verifies the pending LOGIN challenge for a phone, upserts the user by phone and starts a session with
    * `authn_methods=['otp']`. Every failure is a generic UNAUTHENTICATED; attempts are committed.
@@ -143,34 +204,10 @@ export class OtpService {
     if (!phoneE164) throw invalidPhone();
     await this.rateLimiter.enforce([{ rule: OTP_LIMITS.verifyIp, subject: input.ip }]);
     const now = this.clock.now();
-    const destinationHash = this.destinationHash(phoneE164);
-    const pending = await this.prisma.otpChallenge.findFirst({
-      where: { destinationHash, purpose: 'LOGIN', status: 'PENDING' },
-      select: { id: true },
-    });
-    const code = /^\d{6}$/.test(input.code) ? input.code : '';
+    const pendingId = await this.pendingId(phoneE164, 'LOGIN');
     const outcome = await withTransaction(this.prisma, async (tx) => {
-      if (!pending || !(await lockRow(tx, 'otp_challenges', pending.id)))
-        return { ok: false as const, reason: 'NO_CHALLENGE' };
-      const ch = await tx.otpChallenge.findUniqueOrThrow({ where: { id: pending.id } });
-      if (ch.status !== 'PENDING') return { ok: false as const, reason: 'NO_CHALLENGE' };
-      if (ch.expiresAt <= now) {
-        await tx.otpChallenge.update({ where: { id: ch.id }, data: { status: 'EXPIRED' } });
-        return { ok: false as const, reason: 'EXPIRED' };
-      }
-      const attempts = ch.attempts + 1;
-      const match = code !== '' && safeEqual(this.codeHash(ch.id, code), ch.codeHash);
-      if (!match) {
-        await tx.otpChallenge.update({
-          where: { id: ch.id },
-          data: { attempts, ...(attempts >= ch.maxAttempts ? { status: 'LOCKED' } : {}) },
-        });
-        return { ok: false as const, reason: attempts >= ch.maxAttempts ? 'LOCKED' : 'BAD_CODE' };
-      }
-      await tx.otpChallenge.update({
-        where: { id: ch.id },
-        data: { attempts, status: 'VERIFIED', consumedAt: now },
-      });
+      const consumed = await this.consume(tx, pendingId, input.code, now);
+      if (!consumed.ok) return consumed;
       let user = await tx.user.findUnique({ where: { phoneE164 } });
       let isNewUser = false;
       if (!user) {
@@ -207,24 +244,16 @@ export class OtpService {
         outcome: 'SUCCESS',
         requestId: input.requestId ?? null,
         ipHash: input.ipHash ?? null,
-        metadata: { challengeId: ch.id, newUser: isNewUser, clientType: input.clientType },
+        metadata: { challengeId: consumed.challengeId, newUser: isNewUser, clientType: input.clientType },
       });
       return { ok: true as const, userId: user.id, started, isNewUser };
     });
     if (!outcome.ok) {
-      await withTransaction(this.prisma, (tx) =>
-        this.audit.append(tx, {
-          tenantId: null,
-          actorUserId: 'userId' in outcome ? (outcome.userId ?? null) : null,
-          actorType: 'USER',
-          action: 'AUTH_OTP_FAILED',
-          resourceType: 'otp_challenge',
-          resourceId: pending?.id ?? null,
-          outcome: 'DENIED',
-          requestId: input.requestId ?? null,
-          ipHash: input.ipHash ?? null,
-          metadata: { reason: outcome.reason },
-        }),
+      await this.auditFailure(
+        'userId' in outcome ? (outcome.userId ?? null) : null,
+        pendingId,
+        outcome.reason,
+        input,
       );
       throw new AppError('UNAUTHENTICATED');
     }
@@ -236,6 +265,61 @@ export class OtpService {
       access,
       isNewUser: outcome.isNewUser,
     };
+  }
+
+  /** Step-up (AUTH §2.6): sends a LOGIN code to the signed-in user's verified phone. */
+  async requestStepUp(input: {
+    userId: string;
+    locale: 'bn-BD' | 'en-BD';
+    ip?: string | undefined;
+  }): Promise<OtpRequestResult> {
+    const user = await this.prisma.user.findUnique({ where: { id: input.userId } });
+    if (!user?.phoneE164 || !user.phoneVerifiedAt) {
+      throw new AppError('VALIDATION_FAILED', undefined, {
+        fieldErrors: [{ path: 'phone', code: 'not_verified', message: 'validation.phone_not_verified' }],
+      });
+    }
+    return this.request({ phone: user.phoneE164, purpose: 'LOGIN', locale: input.locale, ip: input.ip });
+  }
+
+  /**
+   * Completes a step-up for the current session: adds `otp` to `authn_methods` (a password session becomes
+   * pwd+otp). Platform operator sessions then get the operator windows (AUTH §2.6).
+   */
+  async verifyStepUp(input: {
+    userId: string;
+    sessionId: string;
+    code: string;
+    ip?: string | undefined;
+    requestId?: string;
+  }): Promise<{ authnMethods: string[] }> {
+    await this.rateLimiter.enforce([{ rule: OTP_LIMITS.verifyIp, subject: input.ip }]);
+    const user = await this.prisma.user.findUnique({ where: { id: input.userId } });
+    if (!user?.phoneE164) throw new AppError('UNAUTHENTICATED');
+    const now = this.clock.now();
+    const pendingId = await this.pendingId(user.phoneE164, 'LOGIN');
+    const outcome = await withTransaction(this.prisma, async (tx) => {
+      const consumed = await this.consume(tx, pendingId, input.code, now);
+      if (!consumed.ok) return consumed;
+      const methods = await this.sessions.addAuthnMethod(tx, input.sessionId, input.userId, 'otp');
+      await this.audit.append(tx, {
+        tenantId: null,
+        actorUserId: input.userId,
+        actorType: 'USER',
+        action: 'AUTH_STEP_UP',
+        resourceType: 'session',
+        resourceId: input.sessionId,
+        outcome: 'SUCCESS',
+        requestId: input.requestId ?? null,
+        metadata: { challengeId: consumed.challengeId, authnMethods: methods },
+      });
+      return { ok: true as const, methods };
+    });
+    if (!outcome.ok) {
+      await this.auditFailure(input.userId, pendingId, outcome.reason, input);
+      throw new AppError('UNAUTHENTICATED');
+    }
+    return { authnMethods: outcome.methods };
   }
 }
 

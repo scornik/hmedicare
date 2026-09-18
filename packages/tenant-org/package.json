@@ -21,5 +21,17 @@
     "build": "tsc -b",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@hmedic/audit": "workspace:*",
+    "@hmedic/database": "workspace:*",
+    "@hmedic/identity-access": "workspace:*",
+    "@hmedic/kernel": "workspace:*",
+    "@hmedic/localization": "workspace:*",
+    "@nestjs/common": "11.2.5",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@hmedic/config": "workspace:*"
+  }
 }

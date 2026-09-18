@@ -7,5 +7,21 @@
   },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts"],
-  "references": []
+  "references": [
+    {
+      "path": "../audit"
+    },
+    {
+      "path": "../database"
+    },
+    {
+      "path": "../identity-access"
+    },
+    {
+      "path": "../kernel"
+    },
+    {
+      "path": "../localization"
+    }
+  ]
 }

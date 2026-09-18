@@ -40,6 +40,9 @@
     },
     {
       "path": "../../packages/observability"
+    },
+    {
+      "path": "../../packages/tenant-org"
     }
   ]
 }

@@ -268,3 +268,32 @@ registry.registerPath({
     ...errorResponses,
   },
 });
+
+export const StepUpVerifyRequest = registry.register(
+  'StepUpVerifyRequest',
+  z.object({ code: z.string().regex(/^[0-9]{6}$/) }),
+);
+export const StepUpVerifyResponse = registry.register(
+  'StepUpVerifyResponse',
+  z.object({ authnMethods: z.array(z.enum(['pwd', 'otp'])) }),
+);
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/auth/step-up/otp/request',
+  operationId: 'requestStepUpOtp',
+  tags: ['auth'],
+  security: secured,
+  description:
+    'Sends a code to the signed-in user phone (verified). Platform operators need pwd + otp per session.',
+  request: { headers: idem, body: { content: json(z.object({ locale: Locale.default('bn-BD') })) } },
+  responses: { 202: ok(OtpRequestResponse, 'Challenge created'), ...errorResponses },
+});
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/auth/step-up/otp/verify',
+  operationId: 'verifyStepUpOtp',
+  tags: ['auth'],
+  security: secured,
+  request: { headers: idem, body: { content: json(StepUpVerifyRequest) } },
+  responses: { 200: ok(StepUpVerifyResponse, 'Session upgraded'), ...errorResponses },
+});

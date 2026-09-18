@@ -10,6 +10,10 @@ import {
 import { AuthController, SessionController } from './identity/auth.controller';
 import { DevInboxController } from './identity/dev-inbox.controller';
 import { MeController } from './identity/me.controller';
+import { CoverageController, MembershipController } from './tenant-org/tenant-org.controllers';
+import { PlatformTenantController } from './tenant-org/platform-tenants.controller';
+import { CoverageService, MembershipService, TenantBootstrapService } from '@hmedic/tenant-org';
+import { TenantOrgWriteModule, type TenantOrgServices } from '@hmedic/tenant-org/nest';
 import {
   HttpKitModule,
   type HttpRuntime,
@@ -25,7 +29,11 @@ import {
  */
 @Module({})
 export class ApiModule {
-  static forRoot(runtime: HttpRuntime, identity: IdentityServices): DynamicModule {
+  static forRoot(
+    runtime: HttpRuntime,
+    identity: IdentityServices,
+    tenantOrg: TenantOrgServices,
+  ): DynamicModule {
     const mode = runtime.config.JOB_RUNNER_MODE;
     const devInbox = identity.mockOtp !== null || identity.mockReset !== null;
     return {
@@ -33,11 +41,15 @@ export class ApiModule {
       imports: [
         HttpKitModule.forRoot(runtime, { jobsEndpoint: mode === 'embedded' || mode === 'cron' }),
         IdentityWriteModule.forRoot(identity),
+        TenantOrgWriteModule.forRoot(tenantOrg),
       ],
       controllers: [
         AuthController,
         SessionController,
         MeController,
+        MembershipController,
+        CoverageController,
+        PlatformTenantController,
         ...(devInbox ? [DevInboxController] : []),
       ],
     };
@@ -63,7 +75,12 @@ export async function buildApi(
     config.JOB_RUNNER_MODE === 'embedded' || config.JOB_RUNNER_MODE === 'cron' ? composeJobs(runtime) : null;
   runtime.runnerLoop = jobs?.loop ?? null;
   const identity = createIdentityServices(runtime);
-  const app = await createHttpApp(ApiModule.forRoot(runtime, identity), runtime, { cors: true });
+  const tenantOrg: TenantOrgServices = {
+    memberships: new MembershipService(runtime.prisma, runtime.audit, runtime.clock),
+    coverages: new CoverageService(runtime.prisma, runtime.audit, config.COVERAGE_MAX_DAYS, runtime.clock),
+    bootstrap: new TenantBootstrapService(runtime.prisma, runtime.audit, runtime.clock),
+  };
+  const app = await createHttpApp(ApiModule.forRoot(runtime, identity, tenantOrg), runtime, { cors: true });
   if (config.JOB_RUNNER_MODE === 'embedded') jobs?.loop.start();
   let closed = false;
   return {

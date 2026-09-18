@@ -10,7 +10,9 @@ import {
   PasswordResetComplete,
   PasswordResetRequest,
   RefreshRequest,
+  StepUpVerifyRequest,
 } from '@hmedic/contracts';
+import { z } from 'zod';
 import {
   HTTP_RUNTIME,
   type HttpRuntime,
@@ -31,6 +33,10 @@ class OtpVerifyDto extends createZodDto(OtpVerifyRequest) {}
 class RefreshDto extends createZodDto(RefreshRequest) {}
 class ResetRequestDto extends createZodDto(PasswordResetRequest) {}
 class ResetCompleteDto extends createZodDto(PasswordResetComplete) {}
+class StepUpVerifyDto extends createZodDto(StepUpVerifyRequest) {}
+class StepUpRequestDto extends createZodDto(
+  z.object({ locale: z.enum(['bn-BD', 'en-BD']).default('bn-BD') }),
+) {}
 
 type Client = 'web' | 'android' | 'ios';
 const CLIENT_TYPE = { web: 'WEB', android: 'ANDROID', ios: 'IOS' } as const;
@@ -247,8 +253,8 @@ export class AuthController {
   }
 }
 
-/** Authenticated session routes (logout, logout-all). */
-@Controller('auth/session')
+/** Authenticated auth routes (step-up, logout, logout-all). */
+@Controller('auth')
 export class SessionController {
   constructor(
     @Inject(HTTP_RUNTIME) private readonly runtime: HttpRuntime,
@@ -271,7 +277,37 @@ export class SessionController {
     );
   }
 
-  @Delete()
+  /** OTP step-up for the current session (AUTH §2.6). */
+  @Post('step-up/otp/request')
+  @HttpCode(202)
+  @Idempotent('required')
+  async requestStepUp(
+    @CurrentActor() actor: ActorContext,
+    @Body() dto: StepUpRequestDto,
+    @Req() req: FastifyRequest,
+  ): Promise<{ challengeId: string; expiresAt: string; hint: OtpRequestHint }> {
+    const r = await this.identity.otp.requestStepUp({ userId: actor.userId, locale: dto.locale, ip: req.ip });
+    return { challengeId: r.challengeId, expiresAt: r.expiresAt.toISOString(), hint: r.hint };
+  }
+
+  @Post('step-up/otp/verify')
+  @HttpCode(200)
+  @Idempotent('required', { replay: 'refuse' })
+  verifyStepUp(
+    @CurrentActor() actor: ActorContext,
+    @Body() dto: StepUpVerifyDto,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.identity.otp.verifyStepUp({
+      userId: actor.userId,
+      sessionId: actor.sessionId,
+      code: dto.code,
+      ip: req.ip,
+      requestId: req.id,
+    });
+  }
+
+  @Delete('session')
   @HttpCode(200)
   async logout(
     @CurrentActor() actor: ActorContext,
@@ -284,7 +320,7 @@ export class SessionController {
     return null;
   }
 
-  @Post('logout-all')
+  @Post('session/logout-all')
   @HttpCode(200)
   async logoutAll(
     @CurrentActor() actor: ActorContext,

@@ -2,6 +2,7 @@ import { OpenApiGeneratorV3, OpenApiGeneratorV31 } from '@asteasolutions/zod-to-
 import { registry } from './registry';
 import './health';
 import './auth';
+import './tenant-org';
 
 const info = {
   title: 'HMedic API',

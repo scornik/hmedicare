@@ -15,7 +15,11 @@ export interface SessionPolicy {
   absoluteDaysWeb: number;
   absoluteDaysMobile: number;
   refreshPepper: string;
+  /** Platform operator sessions (pwd+otp): idle minutes (AUTH §2.6, default 30) and a 12 h absolute cap. */
+  operatorIdleMinutes?: number;
 }
+
+const OPERATOR_ABSOLUTE_MS = 12 * 3_600_000;
 
 export interface StartedSession {
   sessionId: string;
@@ -118,6 +122,58 @@ export class SessionService {
     return { sessionId, refreshToken, refreshExpiresAt: w.absolute };
   }
 
+  private operatorWindows(now: Date) {
+    return {
+      idle: new Date(now.getTime() + (this.policy.operatorIdleMinutes ?? 30) * 60_000),
+      absolute: new Date(now.getTime() + OPERATOR_ABSOLUTE_MS),
+    };
+  }
+
+  private async isOperatorSession(tx: Tx, userId: string, authnMethods: unknown): Promise<boolean> {
+    const m = Array.isArray(authnMethods) ? authnMethods : [];
+    if (!m.includes('pwd') || !m.includes('otp')) return false;
+    return (await tx.platformOperator.count({ where: { userId, status: 'ACTIVE' } })) > 0;
+  }
+
+  /**
+   * Adds an authentication method to an active session (OTP step-up). When the result is a platform
+   * operator pwd+otp session, the operator idle window and the 12 h absolute cap apply from now on.
+   */
+  async addAuthnMethod(tx: Tx, sessionId: string, userId: string, method: AuthnMethod): Promise<string[]> {
+    const now = this.clock.now();
+    if (!(await lockRow(tx, 'sessions', sessionId))) throw new AppError('UNAUTHENTICATED');
+    const session = await tx.session.findUniqueOrThrow({ where: { id: sessionId } });
+    if (session.userId !== userId || session.revokedAt || session.idleExpiresAt <= now) {
+      throw new AppError('UNAUTHENTICATED');
+    }
+    const current = Array.isArray(session.authnMethods) ? (session.authnMethods as string[]) : [];
+    const methods = [...new Set([...current, method])].sort();
+    const operator = await this.isOperatorSession(tx, userId, methods);
+    const w = operator ? this.operatorWindows(now) : null;
+    await tx.session.update({
+      where: { id: sessionId },
+      data: {
+        authnMethods: methods,
+        lastSeenAt: now,
+        ...(w
+          ? {
+              idleExpiresAt: w.idle,
+              absoluteExpiresAt:
+                w.absolute < session.absoluteExpiresAt ? w.absolute : session.absoluteExpiresAt,
+            }
+          : {}),
+      },
+    });
+    if (w) {
+      await tx.refreshToken.updateMany({
+        where: { sessionId, revokedAt: null, usedAt: null, expiresAt: { gt: w.absolute } },
+        data: { expiresAt: w.absolute },
+      });
+    }
+    this.invalidate(sessionId);
+    return methods;
+  }
+
   /** Session of a refresh token without rotating it (web CSRF is verified against it first). */
   async peekSessionId(rawToken: string): Promise<string | null> {
     const row = await this.prisma.refreshToken.findUnique({
@@ -182,7 +238,9 @@ export class SessionService {
 
         const next = randomToken();
         const nextId = newId();
-        const w = this.windows(session.clientType as ClientType, now);
+        const w = (await this.isOperatorSession(tx, session.userId, session.authnMethods))
+          ? this.operatorWindows(now)
+          : this.windows(session.clientType as ClientType, now);
         const idle = w.idle < session.absoluteExpiresAt ? w.idle : session.absoluteExpiresAt;
         await tx.refreshToken.create({
           data: {

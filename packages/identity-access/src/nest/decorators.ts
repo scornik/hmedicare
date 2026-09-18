@@ -2,10 +2,17 @@ import { type ExecutionContext, SetMetadata, createParamDecorator } from '@nestj
 import type { FastifyRequest } from 'fastify';
 import { AppError } from '@hmedic/kernel';
 import type { ActorContext, TenantContext } from '@hmedic/kernel';
-import type { TenantPermission } from '../domain/authz/permissions';
+import type { PlatformPermission, TenantPermission } from '../domain/authz/permissions';
 
 export const REQUIRED_PERMISSION = 'hm:required-permission';
 export const REQUIRES_TENANT = 'hm:requires-tenant';
+export const PLATFORM_ROUTE = 'hm:platform-route';
+
+/**
+ * Platform operator route (AUTH §2.6, API §3.12): requires `X-Platform-Context: operator`, a pwd+otp session,
+ * an ACTIVE operator holding `permission`; audited on the platform chain. Never combined with X-Tenant-ID.
+ */
+export const PlatformRoute = (permission: PlatformPermission) => SetMetadata(PLATFORM_ROUTE, permission);
 
 /** Route requires `X-Tenant-ID` with an ACTIVE membership holding `permission` (AUTH §2.5 step 6). */
 export const RequirePermission = (permission: TenantPermission) =>

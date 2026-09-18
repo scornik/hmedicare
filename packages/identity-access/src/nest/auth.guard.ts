@@ -5,8 +5,8 @@ import { AppError, isUuid } from '@hmedic/kernel';
 import { withTransaction } from '@hmedic/database';
 import { HTTP_RUNTIME, type HttpRuntime, PUBLIC_ROUTE, hmState, routeTemplate } from '@hmedic/http-kit';
 import { enrichLogContext, hashForLog } from '@hmedic/observability';
-import type { TenantPermission } from '../domain/authz/permissions';
-import { REQUIRED_PERMISSION, REQUIRES_TENANT } from './decorators';
+import type { PlatformPermission, TenantPermission } from '../domain/authz/permissions';
+import { PLATFORM_ROUTE, REQUIRED_PERMISSION, REQUIRES_TENANT } from './decorators';
 import { IDENTITY_SERVICES, type IdentityServices } from './identity-services';
 
 function header(request: FastifyRequest, name: string): string | undefined {
@@ -43,8 +43,40 @@ export class AuthGuard implements CanActivate {
     enrichLogContext({ actorHash: hashForLog(actor.userId, this.runtime.config.LOG_HASH_PEPPER) });
 
     const tenantHeader = header(request, 'x-tenant-id');
-    if (tenantHeader !== undefined && header(request, 'x-platform-context') !== undefined) {
+    const platformHeader = header(request, 'x-platform-context');
+    if (tenantHeader !== undefined && platformHeader !== undefined) {
       throw new AppError('PLATFORM_CONTEXT_REQUIRED');
+    }
+    const platformPermission = this.reflector.getAllAndOverride<PlatformPermission | undefined>(
+      PLATFORM_ROUTE,
+      targets,
+    );
+    if (platformPermission !== undefined || platformHeader !== undefined) {
+      if (platformPermission === undefined || platformHeader !== 'operator')
+        throw new AppError('PLATFORM_CONTEXT_REQUIRED');
+      if (!actor.authnMethods.includes('pwd') || !actor.authnMethods.includes('otp')) {
+        await this.deny(request, actor.userId, null, 'AUTHZ_DENIED', platformPermission);
+        throw new AppError('FORBIDDEN');
+      }
+      const operator = await this.identity.operators.resolve(actor.userId);
+      if (!operator?.permissions.has(platformPermission)) {
+        await this.deny(request, actor.userId, null, 'AUTHZ_DENIED', platformPermission);
+        throw new AppError('FORBIDDEN');
+      }
+      state.platform = operator;
+      await withTransaction(this.runtime.prisma, (tx) =>
+        this.runtime.audit.append(tx, {
+          tenantId: null,
+          actorUserId: actor.userId,
+          actorType: 'OPERATOR',
+          action: 'PLATFORM_REQUEST',
+          resourceType: 'route',
+          outcome: 'SUCCESS',
+          requestId: request.id,
+          metadata: { route: `${request.method} ${routeTemplate(request)}`, permission: platformPermission },
+        }),
+      );
+      return true;
     }
     const permission = this.reflector.getAllAndOverride<TenantPermission | undefined>(
       REQUIRED_PERMISSION,

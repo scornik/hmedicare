@@ -11,6 +11,7 @@ import {
 import { SessionService } from '../infrastructure/session-service';
 import { TenantContextResolver } from '../infrastructure/tenant-context';
 import { JoseTokenService } from '../infrastructure/token-service';
+import { PlatformOperatorService } from '../infrastructure/platform-operators';
 
 export const IDENTITY_SERVICES = Symbol('IDENTITY_SERVICES');
 
@@ -20,6 +21,7 @@ export interface IdentityServices {
   otp: OtpService;
   csrf: CsrfService;
   tenants: TenantContextResolver;
+  operators: PlatformOperatorService;
   /** Present only in development/test with OTP_PROVIDER=mock (dev inbox). */
   mockOtp: MockOtpDelivery | null;
   /** Present only in development/test (dev inbox). */
@@ -58,6 +60,7 @@ export function createIdentityServices(
       absoluteDaysWeb: c.SESSION_ABSOLUTE_TIMEOUT_DAYS_WEB,
       absoluteDaysMobile: c.SESSION_ABSOLUTE_TIMEOUT_DAYS_MOBILE,
       refreshPepper: c.REFRESH_TOKEN_PEPPER,
+      operatorIdleMinutes: c.PLATFORM_OPERATOR_SESSION_IDLE_MINUTES,
     },
     runtime.audit,
     runtime.clock,
@@ -99,6 +102,7 @@ export function createIdentityServices(
     otp,
     csrf: new CsrfService(c.CSRF_SECRET),
     tenants: new TenantContextResolver(runtime.prisma),
+    operators: new PlatformOperatorService(runtime.prisma, runtime.audit, runtime.clock),
     mockOtp: local ? mockOtp : null,
     mockReset,
     cookies: devCookies
