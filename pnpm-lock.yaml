@@ -217,7 +217,23 @@ importers:
 
   packages/ai: {}
 
-  packages/audit: {}
+  packages/audit:
+    dependencies:
+      '@hmedic/database':
+        specifier: workspace:*
+        version: link:../database
+      '@hmedic/jobs':
+        specifier: workspace:*
+        version: link:../jobs
+      '@hmedic/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@hmedic/observability':
+        specifier: workspace:*
+        version: link:../observability
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
 
   packages/clinical: {}
 

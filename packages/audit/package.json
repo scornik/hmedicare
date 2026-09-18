@@ -19,7 +19,14 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
+    "verify-audit-chain": "tsc -b && node dist/cli/verify-audit-chain.js"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@hmedic/database": "workspace:*",
+    "@hmedic/jobs": "workspace:*",
+    "@hmedic/kernel": "workspace:*",
+    "@hmedic/observability": "workspace:*",
+    "zod": "3.25.76"
+  }
 }
