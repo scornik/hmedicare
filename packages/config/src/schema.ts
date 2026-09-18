@@ -28,6 +28,8 @@ export const runtimeSection = {
   WEB_PUBLIC_URL: url.default('http://localhost:5173'),
   WORKER_PUBLIC_URL: url.default('http://localhost:3001'),
   CORS_ALLOWED_ORIGINS: z.string().default('http://localhost:5173'),
+  /** Reverse-proxy hops whose X-Forwarded-For is trusted (0 = none; HOST-013 confirms Hostinger's value). */
+  TRUST_PROXY_HOPS: int(0, 0, 5),
   DEFAULT_TIMEZONE: z.string().default('Asia/Dhaka'),
   DEFAULT_LOCALE: z.enum(['bn-BD', 'en-BD']).default('bn-BD'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional(),

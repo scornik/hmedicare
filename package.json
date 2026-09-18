@@ -50,7 +50,8 @@
     "mobile:bootstrap": "cd mobile && dart pub get && dart run melos bootstrap",
     "mobile:generate-api": "cd mobile && dart run melos run generate:api",
     "mobile:analyze": "cd mobile && dart run melos run analyze",
-    "mobile:test": "cd mobile && dart run melos run test"
+    "mobile:test": "cd mobile && dart run melos run test",
+    "license:scan": "node scripts/license-scan.mjs"
   },
   "devDependencies": {
     "@hmedic/config": "workspace:*",

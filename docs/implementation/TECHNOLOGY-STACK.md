@@ -36,7 +36,9 @@
 | Time | UTC `DATETIME(3)`; chamber local logic with `@js-temporal/polyfill@0.5.1` | — | |
 | Phone numbers | `libphonenumber-js@1.13.13` (max metadata) | — | Bangladesh E.164 |
 | PDF rendering | `pdfmake@0.3.11` with embedded Bangla-capable font (font license reviewed at RX-005) | — | Pure JS; no headless browser on Hostinger |
-| Logging | **pino** + `nestjs-pino` | `pino@10.3.1`, `nestjs-pino@5.2.0` | JSON to stdout (OBSERVABILITY.md) |
+| Logging | **pino** (Stage 4: `nestjs-pino` **not used**; Fastify hooks + `PinoNestLogger` in `packages/http-kit` give request-scoped, redacted logs without `pino-http`, audit C-37) | `pino@10.3.1` | JSON to stdout (OBSERVABILITY.md) |
+| Nest runtime peers (Stage 4) | `reflect-metadata` (decorator metadata for Nest DI), `rxjs` (Nest interceptors) | `reflect-metadata@0.2.2` (Apache-2.0), `rxjs@7.8.2` (Apache-2.0) | Required peers of `@nestjs/common`/`@nestjs/core@11.2.5` |
+| Fastify (direct, Stage 4) | `fastify` declared directly by `packages/http-kit` for hook/request types, same version Nest resolves | `fastify@5.11.3` (MIT) | Avoids relying on a transitive dependency |
 | Telemetry | OpenTelemetry Node SDK, OTLP/HTTP exporter **optional** (`OTEL_ENABLED`) | `@opentelemetry/sdk-node@0.222.0` (and matching exporters pinned at FOUND-008) | No vendor agent on Hostinger |
 | AI SDKs | None in MVP adapters. `GeminiApiAdapter` and `OpenAICompatibleAdapter` use `fetch` (undici, built into Node 24) against documented REST APIs | — | Keeps vendor code in `packages/ai-adapters/*` small and auditable |
 | SMS/OTP provider (Stage 3.2) | **Zaman IT** via `ZamanItSmsAdapter` using `fetch` (POST form body only; TLS verification never disabled) | no SDK | ADR-018 |
@@ -77,8 +79,9 @@
 | Area | Decision | Pinned version |
 |---|---|---|
 | TS tests | **Vitest** | `vitest@5.0.1` |
-| HTTP tests | **Supertest** against Nest Fastify app (`app.getHttpAdapter().getInstance()` after `ready()`) | `supertest@7.2.2` |
-| DB tests | **Testcontainers** Node with `@testcontainers/mysql@12.1.0` (image overridden to the pinned `mariadb` digest; protocol-compatible) | exact |
+| HTTP tests | **Supertest** against Nest Fastify app (`app.getHttpAdapter().getInstance()` after `ready()`) | `supertest@7.2.2` (MIT), `@types/supertest@7.2.1` (MIT) |
+| DB tests | **Testcontainers** Node with `@testcontainers/mariadb@12.1.0` (Stage 4: the MariaDB module replaces `@testcontainers/mysql`; images `mariadb:10.6`/`mariadb:11.4` pinned by digest in CI) plus `mariadb@3.5.4` for raw test connections | `@testcontainers/mariadb@12.1.0`, `testcontainers@12.1.0` (MIT) |
+| License scan (Stage 4) | `pnpm license:scan` (`scripts/license-scan.mjs` over `pnpm licenses list`): production permissive only, LGPL only for the unmodified `mariadb` connector, MPL/EPL only in dev tooling | in-repo | Stage 4 rule: every new dependency passes a license scan |
 | Lint | **ESLint 10** (flat config only) + `typescript-eslint` + in-repo `eslint-plugin-hmedic` (rules: `no-raw-sql`, `no-append-only-mutation`, `lock-order`, `no-secret-logging`) | `eslint@10.10.0`, `typescript-eslint@8.70.0` |
 | Format | **Prettier** | `prettier@3.9.7` |
 | Biome | **Not used** | — |

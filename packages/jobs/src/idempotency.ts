@@ -141,6 +141,23 @@ export class IdempotencyStore {
     });
   }
 
+  /**
+   * Completes an IN_PROGRESS record inside the mutation's transaction, so the stored response exists iff
+   * the change committed (HTTP interceptor begins the record; the use case completes it atomically).
+   */
+  async completeInTx(tx: Tx, id: string, response: IdempotentResponse): Promise<void> {
+    const r = await tx.idempotencyRecord.updateMany({
+      where: { id, status: 'IN_PROGRESS' },
+      data: {
+        status: 'COMPLETED',
+        responseStatus: response.status,
+        responseSnapshot: (response.body ?? null) as never,
+        completedAt: this.clock.now(),
+      },
+    });
+    if (r.count !== 1) throw new AppError('IDEMPOTENCY_IN_PROGRESS');
+  }
+
   async markRetryable(id: string): Promise<void> {
     await this.prisma.idempotencyRecord.updateMany({
       where: { id, status: 'IN_PROGRESS' },

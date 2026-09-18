@@ -26,6 +26,8 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     plugins: { hmedic },
+    // Lets consistent-type-imports keep value imports that Nest DI needs for emitted decorator metadata.
+    languageOptions: { parserOptions: { emitDecoratorMetadata: true, experimentalDecorators: true } },
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       '@typescript-eslint/consistent-type-imports': [

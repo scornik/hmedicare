@@ -43,6 +43,7 @@
 │   ├── secrets/                      # Stage 3.2: SecretEnvelopePort (AES-256-GCM), KEK rotation helpers, GateDecisionReader
 │   ├── audit/                        # AuditPort, audit queries, chain verification
 │   ├── localization/                 # phone, locale, Bangla/Banglish normalization
+│   ├── http-kit/                     # Stage 4: shared Nest/Fastify plumbing for api + worker (request id, ProblemDetails, headers, CORS, idempotency, rate limits, internal tokens, health/metrics, job composition)
 │   ├── web-ui/                       # React design primitives only (no business rules)
 │   ├── ai-adapters/
 │   │   ├── mock/
