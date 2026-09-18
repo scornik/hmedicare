@@ -7,5 +7,18 @@
   },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts"],
-  "references": []
+  "references": [
+    {
+      "path": "../audit"
+    },
+    {
+      "path": "../database"
+    },
+    {
+      "path": "../kernel"
+    },
+    {
+      "path": "../secrets"
+    }
+  ]
 }

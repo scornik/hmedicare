@@ -422,6 +422,9 @@ importers:
       '@hmedic/observability':
         specifier: workspace:*
         version: link:../observability
+      '@hmedic/secrets':
+        specifier: workspace:*
+        version: link:../secrets
       '@nestjs/common':
         specifier: 11.2.5
         version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0)
@@ -550,13 +553,44 @@ importers:
 
   packages/prescriptions: {}
 
-  packages/provider-credentials: {}
+  packages/provider-credentials:
+    dependencies:
+      '@hmedic/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@hmedic/database':
+        specifier: workspace:*
+        version: link:../database
+      '@hmedic/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@hmedic/secrets':
+        specifier: workspace:*
+        version: link:../secrets
+    devDependencies:
+      '@hmedic/config':
+        specifier: workspace:*
+        version: link:../config
 
   packages/queue: {}
 
   packages/scheduling: {}
 
-  packages/secrets: {}
+  packages/secrets:
+    dependencies:
+      '@hmedic/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@hmedic/database':
+        specifier: workspace:*
+        version: link:../database
+      '@hmedic/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+    devDependencies:
+      '@hmedic/config':
+        specifier: workspace:*
+        version: link:../config
 
   packages/telemedicine: {}
 

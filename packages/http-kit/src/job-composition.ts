@@ -9,7 +9,8 @@ import {
   SubscriptionRegistry,
   registerMaintenance,
 } from '@hmedic/jobs';
-import { VerifyAppendOnlyChains, registerChainVerification } from '@hmedic/audit';
+import { VerifyAppendOnlyChains, auditChainSource, registerChainVerification } from '@hmedic/audit';
+import { gateChainSource } from '@hmedic/secrets';
 import type { HttpRuntime, ReadinessCheck } from './runtime';
 
 export interface JobComposition {
@@ -53,7 +54,7 @@ export function composeJobs(
     ...registerChainVerification(
       registry,
       runner,
-      new VerifyAppendOnlyChains(prisma, undefined, { clock, logger, metrics }),
+      new VerifyAppendOnlyChains(prisma, [auditChainSource, gateChainSource], { clock, logger, metrics }),
     ),
     ...extend({ registry, subscriptions, runner }),
   ];
