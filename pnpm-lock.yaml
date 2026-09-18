@@ -209,7 +209,11 @@ importers:
 
   packages/communication-adapters/zamanit: {}
 
-  packages/config: {}
+  packages/config:
+    dependencies:
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
 
   packages/contracts: {}
 
@@ -221,7 +225,11 @@ importers:
 
   packages/jobs: {}
 
-  packages/kernel: {}
+  packages/kernel:
+    dependencies:
+      uuidv7:
+        specifier: 1.2.1
+        version: 1.2.1
 
   packages/laboratory-documents: {}
 
@@ -1162,6 +1170,10 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
+  uuidv7@1.2.1:
+    resolution: {integrity: sha512-4kPkK3/XTQW9Hbm4CaqfICn+kY9LJtDVEOfgsRRra/+n2Ofg4NqzRFceAkxvQ/Ud/6BpHOPzj8cirqM7TzTN5Q==}
+    hasBin: true
+
   vite@8.3.0:
     resolution: {integrity: sha512-lhZBVvEHefgE+HQZC9O7EBJgCU/nVzFNl7vkS4RE0APtWLP02/8QVIkQtzBxPquh7lq5/78NHipTj7ODQ6XuyQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -1268,6 +1280,9 @@ packages:
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
+
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
 snapshots:
 
@@ -2102,6 +2117,8 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
+  uuidv7@1.2.1: {}
+
   vite@8.3.0(@types/node@24.13.5):
     dependencies:
       lightningcss: 1.33.0
@@ -2149,3 +2166,5 @@ snapshots:
   word-wrap@1.2.5: {}
 
   yocto-queue@0.1.0: {}
+
+  zod@3.25.76: {}

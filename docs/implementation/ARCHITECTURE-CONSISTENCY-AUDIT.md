@@ -70,6 +70,12 @@ Architecture specifications are not silently edited. Each affected spec carries 
 | C-33 | The brief asks for `payment_gateway_events` with a verified flag while also storing callbacks append-only. | Stage 3.2 brief | Append-only rule violated | Insert-mostly: only `verification_id`/`verified_at` may be set once (`WHERE verification_id IS NULL`). Verification results live in append-only `payment_verifications`. |
 | C-34 | `OTP_TTL_SECONDS` default 300 (Stage 3.1) vs the brief's "keep OTP TTL short" under HTTP transport. | AUTH-IMPLEMENTATION, ENVIRONMENT-CONTRACT | Longer interception window | Default 180 s (max 300); attempts 5; resend limits unchanged. |
 
+## Stage 4 resolutions
+
+| ID | Issue | Sources | Impact | Resolution |
+|---|---|---|---|---|
+| C-35 | `MOBILE-IMPLEMENTATION.md` and `AUTH-IMPLEMENTATION.md` §2.4 use a `401 SESSION_REVOKED` code that is missing from the canonical error table. | API-IMPLEMENTATION §4, MOBILE §2 | Clients could not distinguish a revoked session (clear local data) from an expired token (refresh) | `SESSION_REVOKED` (401) added to API-IMPLEMENTATION §4 and `packages/kernel` error codes (Stage 4, FOUND-003). |
+
 ## Stage 3 resolutions (retained, with Stage 3.1 amendments)
 
 | ID | Issue | Resolution (current) |

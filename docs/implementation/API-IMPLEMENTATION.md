@@ -240,6 +240,7 @@ Codes are stable strings. HTTP status is shown. The single source is `packages/k
 | Code | HTTP | Meaning |
 |---|---|---|
 | `UNAUTHENTICATED` | 401 | missing/invalid/expired token |
+| **`SESSION_REVOKED`** | 401 | session revoked (logout-all, refresh reuse, admin, password change); clients clear local data (Stage 4, audit C-35) |
 | `FORBIDDEN` | 403 | permission, scope, assignment or patient-context failure |
 | `CSRF_FAILED` | 403 | CSRF header/cookie/Origin mismatch |
 | `TENANT_CONTEXT_REQUIRED` | 400 | missing `X-Tenant-ID` |
