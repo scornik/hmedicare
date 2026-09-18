@@ -9,7 +9,22 @@
   "exclude": ["src/**/*.test.ts"],
   "references": [
     {
+      "path": "../audit"
+    },
+    {
+      "path": "../database"
+    },
+    {
+      "path": "../jobs"
+    },
+    {
       "path": "../kernel"
+    },
+    {
+      "path": "../localization"
+    },
+    {
+      "path": "../observability"
     }
   ]
 }
