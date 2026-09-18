@@ -1,0 +1,17 @@
+{
+  "name": "@hmedic/host-probe",
+  "version": "0.0.0",
+  "private": true,
+  "description": "HOST-001…013 verification probe (token-protected, dedicated probe DB; removed after sign-off)",
+  "main": "./dist/main.js",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@hmedic/observability": "workspace:*",
+    "argon2": "0.45.1",
+    "mariadb": "3.5.4"
+  }
+}

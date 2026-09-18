@@ -69,6 +69,12 @@ export default tseslint.config(
     rules: { 'no-console': 'off', '@typescript-eslint/no-require-imports': 'off' },
   },
   {
+    // HOST probes (D-06) exercise SKIP LOCKED / GET_LOCK on `probe_*` scratch tables in a dedicated probe
+    // database; they never touch application tables, which remain covered by the rule.
+    files: ['apps/host-probe/src/probes.ts'],
+    rules: { 'hmedic/no-raw-sql': 'off' },
+  },
+  {
     // The rule implementations and their RuleTester cases necessarily contain the forbidden patterns.
     files: ['tooling/eslint-plugin-hmedic/**', 'tests/architecture/eslint-rules.test.ts'],
     rules: {
