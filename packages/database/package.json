@@ -13,8 +13,23 @@
     }
   },
   "scripts": {
+    "postinstall": "node node_modules/prisma/build/index.js generate --no-hints",
+    "db:generate": "node node_modules/prisma/build/index.js generate --no-hints",
     "build": "tsc -b",
-    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
+    "db:migration:new": "node scripts/migration-new.mjs",
+    "db:migration:lint": "node scripts/migration-lint.mjs",
+    "db:migrate:guarded": "node scripts/migrate-guarded.mjs",
+    "db:reset": "node scripts/reset.mjs"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@prisma/client": "7.10.0",
+    "@prisma/adapter-mariadb": "7.10.0",
+    "mariadb": "3.5.4",
+    "@hmedic/kernel": "workspace:*",
+    "@hmedic/config": "workspace:*"
+  },
+  "devDependencies": {
+    "prisma": "7.10.0"
+  }
 }

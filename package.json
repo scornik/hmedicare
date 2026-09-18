@@ -53,12 +53,18 @@
     "mobile:test": "cd mobile && dart run melos run test"
   },
   "devDependencies": {
+    "@hmedic/config": "workspace:*",
+    "@hmedic/database": "workspace:*",
+    "@hmedic/kernel": "workspace:*",
+    "@testcontainers/mariadb": "12.1.0",
     "@types/node": "24.13.5",
     "@vitest/coverage-v8": "5.0.1",
     "dependency-cruiser": "18.3.1",
     "eslint": "10.10.0",
     "eslint-plugin-hmedic": "workspace:*",
+    "mariadb": "3.5.4",
     "prettier": "3.9.7",
+    "testcontainers": "12.1.0",
     "turbo": "2.10.13",
     "typescript": "5.9.3",
     "typescript-eslint": "8.70.0",

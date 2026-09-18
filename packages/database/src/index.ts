@@ -1,1 +1,12 @@
-export {};
+export * from './client';
+export * from './errors';
+export * from './tx';
+export * from './locks/lock-row';
+export * from './locks/named-lock';
+export * from './locks/singleton-lease';
+export * from './claims/jobs';
+export * from './claims/outbox';
+export * from './engine/engine-info';
+export * from './raw/retention';
+export * from './enums';
+export * from './row-version';

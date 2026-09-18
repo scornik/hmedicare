@@ -1,0 +1,699 @@
+// HMedic database schema (DATABASE-IMPLEMENTATION.md). MariaDB 10.6 feature floor (ADR-014).
+//
+// Conventions:
+// - Field docs `/// @ascii` mark VARCHAR columns that the migration normalizer converts to
+//   `CHARACTER SET ascii COLLATE ascii_bin` (ids, codes, keys, hashes).
+// - Generated columns, table-level CHECKs and foreign keys are NOT modelled here. They live in
+//   sql/constraints/<table>.sql and are appended to migrations by `db:migration:normalize`.
+// - Append-only tables (audit_logs, platform_gate_decisions, sms_balance_snapshots) are written through
+//   insert-only repositories; eslint hmedic/no-append-only-mutation forbids updates/deletes.
+// - Stage 4 scope: migrations 0001, 0002, 0003, 0014 (checkpoints only), 0015, 0016.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ---------------------------------------------------------------- 0001 platform_jobs
+
+model SingletonLock {
+  /// @ascii
+  name           String   @id @db.VarChar(128)
+  /// @ascii
+  holder         String   @db.VarChar(128)
+  leaseExpiresAt DateTime @map("lease_expires_at") @db.DateTime(3)
+  updatedAt      DateTime @map("updated_at") @db.DateTime(3)
+
+  @@map("singleton_locks")
+}
+
+model Job {
+  /// @ascii
+  id             String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId       String?   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  queue          String    @db.VarChar(64)
+  /// @ascii
+  type           String    @db.VarChar(96)
+  payload        Json
+  /// @ascii
+  status         String    @db.VarChar(24)
+  priority       Int       @default(100) @db.SmallInt
+  runAt          DateTime  @map("run_at") @db.DateTime(3)
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(8) @map("max_attempts")
+  /// @ascii
+  concurrencyKey String?   @map("concurrency_key") @db.VarChar(128)
+  /// @ascii
+  lockedBy       String?   @map("locked_by") @db.VarChar(128)
+  lockedAt       DateTime? @map("locked_at") @db.DateTime(3)
+  leaseExpiresAt DateTime? @map("lease_expires_at") @db.DateTime(3)
+  /// @ascii
+  lastErrorClass String?   @map("last_error_class") @db.VarChar(64)
+  /// @ascii
+  idempotencyKey String?   @map("idempotency_key") @db.VarChar(191)
+  /// @ascii
+  correlationId  String    @map("correlation_id") @db.VarChar(36)
+  /// @ascii
+  causationId    String?   @map("causation_id") @db.VarChar(36)
+  createdAt      DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt      DateTime  @map("updated_at") @db.DateTime(3)
+  finishedAt     DateTime? @map("finished_at") @db.DateTime(3)
+
+  @@unique([queue, idempotencyKey], map: "uq_jobs_queue_idem")
+  @@index([queue, status, priority, runAt], map: "ix_jobs_claim")
+  @@index([status, leaseExpiresAt], map: "ix_jobs_reclaim")
+  @@index([tenantId, createdAt], map: "ix_jobs_tenant")
+  @@index([concurrencyKey, status], map: "ix_jobs_concurrency")
+  @@map("jobs")
+}
+
+model DeadLetter {
+  /// @ascii
+  id               String    @id @db.VarChar(36)
+  /// @ascii
+  jobId            String    @unique(map: "uq_dead_letters_job") @map("job_id") @db.VarChar(36)
+  /// @ascii
+  tenantId         String?   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  queue            String    @db.VarChar(64)
+  /// @ascii
+  type             String    @db.VarChar(96)
+  payload          Json
+  attempts         Int
+  /// @ascii
+  lastErrorClass   String    @map("last_error_class") @db.VarChar(64)
+  failedAt         DateTime  @map("failed_at") @db.DateTime(3)
+  replayedAt       DateTime? @map("replayed_at") @db.DateTime(3)
+  /// @ascii
+  replayedByUserId String?   @map("replayed_by_user_id") @db.VarChar(36)
+  /// @ascii
+  replayJobId      String?   @map("replay_job_id") @db.VarChar(36)
+
+  @@index([queue, failedAt], map: "ix_dead_letters_queue")
+  @@map("dead_letters")
+}
+
+model JobConcurrencyLease {
+  /// @ascii
+  concurrencyKey String   @map("concurrency_key") @db.VarChar(128)
+  slotNo         Int      @map("slot_no") @db.SmallInt
+  /// @ascii
+  jobId          String   @unique(map: "uq_job_concurrency_leases_job") @map("job_id") @db.VarChar(36)
+  leaseExpiresAt DateTime @map("lease_expires_at") @db.DateTime(3)
+
+  @@id([concurrencyKey, slotNo])
+  @@map("job_concurrency_leases")
+}
+
+model RateLimitCounter {
+  /// @ascii
+  scope         String   @db.VarChar(64)
+  /// @ascii
+  subjectHash   String   @map("subject_hash") @db.VarChar(64)
+  windowStart   DateTime @map("window_start") @db.DateTime(3)
+  windowSeconds Int      @map("window_seconds")
+  count         Int      @db.UnsignedInt
+  expiresAt     DateTime @map("expires_at") @db.DateTime(3)
+
+  @@id([scope, subjectHash, windowStart])
+  @@index([expiresAt], map: "ix_rate_limit_counters_expires")
+  @@map("rate_limit_counters")
+}
+
+// ---------------------------------------------------------------- 0002 identity_tenants
+
+model Tenant {
+  /// @ascii
+  id                   String   @id @db.VarChar(36)
+  name                 String   @db.VarChar(200)
+  /// @ascii
+  slug                 String   @unique(map: "uq_tenants_slug") @db.VarChar(80)
+  /// @ascii
+  status               String   @db.VarChar(16)
+  /// @ascii
+  practiceType         String   @default("GROUP") @map("practice_type") @db.VarChar(16)
+  /// @ascii
+  ownerDoctorProfileId String?  @map("owner_doctor_profile_id") @db.VarChar(36)
+  /// @ascii
+  defaultLocale        String   @default("bn-BD") @map("default_locale") @db.VarChar(20)
+  /// @ascii
+  defaultTimezone      String   @default("Asia/Dhaka") @map("default_timezone") @db.VarChar(64)
+  createdAt            DateTime @map("created_at") @db.DateTime(3)
+  updatedAt            DateTime @map("updated_at") @db.DateTime(3)
+  rowVersion           Int      @default(1) @map("row_version") @db.UnsignedInt
+
+  @@map("tenants")
+}
+
+model User {
+  /// @ascii
+  id               String    @id @db.VarChar(36)
+  email            String?   @db.VarChar(254)
+  /// @ascii
+  emailNormalized  String?   @unique(map: "uq_users_email_normalized") @map("email_normalized") @db.VarChar(254)
+  /// @ascii
+  phoneE164        String?   @unique(map: "uq_users_phone_e164") @map("phone_e164") @db.VarChar(20)
+  displayName      String?   @map("display_name") @db.VarChar(120)
+  /// @ascii
+  status           String    @db.VarChar(16)
+  /// @ascii
+  passwordHash     String?   @map("password_hash") @db.VarChar(255)
+  passwordChangedAt DateTime? @map("password_changed_at") @db.DateTime(3)
+  emailVerifiedAt  DateTime? @map("email_verified_at") @db.DateTime(3)
+  phoneVerifiedAt  DateTime? @map("phone_verified_at") @db.DateTime(3)
+  lastLoginAt      DateTime? @map("last_login_at") @db.DateTime(3)
+  tokenVersion     Int       @default(1) @map("token_version") @db.UnsignedInt
+  createdAt        DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt        DateTime  @map("updated_at") @db.DateTime(3)
+  rowVersion       Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@map("users")
+}
+
+model TenantMembership {
+  /// @ascii
+  id                     String   @id @db.VarChar(36)
+  /// @ascii
+  tenantId               String   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  userId                 String   @map("user_id") @db.VarChar(36)
+  /// @ascii
+  role                   String   @db.VarChar(24)
+  permissions            Json
+  clinicIds              Json     @map("clinic_ids")
+  chamberIds             Json     @map("chamber_ids")
+  /// @ascii
+  status                 String   @db.VarChar(16)
+  rolePermissionsVersion Int      @map("role_permissions_version")
+  createdAt              DateTime @map("created_at") @db.DateTime(3)
+  updatedAt              DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId        String?  @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId        String?  @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion             Int      @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_tenant_memberships_tenant_id")
+  @@unique([tenantId, userId], map: "uq_tenant_memberships_user")
+  @@index([tenantId, role, status], map: "ix_tenant_memberships_role")
+  @@index([userId, status], map: "ix_tenant_memberships_user_status")
+  @@map("tenant_memberships")
+}
+
+model Clinic {
+  /// @ascii
+  id                 String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId           String    @map("tenant_id") @db.VarChar(36)
+  name               String    @db.VarChar(200)
+  /// @ascii
+  nameNormalizedHash String    @map("name_normalized_hash") @db.VarChar(64)
+  smsDisplayName     String?   @map("sms_display_name") @db.VarChar(40)
+  address            Json?
+  /// @ascii
+  timezone           String?   @db.VarChar(64)
+  /// @ascii
+  locale             String?   @db.VarChar(20)
+  /// @ascii
+  status             String    @db.VarChar(16)
+  deletedAt          DateTime? @map("deleted_at") @db.DateTime(3)
+  createdAt          DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt          DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId    String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId    String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion         Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_clinics_tenant_id")
+  @@map("clinics")
+}
+
+model DoctorProfile {
+  /// @ascii
+  id                 String   @id @db.VarChar(36)
+  /// @ascii
+  tenantId           String   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  userId             String   @map("user_id") @db.VarChar(36)
+  displayName        String   @map("display_name") @db.VarChar(120)
+  displayNameBn      String?  @map("display_name_bn") @db.VarChar(120)
+  registrationBody   String?  @map("registration_body") @db.VarChar(80)
+  registrationNumber String?  @map("registration_number") @db.VarChar(40)
+  specialties        Json
+  /// @ascii
+  status             String   @db.VarChar(16)
+  createdAt          DateTime @map("created_at") @db.DateTime(3)
+  updatedAt          DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId    String?  @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId    String?  @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion         Int      @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_doctor_profiles_tenant_id")
+  @@unique([tenantId, userId], map: "uq_doctor_profiles_user")
+  @@map("doctor_profiles")
+}
+
+model StaffProfile {
+  /// @ascii
+  id              String   @id @db.VarChar(36)
+  /// @ascii
+  tenantId        String   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  userId          String   @map("user_id") @db.VarChar(36)
+  title           String   @db.VarChar(80)
+  /// @ascii
+  status          String   @db.VarChar(16)
+  createdAt       DateTime @map("created_at") @db.DateTime(3)
+  updatedAt       DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String?  @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String?  @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion      Int      @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_staff_profiles_tenant_id")
+  @@unique([tenantId, userId], map: "uq_staff_profiles_user")
+  @@map("staff_profiles")
+}
+
+model DoctorCoverage {
+  /// @ascii
+  id                       String   @id @db.VarChar(36)
+  /// @ascii
+  tenantId                 String   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  coveredDoctorProfileId   String   @map("covered_doctor_profile_id") @db.VarChar(36)
+  /// @ascii
+  coveringDoctorProfileId  String   @map("covering_doctor_profile_id") @db.VarChar(36)
+  startsAt                 DateTime @map("starts_at") @db.DateTime(3)
+  endsAt                   DateTime @map("ends_at") @db.DateTime(3)
+  reason                   String   @db.VarChar(300)
+  /// @ascii
+  status                   String   @db.VarChar(16)
+  /// @ascii
+  grantedByUserId          String   @map("granted_by_user_id") @db.VarChar(36)
+  createdAt                DateTime @map("created_at") @db.DateTime(3)
+  updatedAt                DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId          String?  @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId          String?  @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion               Int      @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_doctor_coverages_tenant_id")
+  @@index([tenantId, coveringDoctorProfileId, status, startsAt, endsAt], map: "ix_doctor_coverages_covering")
+  @@map("doctor_coverages")
+}
+
+model AuditLog {
+  /// @ascii
+  id                     String   @id @db.VarChar(36)
+  /// @ascii
+  tenantId               String?  @map("tenant_id") @db.VarChar(36)
+  seq                    BigInt   @db.UnsignedBigInt
+  /// @ascii
+  chainKey               String   @map("chain_key") @db.VarChar(64)
+  /// @ascii
+  actorUserId            String?  @map("actor_user_id") @db.VarChar(36)
+  /// @ascii
+  actorType              String   @map("actor_type") @db.VarChar(16)
+  /// @ascii
+  actingAs               String?  @map("acting_as") @db.VarChar(16)
+  /// @ascii
+  onBehalfOfPatientId    String?  @map("on_behalf_of_patient_id") @db.VarChar(36)
+  /// @ascii
+  action                 String   @db.VarChar(96)
+  /// @ascii
+  resourceType           String   @map("resource_type") @db.VarChar(64)
+  /// @ascii
+  resourceId             String?  @map("resource_id") @db.VarChar(36)
+  /// @ascii
+  outcome                String   @db.VarChar(16)
+  /// @ascii
+  requestId              String?  @map("request_id") @db.VarChar(36)
+  /// @ascii
+  correlationId          String?  @map("correlation_id") @db.VarChar(36)
+  /// @ascii
+  ipHash                 String?  @map("ip_hash") @db.VarChar(64)
+  /// @ascii
+  userAgentHash          String?  @map("user_agent_hash") @db.VarChar(64)
+  metadata               Json
+  rolePermissionsVersion Int?     @map("role_permissions_version")
+  occurredAt             DateTime @map("occurred_at") @db.DateTime(3)
+  /// @ascii
+  prevRowHash            String?  @map("prev_row_hash") @db.VarChar(64)
+  /// @ascii
+  rowHash                String   @map("row_hash") @db.VarChar(64)
+
+  @@unique([chainKey, seq], map: "uq_audit_logs_chain_seq")
+  @@index([tenantId, resourceType, resourceId, occurredAt], map: "ix_audit_logs_resource")
+  @@index([tenantId, actorUserId, occurredAt], map: "ix_audit_logs_actor")
+  @@map("audit_logs")
+}
+
+model OutboxEvent {
+  /// @ascii
+  id              String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId        String?   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  eventName       String    @map("event_name") @db.VarChar(96)
+  eventVersion    Int       @map("event_version") @db.SmallInt
+  /// @ascii
+  aggregateType   String    @map("aggregate_type") @db.VarChar(64)
+  /// @ascii
+  aggregateId     String    @map("aggregate_id") @db.VarChar(36)
+  payload         Json
+  occurredAt      DateTime  @map("occurred_at") @db.DateTime(3)
+  /// @ascii
+  correlationId   String    @map("correlation_id") @db.VarChar(36)
+  /// @ascii
+  causationId     String?   @map("causation_id") @db.VarChar(36)
+  /// @ascii
+  actorUserId     String?   @map("actor_user_id") @db.VarChar(36)
+  /// @ascii
+  idempotencyKey  String?   @map("idempotency_key") @db.VarChar(191)
+  /// @ascii
+  status          String    @db.VarChar(16)
+  /// @ascii
+  claimedBy       String?   @map("claimed_by") @db.VarChar(128)
+  claimExpiresAt  DateTime? @map("claim_expires_at") @db.DateTime(3)
+  publishedAt     DateTime? @map("published_at") @db.DateTime(3)
+  attempts        Int       @default(0)
+  /// @ascii
+  lastErrorClass  String?   @map("last_error_class") @db.VarChar(64)
+
+  @@index([status, occurredAt], map: "ix_outbox_claim")
+  @@index([aggregateType, aggregateId, occurredAt], map: "ix_outbox_aggregate")
+  @@map("outbox_events")
+}
+
+model IdempotencyRecord {
+  /// @ascii
+  id               String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId         String?   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  scope            String    @db.VarChar(96)
+  /// @ascii
+  idemKey          String    @map("idem_key") @db.VarChar(191)
+  /// @ascii
+  actorUserId      String?   @map("actor_user_id") @db.VarChar(36)
+  /// @ascii
+  requestHash      String    @map("request_hash") @db.VarChar(64)
+  /// @ascii
+  status           String    @db.VarChar(16)
+  responseStatus   Int?      @map("response_status") @db.SmallInt
+  responseSnapshot Json?     @map("response_snapshot")
+  /// @ascii
+  resourceType     String?   @map("resource_type") @db.VarChar(64)
+  /// @ascii
+  resourceId       String?   @map("resource_id") @db.VarChar(36)
+  createdAt        DateTime  @map("created_at") @db.DateTime(3)
+  completedAt      DateTime? @map("completed_at") @db.DateTime(3)
+  expiresAt        DateTime  @map("expires_at") @db.DateTime(3)
+
+  @@index([expiresAt], map: "ix_idempotency_records_expires")
+  @@map("idempotency_records")
+}
+
+// ---------------------------------------------------------------- 0003 auth_sessions
+
+model Session {
+  /// @ascii
+  id                String    @id @db.VarChar(36)
+  /// @ascii
+  userId            String    @map("user_id") @db.VarChar(36)
+  /// @ascii
+  clientType        String    @map("client_type") @db.VarChar(16)
+  deviceLabel       String?   @map("device_label") @db.VarChar(80)
+  createdAt         DateTime  @map("created_at") @db.DateTime(3)
+  lastSeenAt        DateTime  @map("last_seen_at") @db.DateTime(3)
+  idleExpiresAt     DateTime  @map("idle_expires_at") @db.DateTime(3)
+  absoluteExpiresAt DateTime  @map("absolute_expires_at") @db.DateTime(3)
+  revokedAt         DateTime? @map("revoked_at") @db.DateTime(3)
+  /// @ascii
+  revokeReason      String?   @map("revoke_reason") @db.VarChar(24)
+  authnMethods      Json      @map("authn_methods")
+  /// @ascii
+  ipHash            String?   @map("ip_hash") @db.VarChar(64)
+
+  @@index([userId, revokedAt], map: "ix_sessions_user")
+  @@index([absoluteExpiresAt], map: "ix_sessions_expiry")
+  @@map("sessions")
+}
+
+model RefreshToken {
+  /// @ascii
+  id           String    @id @db.VarChar(36)
+  /// @ascii
+  sessionId    String    @map("session_id") @db.VarChar(36)
+  /// @ascii
+  familyId     String    @map("family_id") @db.VarChar(36)
+  /// @ascii
+  tokenHash    String    @unique(map: "uq_refresh_tokens_hash") @map("token_hash") @db.VarChar(64)
+  issuedAt     DateTime  @map("issued_at") @db.DateTime(3)
+  expiresAt    DateTime  @map("expires_at") @db.DateTime(3)
+  usedAt       DateTime? @map("used_at") @db.DateTime(3)
+  /// @ascii
+  replacedById String?   @map("replaced_by_id") @db.VarChar(36)
+  revokedAt    DateTime? @map("revoked_at") @db.DateTime(3)
+
+  @@index([familyId], map: "ix_refresh_tokens_family")
+  @@index([sessionId], map: "ix_refresh_tokens_session")
+  @@map("refresh_tokens")
+}
+
+model OtpChallenge {
+  /// @ascii
+  id              String    @id @db.VarChar(36)
+  /// @ascii
+  purpose         String    @db.VarChar(24)
+  /// @ascii
+  destinationHash String    @map("destination_hash") @db.VarChar(64)
+  /// @ascii
+  channel         String    @db.VarChar(16)
+  /// @ascii
+  codeHash        String    @map("code_hash") @db.VarChar(64)
+  attempts        Int       @default(0) @db.SmallInt
+  maxAttempts     Int       @default(5) @map("max_attempts") @db.SmallInt
+  /// @ascii
+  status          String    @db.VarChar(16)
+  createdAt       DateTime  @map("created_at") @db.DateTime(3)
+  expiresAt       DateTime  @map("expires_at") @db.DateTime(3)
+  consumedAt      DateTime? @map("consumed_at") @db.DateTime(3)
+  /// @ascii
+  ipHash          String?   @map("ip_hash") @db.VarChar(64)
+
+  @@index([expiresAt], map: "ix_otp_challenges_expires")
+  @@map("otp_challenges")
+}
+
+model PasswordResetToken {
+  /// @ascii
+  id        String    @id @db.VarChar(36)
+  /// @ascii
+  userId    String    @map("user_id") @db.VarChar(36)
+  /// @ascii
+  tokenHash String    @unique(map: "uq_password_reset_tokens_hash") @map("token_hash") @db.VarChar(64)
+  createdAt DateTime  @map("created_at") @db.DateTime(3)
+  expiresAt DateTime  @map("expires_at") @db.DateTime(3)
+  usedAt    DateTime? @map("used_at") @db.DateTime(3)
+  /// @ascii
+  ipHash    String?   @map("ip_hash") @db.VarChar(64)
+
+  @@index([expiresAt], map: "ix_password_reset_tokens_expires")
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  /// @ascii
+  id              String    @id @db.VarChar(36)
+  /// @ascii
+  userId          String    @map("user_id") @db.VarChar(36)
+  /// @ascii
+  emailNormalized String    @map("email_normalized") @db.VarChar(254)
+  /// @ascii
+  tokenHash       String    @unique(map: "uq_email_verification_tokens_hash") @map("token_hash") @db.VarChar(64)
+  createdAt       DateTime  @map("created_at") @db.DateTime(3)
+  expiresAt       DateTime  @map("expires_at") @db.DateTime(3)
+  usedAt          DateTime? @map("used_at") @db.DateTime(3)
+
+  @@index([expiresAt], map: "ix_email_verification_tokens_expires")
+  @@map("email_verification_tokens")
+}
+
+model PushDevice {
+  /// @ascii
+  id             String    @id @db.VarChar(36)
+  /// @ascii
+  userId         String    @map("user_id") @db.VarChar(36)
+  /// @ascii
+  sessionId      String?   @map("session_id") @db.VarChar(36)
+  /// @ascii
+  platform       String    @db.VarChar(16)
+  /// @ascii
+  app            String    @db.VarChar(24)
+  /// @ascii
+  tokenHash      String    @map("token_hash") @db.VarChar(64)
+  /// @ascii
+  tokenEncrypted String    @map("token_encrypted") @db.VarChar(1024)
+  createdAt      DateTime  @map("created_at") @db.DateTime(3)
+  lastSeenAt     DateTime  @map("last_seen_at") @db.DateTime(3)
+  revokedAt      DateTime? @map("revoked_at") @db.DateTime(3)
+
+  @@index([userId, revokedAt], map: "ix_push_devices_user")
+  @@map("push_devices")
+}
+
+// ---------------------------------------------------------------- 0014 operations_integrity (checkpoints only in Stage 4)
+
+model IntegrityChainCheckpoint {
+  /// @ascii
+  chainKey           String    @id @map("chain_key") @db.VarChar(96)
+  lastSeq            BigInt    @map("last_seq") @db.UnsignedBigInt
+  /// @ascii
+  lastRowHash        String    @map("last_row_hash") @db.VarChar(64)
+  verifiedThroughSeq BigInt    @default(0) @map("verified_through_seq") @db.UnsignedBigInt
+  verifiedAt         DateTime? @map("verified_at") @db.DateTime(3)
+  updatedAt          DateTime  @map("updated_at") @db.DateTime(3)
+
+  @@map("integrity_chain_checkpoints")
+}
+
+// ---------------------------------------------------------------- 0015 platform_credentials
+
+model PlatformOperator {
+  /// @ascii
+  id          String    @id @db.VarChar(36)
+  /// @ascii
+  userId      String    @unique(map: "uq_platform_operators_user") @map("user_id") @db.VarChar(36)
+  /// @ascii
+  status      String    @db.VarChar(16)
+  permissions Json
+  /// @ascii
+  grantedBy   String    @map("granted_by") @db.VarChar(128)
+  grantedAt   DateTime  @map("granted_at") @db.DateTime(3)
+  revokedAt   DateTime? @map("revoked_at") @db.DateTime(3)
+  createdAt   DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt   DateTime  @map("updated_at") @db.DateTime(3)
+  rowVersion  Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@map("platform_operators")
+}
+
+model PlatformGateDecision {
+  /// @ascii
+  id           String    @id @db.VarChar(36)
+  seq          BigInt    @unique(map: "uq_platform_gate_decisions_seq") @db.UnsignedBigInt
+  /// @ascii
+  gateCode     String    @map("gate_code") @db.VarChar(48)
+  /// @ascii
+  environment  String    @db.VarChar(16)
+  /// @ascii
+  decision     String    @db.VarChar(16)
+  ownerName    String    @map("owner_name") @db.VarChar(120)
+  evidenceRef  String    @map("evidence_ref") @db.VarChar(500)
+  notes        String?   @db.VarChar(1000)
+  /// @ascii
+  decidedBy    String    @map("decided_by") @db.VarChar(128)
+  decidedAt    DateTime  @map("decided_at") @db.DateTime(3)
+  expiresAt    DateTime? @map("expires_at") @db.DateTime(3)
+  /// @ascii
+  prevRowHash  String?   @map("prev_row_hash") @db.VarChar(64)
+  /// @ascii
+  rowHash      String    @map("row_hash") @db.VarChar(64)
+
+  @@index([gateCode, environment, seq], map: "ix_platform_gate_decisions_gate")
+  @@map("platform_gate_decisions")
+}
+
+model ProviderCredential {
+  /// @ascii
+  id                String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId          String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  ownerType         String    @map("owner_type") @db.VarChar(16)
+  /// @ascii
+  clinicId          String?   @map("clinic_id") @db.VarChar(36)
+  /// @ascii
+  doctorProfileId   String?   @map("doctor_profile_id") @db.VarChar(36)
+  /// @ascii
+  providerKind      String    @map("provider_kind") @db.VarChar(16)
+  /// @ascii
+  providerCode      String    @map("provider_code") @db.VarChar(32)
+  /// @ascii
+  environment       String    @db.VarChar(8)
+  publicIdentifier  String?   @map("public_identifier") @db.VarChar(64)
+  /// @ascii
+  encryptedSecret   String    @map("encrypted_secret") @db.VarChar(4096)
+  /// @ascii
+  wrappedDataKey    String    @map("wrapped_data_key") @db.VarChar(512)
+  /// @ascii
+  keyId             String    @map("key_id") @db.VarChar(32)
+  /// @ascii
+  secretLast4       String    @map("secret_last4") @db.VarChar(4)
+  /// @ascii
+  identifierLast4   String?   @map("identifier_last4") @db.VarChar(4)
+  /// @ascii
+  secretFingerprint String    @map("secret_fingerprint") @db.VarChar(64)
+  /// @ascii
+  status            String    @db.VarChar(32)
+  /// @ascii
+  senderIdStatus    String?   @map("sender_id_status") @db.VarChar(16)
+  balanceAlertBdt   Decimal?  @map("balance_alert_bdt") @db.Decimal(12, 2)
+  validatedAt       DateTime? @map("validated_at") @db.DateTime(3)
+  /// @ascii
+  lastErrorClass    String?   @map("last_error_class") @db.VarChar(64)
+  revokedAt         DateTime? @map("revoked_at") @db.DateTime(3)
+  /// @ascii
+  revokedByUserId   String?   @map("revoked_by_user_id") @db.VarChar(36)
+  createdAt         DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt         DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId   String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId   String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion        Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_provider_credentials_tenant_id")
+  @@index([tenantId, providerKind, status], map: "ix_provider_credentials_kind")
+  @@map("provider_credentials")
+}
+
+// ---------------------------------------------------------------- 0016 sms
+
+model SmsBalanceSnapshot {
+  /// @ascii
+  id              String   @id @db.VarChar(36)
+  /// @ascii
+  tenantId        String?  @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  credentialScope String   @map("credential_scope") @db.VarChar(16)
+  /// @ascii
+  credentialId    String?  @map("credential_id") @db.VarChar(36)
+  /// @ascii
+  providerCode    String   @map("provider_code") @db.VarChar(32)
+  balance         Decimal? @db.Decimal(12, 2)
+  /// @ascii
+  currencyText    String?  @map("currency_text") @db.VarChar(8)
+  /// @ascii
+  parseStatus     String   @map("parse_status") @db.VarChar(16)
+  /// @ascii
+  errorClass      String?  @map("error_class") @db.VarChar(64)
+  checkedAt       DateTime @map("checked_at") @db.DateTime(3)
+
+  @@index([credentialScope, credentialId, checkedAt], map: "ix_sms_balance_snapshots_credential")
+  @@map("sms_balance_snapshots")
+}

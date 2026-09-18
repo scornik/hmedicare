@@ -1,0 +1,9 @@
+# Mirrors production-relevant settings (LOCAL-DEVELOPMENT.md §2, ADR-014).
+[mysqld]
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_520_ci
+default-time-zone = '+00:00'
+sql_mode = STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+innodb_lock_wait_timeout = 5
+max_connections = 150
+max_user_connections = 100

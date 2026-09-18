@@ -4,8 +4,9 @@
     "composite": false,
     "incremental": false,
     "noEmit": true,
-    "rootDir": ".",
-    "types": ["node"]
+    "rootDir": "../..",
+    "types": ["node"],
+    "customConditions": ["development"]
   },
   "include": ["src", "test"]
 }

@@ -5,9 +5,13 @@ packages:
   - tooling/*
 # mobile/ (Dart/Melos) and tools/ (standalone Stage M tool) are intentionally not members.
 
-# Supply-chain hardening: never run arbitrary install scripts; only allow-listed native builds.
-onlyBuiltDependencies:
-  - argon2
-  - '@prisma/engines'
-  - prisma
-  - esbuild
+# Supply-chain hardening: dependency install scripts are blocked unless allow-listed here.
+allowBuilds:
+  argon2: true
+  prisma: true
+  '@prisma/engines': true
+  esbuild: true
+  # Optional native builds pulled in by testcontainers (docker-modem/ssh2); not needed, explicitly denied.
+  cpu-features: false
+  ssh2: false
+  protobufjs: false

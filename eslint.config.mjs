@@ -58,6 +58,8 @@ export default tseslint.config(
   {
     files: [
       'scripts/**/*.{mjs,ts}',
+      'packages/*/scripts/**/*.mjs',
+      'infrastructure/**/*.mjs',
       'apps/host-probe/**/*.ts',
       'tooling/**/*.{cjs,mjs}',
       '**/*.config.{mjs,ts,cjs}',
