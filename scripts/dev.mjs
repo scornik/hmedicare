@@ -14,6 +14,8 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const children = [];
+// Only the Windows .cmd shims need a shell; node itself is spawned directly (its path may contain spaces).
+const useShell = (cmd) => process.platform === 'win32' && cmd.endsWith('.cmd');
 
 function step(name, cmd, args, extraEnv = {}) {
   console.log(`\n▶ ${name}`);
@@ -21,7 +23,7 @@ function step(name, cmd, args, extraEnv = {}) {
     cwd: root,
     stdio: 'inherit',
     env: { ...process.env, ...extraEnv },
-    shell: process.platform === 'win32',
+    shell: useShell(cmd),
   });
   if (r.status !== 0) {
     console.error(`✗ ${name} failed (exit ${r.status})`);
@@ -34,7 +36,7 @@ function start(name, cmd, args, extraEnv = {}) {
     cwd: root,
     env: { ...process.env, ...extraEnv },
     stdio: ['ignore', 'pipe', 'pipe'],
-    shell: process.platform === 'win32',
+    shell: useShell(cmd),
   });
   const prefix = (line) => `[${name}] ${line}`;
   for (const s of [child.stdout, child.stderr]) {
@@ -80,7 +82,12 @@ console.log(
 console.log('Mock OTP inbox: GET http://localhost:3000/internal/test/otp/<challengeId>\n');
 
 const stop = () => {
-  for (const c of children) c.kill();
+  // On Windows, shell-spawned children (pnpm.cmd → vite) need the whole tree killed.
+  for (const c of children) {
+    if (process.platform === 'win32' && c.pid)
+      spawnSync('taskkill', ['/pid', String(c.pid), '/T', '/F'], { stdio: 'ignore' });
+    else c.kill();
+  }
   process.exit(0);
 };
 process.on('SIGINT', stop);
