@@ -1,0 +1,26 @@
+name: patient_app
+description: HMedic patient app (Stage 4 login shell).
+publish_to: none
+resolution: workspace
+version: 0.1.0+1
+environment:
+  sdk: ^3.12.0
+dependencies:
+  dio: 5.11.1
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: 3.4.3
+  go_router: 17.5.0
+  hm_api:
+  hm_auth:
+  hm_core:
+  hm_design:
+  hm_localization:
+dev_dependencies:
+  flutter_lints: 6.0.0
+  flutter_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true

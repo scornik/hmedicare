@@ -1,0 +1,63 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:hm_auth/hm_auth.dart';
+import 'package:hm_design/hm_design.dart';
+import 'package:hm_localization/hm_localization.dart';
+
+import 'home_screen.dart';
+import 'login_screen.dart';
+
+/// Bridges auth state to GoRouter redirects (UX only; the API authorizes every call).
+class _AuthListenable extends ChangeNotifier {
+  void ping() => notifyListeners();
+}
+
+class DoctorApp extends ConsumerStatefulWidget {
+  const DoctorApp({super.key});
+
+  @override
+  ConsumerState<DoctorApp> createState() => _DoctorAppState();
+}
+
+class _DoctorAppState extends ConsumerState<DoctorApp> {
+  final _auth = _AuthListenable();
+  late final GoRouter _router = GoRouter(
+    initialLocation: '/login',
+    refreshListenable: _auth,
+    redirect: (context, state) {
+      final status = ref.read(authControllerProvider).status;
+      final atLogin = state.matchedLocation == '/login';
+      if (status == AuthStatus.unknown) return null;
+      if (status == AuthStatus.signedOut && !atLogin) return '/login';
+      if (status == AuthStatus.signedIn && atLogin) return '/home';
+      return null;
+    },
+    routes: [
+      GoRoute(path: '/login', builder: (_, _) => const DoctorLoginScreen()),
+      GoRoute(path: '/home', builder: (_, _) => const DoctorHomeScreen()),
+    ],
+  );
+
+  @override
+  void dispose() {
+    _auth.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(authControllerProvider, (_, _) => _auth.ping());
+    final locale = ref.watch(localeProvider);
+    return MaterialApp.router(
+      onGenerateTitle: (c) => HmStrings.of(c).t('doctorApp'),
+      theme: HmTheme.light(),
+      darkTheme: HmTheme.dark(),
+      locale: locale,
+      supportedLocales: supportedLocales,
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      routerConfig: _router,
+    );
+  }
+}
