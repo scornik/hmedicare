@@ -58,6 +58,8 @@
 | API client | Generated TypeScript types plus a thin fetch client from `openapi.v1.json` | `openapi-typescript` and `openapi-fetch` pinned at WEB-001 |
 | Auth transport | Access token **in memory**. Refresh cookie `__Host-hm_rt` **httpOnly, Secure, SameSite=Lax on `api.<domain>`**. CSRF signed double-submit for cookie-authenticated endpoints (ADR-013 §2) | — |
 | E2E | **Playwright** | `@playwright/test@1.63.0` |
+| Bangla font (Stage 4) | **Noto Sans Bengali** self-hosted from the bundle (no font CDN; CSP `font-src 'self'`) | `@fontsource/noto-sans-bengali@5.3.0` — OFL-1.1 (font-only license exception in `license:scan`) |
+| React types (Stage 4, dev) | TypeScript declarations for React | `@types/react@19.3.0`, `@types/react-dom@19.3.0` — MIT |
 
 ## 4. Mobile
 
@@ -81,7 +83,7 @@
 | TS tests | **Vitest** | `vitest@5.0.1` |
 | HTTP tests | **Supertest** against Nest Fastify app (`app.getHttpAdapter().getInstance()` after `ready()`) | `supertest@7.2.2` (MIT), `@types/supertest@7.2.1` (MIT) |
 | DB tests | **Testcontainers** Node with `@testcontainers/mariadb@12.1.0` (Stage 4: the MariaDB module replaces `@testcontainers/mysql`; images `mariadb:10.6`/`mariadb:11.4` pinned by digest in CI) plus `mariadb@3.5.4` for raw test connections | `@testcontainers/mariadb@12.1.0`, `testcontainers@12.1.0` (MIT) |
-| License scan (Stage 4) | `pnpm license:scan` (`scripts/license-scan.mjs` over `pnpm licenses list`): production permissive only, LGPL only for the unmodified `mariadb` connector, MPL/EPL only in dev tooling | in-repo | Stage 4 rule: every new dependency passes a license scan |
+| License scan (Stage 4) | `pnpm license:scan` (`scripts/license-scan.mjs` over `pnpm licenses list`): production permissive only, LGPL only for the unmodified `mariadb` connector, MPL/EPL only in dev tooling, OFL-1.1 only for the named web font package | in-repo | Stage 4 rule: every new dependency passes a license scan |
 | Lint | **ESLint 10** (flat config only) + `typescript-eslint` + in-repo `eslint-plugin-hmedic` (rules: `no-raw-sql`, `no-append-only-mutation`, `lock-order`, `no-secret-logging`) | `eslint@10.10.0`, `typescript-eslint@8.70.0` |
 | Format | **Prettier** | `prettier@3.9.7` |
 | Biome | **Not used** | — |

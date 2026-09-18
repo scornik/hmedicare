@@ -20,6 +20,9 @@ const PERMISSIVE = new Set([
 ]);
 /** LGPL packages allowed in production (dynamic use of an unmodified library). */
 const LGPL_EXCEPTIONS = new Set(['mariadb']);
+/** OFL-1.1 is allowed only for named font packages (fonts embedded in the web bundle, unmodified). */
+const FONT_OFL_EXCEPTIONS = new Set(['@fontsource/noto-sans-bengali']);
+const fontOk = (license, name) => license === 'OFL-1.1' && FONT_OFL_EXCEPTIONS.has(name);
 /** Weak copyleft allowed for development tooling only (never bundled into deployed artifacts). */
 const DEV_ONLY = new Set(['MPL-2.0', 'EPL-2.0']);
 
@@ -44,7 +47,7 @@ const problems = [];
 const prod = list(true);
 for (const [license, pkgs] of Object.entries(prod)) {
   for (const p of pkgs) {
-    if (allowed(license, PERMISSIVE)) continue;
+    if (allowed(license, PERMISSIVE) || fontOk(license, p.name)) continue;
     if (license.startsWith('LGPL') && LGPL_EXCEPTIONS.has(p.name)) continue;
     problems.push(`prod ${p.name}@${p.versions.join(',')}: ${license}`);
   }
@@ -52,7 +55,7 @@ for (const [license, pkgs] of Object.entries(prod)) {
 const all = list(false);
 for (const [license, pkgs] of Object.entries(all)) {
   for (const p of pkgs) {
-    if (allowed(license, PERMISSIVE) || allowed(license, DEV_ONLY)) continue;
+    if (allowed(license, PERMISSIVE) || allowed(license, DEV_ONLY) || fontOk(license, p.name)) continue;
     if (license.startsWith('LGPL') && LGPL_EXCEPTIONS.has(p.name)) continue;
     const isProd = (prod[license] ?? []).some((q) => q.name === p.name);
     if (!isProd) problems.push(`dev ${p.name}@${p.versions.join(',')}: ${license}`);
