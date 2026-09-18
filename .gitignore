@@ -1,0 +1,51 @@
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+*.tsbuildinfo
+.vite/
+
+# Environment files (only the example is committed)
+.env
+.env.*
+!.env.example
+
+# Local runtime data (never inside app/build directories on Hostinger either)
+.local/
+*.log
+logs/
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+
+# Prisma generated client
+packages/database/src/generated/
+
+# Research inputs: read-only, never committed or modified
+reference-repos/
+hmedic/
+
+# Mobile / Flutter
+mobile/**/.dart_tool/
+mobile/**/build/
+mobile/**/.flutter-plugins
+mobile/**/.flutter-plugins-dependencies
+mobile/**/ios/Pods/
+mobile/**/android/.gradle/
+mobile/**/android/local.properties
+mobile/.fvm/flutter_sdk
+mobile/pubspec.lock.bak
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Host probe results pasted locally before recording
+host-results*.json

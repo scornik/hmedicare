@@ -1,0 +1,37 @@
+# Manufacturer alias table.
+#
+# Automatic rule (always applied, logged as rule "name_normalization"), see src/normalize/manufacturers.ts:
+#   - legal-entity suffixes and punctuation are ignored: plc, ltd, limited, pvt, private, inc, co, company, corp, llc, bd, bangladesh
+#   - parenthetical qualifiers are ignored: "(Dhamrai Unit)", "(Suspended)", "(Veterinary)"
+#   - a manufacturing site after the legal suffix is ignored: "Square Pharmaceuticals PLC, Pabna"
+#   - spelling variants: pharma = pharmaceutical(s), lab = laboratory/laboratories/labs, ind = industries
+# so "Square Pharmaceuticals PLC, Pabna" and "Square Pharmaceuticals Ltd." share the key "square pharma".
+# Raw names (with site and status) are preserved in the dataset.
+#
+# Explicit aliases below are for names that differ beyond suffixes (logged as rule "alias_table").
+# Only add an alias after checking both names refer to the same legal entity. Every merge is written
+# to manufacturers.jsonl (aliases[].rule) so it can be audited.
+canonical:
+  "Square Pharmaceuticals PLC":
+    - "Square Pharmaceuticals Ltd."
+    - "Square Pharmaceuticals Limited"
+    - "Square Pharma"
+  "Beximco Pharmaceuticals Ltd.":
+    - "Beximco Pharma"
+  "Advanced Chemical Industries PLC.":
+    - "ACI Limited"
+    - "ACI Ltd."
+    - "Advanced Chemical Industries Limited"
+  "Incepta Pharmaceuticals Ltd.":
+    - "Incepta Pharma"
+  "The ACME Laboratories Ltd.":
+    - "ACME Laboratories Ltd."
+    - "The Acme Laboratories Ltd."
+  "Eskayef Pharmaceuticals Ltd.":
+    - "SK+F"
+    - "Eskayef Bangladesh Ltd."
+  "Renata PLC":
+    - "Renata Limited"
+    - "Renata Ltd."
+  "Healthcare Pharmaceuticals Ltd.":
+    - "Healthcare Pharma"

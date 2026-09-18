@@ -1,0 +1,131 @@
+# Manual compliance desk review (input to `compliance` command).
+#
+# The `compliance` command fetches robots.txt and every terms URL with the bot user-agent,
+# records SHA-256 hashes, checks that the quoted key phrases are still present, auto-scans for
+# scraping/automated-access language, and combines that with the decisions below:
+#   - A PROHIBITED review is never relaxed automatically.
+#   - Unacknowledged prohibition language found by the auto-scan forces PROHIBITED (pending review).
+#   - robots.txt disallowing needed paths turns ALLOWED/UNCLEAR into RESTRICTED (permitted paths only).
+#   - 401/403/429 or a bot challenge during the gate yields BLOCKED.
+# Reviewer: automated agent desk review on 2026-09-17 (terms read in a normal browser where the page
+# needs JavaScript). This is NOT legal advice; legal review is a production gate.
+# Quotes are verbatim and under 25 words.
+
+medex:
+  reviewed_verdict: PROHIBITED
+  basis: Terms explicitly forbid bots/crawlers, data extraction without written consent, and reproduction.
+  quotes:
+    - url: https://medex.com.bd/terms-of-use
+      text: "Unauthorized data extraction includes using bots, crawlers, or any other software or tools to automatically extract content from our website."
+    - url: https://medex.com.bd/terms-of-use
+      text: "Any reproduction or distribution of the contents of this site without our approval is strictly prohibited."
+    - url: https://medex.com.bd/terms-of-use
+      text: "MedEx authorizes its users to view, print, or download information from this website for personal, non-commercial use only."
+  needed_paths: ["/brands/", "/generics/", "/companies/"]
+  permission_contact: "Contact form / email listed on https://medex.com.bd (verify before sending)"
+
+arogga:
+  reviewed_verdict: PROHIBITED
+  basis: Terms grant only a personal, non-commercial licence and forbid reproducing or creating derivative works from platform content without prior written consent (data reuse). Terms page renders only with JavaScript; reviewed in a browser.
+  quotes:
+    - url: https://www.arogga.com/page/tos
+      text: "Users are granted a limited, non-exclusive license to access and use the platform for personal, non-commercial purposes."
+    - url: https://www.arogga.com/page/tos
+      text: "You may not reproduce, distribute, modify, or create derivative works from the platform's content without prior written consent from Arogga."
+  needed_paths: ["/product/"]
+  permission_contact: "info@arogga.com (listed in terms section 2.3.2)"
+
+medeasy_en:
+  reviewed_verdict: PROHIBITED
+  basis: Terms forbid copying, storing, reproducing or creating derivative works from the website, and commercial exploitation without prior written consent.
+  quotes:
+    - url: https://medeasy.health/terms-and-conditions
+      text: "commercial exploitation without our prior written consent"
+  needed_paths: ["/medicines/"]
+  permission_contact: "Contact details on https://medeasy.health (verify before sending)"
+
+medeasy_bn:
+  reviewed_verdict: PROHIBITED
+  basis: Same site and operator as medeasy_en; Bangla terms page carries matching clauses.
+  quotes: []
+  needed_paths: ["/bn/medicines/"]
+  permission_contact: "Same as medeasy_en"
+
+osudpotro:
+  reviewed_verdict: PROHIBITED
+  basis: Terms forbid republishing, reproducing, duplicating, copying or redistributing material from the site.
+  quotes:
+    - url: https://osudpotro.com/terms-and-conditions
+      text: "Reproduce, duplicate or copy material from osudpotro.com."
+    - url: https://osudpotro.com/terms-and-conditions
+      text: "Redistribute content from osudpotro.com."
+  needed_paths: ["/"]
+  permission_contact: "Contact details on https://osudpotro.com (verify before sending)"
+
+lazzpharma:
+  reviewed_verdict: UNCLEAR
+  basis: Terms page (read in a browser) covers order cancellation, disclaimers and delivery only; it contains no clause on content reuse, scraping or automated access. No explicit licence either, so LEGAL_REVIEW_REQUIRED.
+  quotes: []
+  needed_paths: ["/", "/product/details/"]
+  notes:
+    - "www.lazzpharma.com redirects to lazzpharma.com; origin set to https://lazzpharma.com."
+    - "Product and category pages are client-rendered (Next.js BAILOUT_TO_CLIENT_SIDE_RENDERING). Only the server-rendered homepage cards (#ssr-home) and detail-page <title> are usable without JavaScript."
+    - "Category listings load from POST https://client.lazzpharma.com/ProductArea/CategoryProductPrivot/GetProductsByCategory, which registers a device id. Treated as a private app API: NOT used."
+    - "No sitemap: /sitemap.xml serves the homepage."
+  permission_contact: "support@lazzpharma.com (listed in terms)"
+
+dgda:
+  reviewed_verdict: UNCLEAR
+  basis: Official DGDA public "Allopathic Medicine Information" registry, linked from https://dgda.gov.bd ("এ্যালোপ্যাথিক ড্রাগ ডাটাবেজ"). No terms of use found; robots.txt returns 404 (no restrictions). The page shows a "Content is protected" alert on right-click/DevTools, which is a UI deterrent, not a legal term; flagged for LEGAL_REVIEW_REQUIRED.
+  quotes: []
+  needed_paths: ["/Allopathic/"]
+  endpoints:
+    - url: "http://180.211.137.202:9310/Allopathic/Medicine_Information_Ajax.php?action=export"
+      purpose: "Unauthenticated CSV export used by the page's own 'Export All to Excel (CSV)' button; one request retrieves the full registry (41,270 entries shown on 2026-09-17)."
+    - url: "http://180.211.137.202:9310/Allopathic/Medicine_Information_Ajax.php?action=list"
+      purpose: "Unauthenticated server-side DataTables endpoint used by the page; fallback only if export fails."
+  notes:
+    - "dgda.gov.bd and info.dgda.gov.bd fail TLS verification in Node (incomplete chain / expired certificate). info.dgda.gov.bd/allopathic-medicines was not used."
+    - "The registry is served over plain HTTP from a government IP; content hash is recorded for provenance."
+    - "Per-product DGDA price pages (?Medicine_Price_Detail/...) are not fetched (41k requests); prices are out of scope for this run."
+  permission_contact: "DGDA, Mohakhali, Dhaka (verify official contact on dgda.gov.bd)"
+
+mendeley_bd_meds:
+  reviewed_verdict: ALLOWED
+  basis: Published on Mendeley Data under CC BY 4.0 (DOI 10.17632/zhtvkny53n.1), which permits reuse including commercial use with attribution. Added with explicit approval from the project owner on 2026-09-17. Collection method is undocumented by the authors, so upstream rights are unverified; LEGAL_REVIEW_REQUIRED.
+  quotes:
+    - url: https://data.mendeley.com/datasets/zhtvkny53n/1
+      text: "CC BY 4.0"
+  needed_paths: ["/public-files/datasets/zhtvkny53n/"]
+  endpoints:
+    - url: "https://data.mendeley.com/public-files/datasets/zhtvkny53n/files/5a89a3c5-57e9-4ddf-bcde-16f4a9ec5d5d/file_downloaded"
+      purpose: "Single CSV file (2,177,882 bytes), published SHA-256 293036d5c24268c6526df4ae9ba59e3d80f40380b79bdf40859c83419b52a8fd."
+  attribution: "Rahman, Md Mahmudur; Khan, Md M (2024), “Medicinal Products in Bangladesh - A Dataset of Generic and Brand Names, Dosage Strengths, and Manufacturers”, Mendeley Data, V1, doi: 10.17632/zhtvkny53n.1. Licensed CC BY 4.0. Changes: normalized and merged."
+  legal_review_required: true
+  notes:
+    - "Gate auto-scan (2026-09-17) found the Mendeley Data website footer: \"All rights are reserved, including those for text and data mining, AI training and similar technologies.\" This reservation covers Elsevier/Mendeley website content. The dataset file is separately licensed CC BY 4.0 by its authors. The tool makes a single request for the licensed file via its public download link and does not crawl or mine website pages. Legal review should confirm this reading."
+    - "robots.txt permits /public-files/ (disallows /api/, /preview/, search/query URLs)."
+    - "The dataset landing page is dynamic (its SHA-256 differs on every fetch), so the gate downgrades ALLOWED to UNCLEAR as 'terms changed'. This is conservative and expected; the CC BY 4.0 licence of the versioned V1 file is unaffected."
+    - "The public download link redirects to a signed Amazon S3 URL. On 2026-09-17 the first crawl marked the source BLOCKED because the bucket answered /robots.txt with HTTP 403 (S3 AccessDenied for a missing object, served identically to every client, not a denial of our access). Per RFC 9309 §2.3.1.3 a 4xx robots.txt means 'no rules'; the fetcher now applies that only to adapter-listed object-storage redirect hosts, and a 401/403/429 on the file itself still blocks. The block was lifted with the audited `unblock` command."
+
+dims_app:
+  reviewed_verdict: PROHIBITED
+  basis: App data may not be extracted (no APK download/decompile, bundled DB extraction, traffic interception or private APIs). Listing read for ownership only. Contributes no records unless a licensed feed is provided.
+  quotes: []
+  needed_paths: []
+  listing:
+    - package: com.twgbd.drugindex
+      read_at: "2026-09-17"
+      app_name: "Drug Index - BD Medicine Info"
+      publisher: "Advocate Mosiur Rahman"
+      updated_on: "Aug 17, 2026"
+      summary: "Free offline medicine reference app for Bangladesh (21,000+ brands, 1,500 generics); states its data is based on the CC BY 4.0 dataset by Rahman & Khan, University of Dhaka."
+      note: "The package id in the Stage M brief is NOT the DIMS app. Its stated upstream dataset is ingested directly as source mendeley_bd_meds."
+    - package: com.twgbd.dims
+      read_at: "2026-09-17"
+      app_name: "DIMS"
+      publisher: "IT Medicus Solutions (developed by ITmedicus)"
+      updated_on: "Jul 5, 2026"
+      contact: "dims@itmedicus.com (published by the developer in Play Store review replies)"
+      summary: "Drug Information Management System; offline drug index claiming 28,000+ brands and 2,228+ generics."
+  permission_contact: "dims@itmedicus.com"

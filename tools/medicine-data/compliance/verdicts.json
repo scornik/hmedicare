@@ -1,0 +1,423 @@
+{
+  "dgda": {
+    "source": "dgda",
+    "verdict": "UNCLEAR",
+    "reviewed_verdict": "UNCLEAR",
+    "legal_review_required": true,
+    "reasons": [
+      "Manual review: UNCLEAR."
+    ],
+    "robots": {
+      "url": "http://180.211.137.202:9310/robots.txt",
+      "status": 404,
+      "fetched_at": "2026-09-17T10:15:09.320Z",
+      "sha256": null,
+      "crawl_delay": null,
+      "sitemaps": [],
+      "disallow": [],
+      "needed_paths": [
+        {
+          "path": "/Allopathic/",
+          "allowed": true
+        }
+      ],
+      "raw": ""
+    },
+    "terms": [
+      {
+        "url": "https://dgda.gov.bd/",
+        "quotes_found": [],
+        "auto_flags": [],
+        "error": "robots.txt unreachable for dgda.gov.bd: fetch failed: UNABLE_TO_VERIFY_LEAF_SIGNATURE unable to verify the first certificate; if the root CA is installed locally, try running Node.js with --use-system-ca"
+      }
+    ],
+    "checked_at": "2026-09-17T10:15:09.258Z"
+  },
+  "medex": {
+    "source": "medex",
+    "verdict": "PROHIBITED",
+    "reviewed_verdict": "PROHIBITED",
+    "legal_review_required": false,
+    "reasons": [
+      "Manual review: terms prohibit automated access or data reuse (never relaxed automatically)."
+    ],
+    "robots": {
+      "url": "https://medex.com.bd/robots.txt",
+      "status": 200,
+      "fetched_at": "2026-09-17T10:16:48.067Z",
+      "sha256": "e5c4b84484ee4216e9373be99380320c25dd94805f99f0a805846f087636553f",
+      "crawl_delay": null,
+      "sitemaps": [],
+      "disallow": [],
+      "needed_paths": [
+        {
+          "path": "/brands/",
+          "allowed": true
+        },
+        {
+          "path": "/generics/",
+          "allowed": true
+        },
+        {
+          "path": "/companies/",
+          "allowed": true
+        }
+      ],
+      "raw": "User-agent: *\nDisallow:\n"
+    },
+    "terms": [
+      {
+        "url": "https://medex.com.bd/terms-of-use",
+        "quotes_found": [
+          {
+            "text": "Unauthorized data extraction includes using bots, crawlers, or any other software or tools to automatically extract content from our website.",
+            "found": true
+          },
+          {
+            "text": "Any reproduction or distribution of the contents of this site without our approval is strictly prohibited.",
+            "found": true
+          },
+          {
+            "text": "MedEx authorizes its users to view, print, or download information from this website for personal, non-commercial use only.",
+            "found": true
+          }
+        ],
+        "auto_flags": [
+          "Permitted Use: Personal, Non-commercial Use a.",
+          "MedEx authorizes its users to view, print, or download information from this website for personal, non-commercial use only.",
+          "Any reproduction or distribution of the contents of this site without our approval is strictly prohibited.",
+          "Prohibited Use: Unauthorized Data Extraction a.",
+          "Any activity that involves extracting, collecting, or harvesting data from our website without our express written consent is a breach of our terms and …",
+          "Unauthorized data extraction includes using bots, crawlers, or any other software or tools to automatically extract content from our website.",
+          "to take legal action, including but not limited to seeking damages against any individual or entity engaged in unauthorized data extraction from our website. …",
+          "By accessing or using our website, you agree to comply with these terms of use, including our policy on unauthorized data extraction."
+        ],
+        "fetched_at": "2026-09-17T10:16:51.343Z",
+        "sha256": "bccb33ac35e61a9a1087a44a31a107261ea4cc379e5c7214fa12733d0e06be57",
+        "status": 200
+      }
+    ],
+    "checked_at": "2026-09-17T10:16:47.633Z"
+  },
+  "mendeley_bd_meds": {
+    "source": "mendeley_bd_meds",
+    "verdict": "UNCLEAR",
+    "reviewed_verdict": "ALLOWED",
+    "legal_review_required": true,
+    "reasons": [
+      "Terms content changed since the last gate run; re-review required."
+    ],
+    "robots": {
+      "url": "https://data.mendeley.com/robots.txt",
+      "status": 200,
+      "fetched_at": "2026-09-17T10:43:55.420Z",
+      "sha256": "92d19bf9fd4411ce84f1289f5d7b4ceea1bc486b8b27887e2e4db020cfff0f04",
+      "crawl_delay": null,
+      "sitemaps": [
+        "https://data.mendeley.com/sitemap",
+        "https://data.mendeley.com/sitemap/index"
+      ],
+      "disallow": [
+        "/admin/",
+        "/api/",
+        "/institutions/",
+        "/internal-admin/",
+        "/my-data/",
+        "/preview/",
+        "/*?*page=",
+        "/*?*repositoryType=",
+        "/*?*search=",
+        "/*?*source=",
+        "/*?*type="
+      ],
+      "needed_paths": [
+        {
+          "path": "/public-files/datasets/zhtvkny53n/",
+          "allowed": true
+        }
+      ],
+      "raw": "User-Agent: *\nDisallow: /admin/\nAllow /api/docs\nDisallow: /api/\nDisallow: /institutions/\nDisallow: /internal-admin/\nDisallow: /my-data/\nDisallow: /preview/\nDisallow: /*?*page=\nDisallow: /*?*repositoryType=\nDisallow: /*?*search=\nDisallow: /*?*source=\nDisallow: /*?*type=\n\nSitemap: https://data.mendeley.com/sitemap\nSitemap: https://data.mendeley.com/sitemap/index\n"
+    },
+    "terms": [
+      {
+        "url": "https://data.mendeley.com/datasets/zhtvkny53n/1",
+        "quotes_found": [
+          {
+            "text": "CC BY 4.0",
+            "found": true
+          }
+        ],
+        "auto_flags": [
+          "All rights are reserved, including those for text and data mining, AI training and similar technologies."
+        ],
+        "fetched_at": "2026-09-17T10:44:01.636Z",
+        "sha256": "57b57650a07c8751ed244651845b7a3355ee98d9f3f593cc3c2ab23fa787b40f",
+        "status": 200
+      }
+    ],
+    "checked_at": "2026-09-17T10:43:54.613Z"
+  },
+  "arogga": {
+    "source": "arogga",
+    "verdict": "PROHIBITED",
+    "reviewed_verdict": "PROHIBITED",
+    "legal_review_required": false,
+    "reasons": [
+      "Manual review: terms prohibit automated access or data reuse (never relaxed automatically)."
+    ],
+    "robots": {
+      "url": "https://www.arogga.com/robots.txt",
+      "status": 200,
+      "fetched_at": "2026-09-17T10:15:22.678Z",
+      "sha256": "0940fcccb9c1896754cd552ed1d4b641fd6d16aed8a6188b7b671f95362c156a",
+      "crawl_delay": null,
+      "sitemaps": [
+        "https://www.arogga.com/sitemap.xml"
+      ],
+      "disallow": [
+        "/account$",
+        "/account/$",
+        "/account/transaction-history",
+        "/account/orders",
+        "/account/lab-test/orders",
+        "/account/notified-products",
+        "/account/wishlist",
+        "/account/prescriptions",
+        "/account/lab-test/reports",
+        "/account/suggest-products",
+        "/account/address",
+        "/account/lab-test/manage-patients",
+        "/account/product-reviews",
+        "/account/rider-reviews",
+        "/account/inbox"
+      ],
+      "needed_paths": [
+        {
+          "path": "/product/",
+          "allowed": true
+        }
+      ],
+      "raw": "User-Agent: *\nAllow: /\nDisallow: /account$\nDisallow: /account/$\nDisallow: /account/transaction-history\nDisallow: /account/orders\nDisallow: /account/lab-test/orders\nDisallow: /account/notified-products\nDisallow: /account/wishlist\nDisallow: /account/prescriptions\nDisallow: /account/lab-test/reports\nDisallow: /account/suggest-products\nDisallow: /account/address\nDisallow: /account/lab-test/manage-patients\nDisallow: /account/product-reviews\nDisallow: /account/rider-reviews\nDisallow: /account/inbox\n\nSitemap: https://www.arogga.com/sitemap.xml\n"
+    },
+    "terms": [
+      {
+        "url": "https://www.arogga.com/page/tos",
+        "quotes_found": [
+          {
+            "text": "Users are granted a limited, non-exclusive license to access and use the platform for personal, non-commercial purposes.",
+            "found": true
+          },
+          {
+            "text": "You may not reproduce, distribute, modify, or create derivative works from the platform's content without prior written consent from Arogga.",
+            "found": true
+          }
+        ],
+        "auto_flags": [],
+        "fetched_at": "2026-09-17T10:15:28.331Z",
+        "sha256": "e90b40e00430dded09104ae1db11ffc73cbcaa3db2966e3589e4b0fb17db2a59",
+        "status": 200
+      }
+    ],
+    "checked_at": "2026-09-17T10:15:22.591Z"
+  },
+  "medeasy_en": {
+    "source": "medeasy_en",
+    "verdict": "PROHIBITED",
+    "reviewed_verdict": "PROHIBITED",
+    "legal_review_required": false,
+    "reasons": [
+      "Manual review: terms prohibit automated access or data reuse (never relaxed automatically)."
+    ],
+    "robots": {
+      "url": "https://medeasy.health/robots.txt",
+      "status": 200,
+      "fetched_at": "2026-09-17T10:16:59.337Z",
+      "sha256": "a595028610ff4fb5f81eb592832ceae72adf4acffb775209a594efd5bc5e45ea",
+      "crawl_delay": null,
+      "sitemaps": [
+        "https://medeasy.health/sitemap.xml"
+      ],
+      "disallow": [
+        "/cgi-bin/"
+      ],
+      "needed_paths": [
+        {
+          "path": "/medicines/",
+          "allowed": true
+        }
+      ],
+      "raw": "User-agent: *\nDisallow:\nDisallow: /cgi-bin/\nSitemap: https://medeasy.health/sitemap.xml\n"
+    },
+    "terms": [
+      {
+        "url": "https://medeasy.health/terms-and-conditions",
+        "quotes_found": [
+          {
+            "text": "commercial exploitation without our prior written consent",
+            "found": true
+          }
+        ],
+        "auto_flags": [
+          "or delete any copyright, trade mark or other proprietary notices.8.Copy, reproduce, store (in any medium or format), distribute, transmit, modify, create derivative works from …",
+          "Copy, reproduce, store (in any medium or format), distribute, transmit, modify, create derivative works from all or any part of this website/mobile application or …"
+        ],
+        "fetched_at": "2026-09-17T10:17:03.830Z",
+        "sha256": "63c5b6659fe3622900e7c271a75d5b937814ba14fa6d5285b11881eda04cf817",
+        "status": 200
+      }
+    ],
+    "checked_at": "2026-09-17T10:16:59.131Z"
+  },
+  "medeasy_bn": {
+    "source": "medeasy_bn",
+    "verdict": "PROHIBITED",
+    "reviewed_verdict": "PROHIBITED",
+    "legal_review_required": false,
+    "reasons": [
+      "Manual review: terms prohibit automated access or data reuse (never relaxed automatically)."
+    ],
+    "robots": {
+      "url": "https://medeasy.health/robots.txt",
+      "status": 200,
+      "fetched_at": "2026-09-17T10:16:59.337Z",
+      "sha256": "a595028610ff4fb5f81eb592832ceae72adf4acffb775209a594efd5bc5e45ea",
+      "crawl_delay": null,
+      "sitemaps": [
+        "https://medeasy.health/sitemap.xml"
+      ],
+      "disallow": [
+        "/cgi-bin/"
+      ],
+      "needed_paths": [
+        {
+          "path": "/bn/medicines/",
+          "allowed": true
+        }
+      ],
+      "raw": "User-agent: *\nDisallow:\nDisallow: /cgi-bin/\nSitemap: https://medeasy.health/sitemap.xml\n"
+    },
+    "terms": [
+      {
+        "url": "https://medeasy.health/bn/terms-and-conditions",
+        "quotes_found": [],
+        "auto_flags": [
+          "Copy, reproduce, store (in any medium or format), distribute, transmit, modify, create derivative works from all or any part of this website/mobile application or …"
+        ],
+        "fetched_at": "2026-09-17T10:17:09.238Z",
+        "sha256": "9501ad4a644d5773f006928c0070ea1c41bd5917a4e6007bf79958cf0421ac53",
+        "status": 200
+      }
+    ],
+    "checked_at": "2026-09-17T10:17:03.900Z"
+  },
+  "osudpotro": {
+    "source": "osudpotro",
+    "verdict": "PROHIBITED",
+    "reviewed_verdict": "PROHIBITED",
+    "legal_review_required": false,
+    "reasons": [
+      "Manual review: terms prohibit automated access or data reuse (never relaxed automatically)."
+    ],
+    "robots": {
+      "url": "https://osudpotro.com/robots.txt",
+      "status": 200,
+      "fetched_at": "2026-09-17T10:15:38.489Z",
+      "sha256": "1990d1ae54cad6ff8090f4c1690a14df7f26a2d8e7f4a8d6c3e70ff7f9e3c434",
+      "crawl_delay": null,
+      "sitemaps": [],
+      "disallow": [],
+      "needed_paths": [
+        {
+          "path": "/",
+          "allowed": true
+        }
+      ],
+      "raw": "User-agent: *\nAllow: /_next/static/\n"
+    },
+    "terms": [
+      {
+        "url": "https://osudpotro.com/terms-and-conditions",
+        "quotes_found": [
+          {
+            "text": "Reproduce, duplicate or copy material from osudpotro.com.",
+            "found": true
+          },
+          {
+            "text": "Redistribute content from osudpotro.com.",
+            "found": true
+          }
+        ],
+        "auto_flags": [
+          "subject to restrictions set in these terms and conditions.You must not:Republish material from osudpotro.com.Sell, rent, or sub-license material from osudpotro.com.Reproduce, duplicate or copy material …",
+          "a non-exclusive license to use, reproduce, edit and authorize others to use, reproduce and edit any of your Comments in any form, format, or …"
+        ],
+        "fetched_at": "2026-09-17T10:15:44.641Z",
+        "sha256": "cf85ea7e9be91160f813b89ae8eba341665caf8439b9618649dc424bf85f3dfb",
+        "status": 200
+      },
+      {
+        "url": "https://osudpotro.com/disclaimer",
+        "quotes_found": [],
+        "auto_flags": [
+          "a single copy of this Website for your personal information, non-commercial use provided that you keep intact all copyright, trademark and other proprietary rights …",
+          "You may not modify, perform, display, reproduce or distribute (a) content on this Website (other than as set forth herein), (b) the design or …"
+        ],
+        "fetched_at": "2026-09-17T10:15:48.750Z",
+        "sha256": "b730a144b7b40521ae7fc01b5b74f95bb306a329014444d9bd9f6ff74a9adf10",
+        "status": 200
+      }
+    ],
+    "checked_at": "2026-09-17T10:15:38.177Z"
+  },
+  "lazzpharma": {
+    "source": "lazzpharma",
+    "verdict": "UNCLEAR",
+    "reviewed_verdict": "UNCLEAR",
+    "legal_review_required": true,
+    "reasons": [
+      "Manual review: UNCLEAR."
+    ],
+    "robots": {
+      "url": "https://lazzpharma.com/robots.txt",
+      "status": 200,
+      "fetched_at": "2026-09-17T10:15:49.266Z",
+      "sha256": "e5ab0d231eeb01b4a982d1c79a6729cac9797ad15a69247e4f28ba6afc149b4c",
+      "crawl_delay": null,
+      "sitemaps": [],
+      "disallow": [],
+      "needed_paths": [
+        {
+          "path": "/",
+          "allowed": true
+        },
+        {
+          "path": "/product/details/",
+          "allowed": true
+        }
+      ],
+      "raw": "# https://www.robotstxt.org/robotstxt.html\r\nUser-agent: *\r\nDisallow:\r\n"
+    },
+    "terms": [
+      {
+        "url": "https://lazzpharma.com/termsCondition",
+        "quotes_found": [],
+        "auto_flags": [],
+        "fetched_at": "2026-09-17T10:15:52.325Z",
+        "sha256": "a65c7fb4b9f2ea661eb7a6e2468509106f7f4da41442cf8a953efade2163c47c",
+        "status": 200
+      }
+    ],
+    "checked_at": "2026-09-17T10:15:48.772Z"
+  },
+  "dims_app": {
+    "source": "dims_app",
+    "verdict": "PROHIBITED",
+    "reviewed_verdict": "PROHIBITED",
+    "legal_review_required": false,
+    "reasons": [
+      "Manual review: terms prohibit automated access or data reuse (never relaxed automatically)."
+    ],
+    "terms": [],
+    "checked_at": "2026-09-17T10:15:52.335Z"
+  }
+}

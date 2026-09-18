@@ -1,0 +1,7 @@
+SL,Company,Trade Name,Generic Name With Strength,Dosage Form,DAR No
+1,Example Pharma Ltd.,Testocil,Testamycin 500 mg,Tablet,999-0001-001
+2,Example Pharma Ltd.,Testocil,Testamycin 250 mg/5 ml,Powder For Suspension,999-0002-001
+3,"Sample Labs PLC.",Duofix,"Alphazole + Betamide 500 mcg + 10 mg",Tablet,999-0003-002
+4,Sample Labs PLC.,Injexa,Gammacef 1 gm,IM Injection,999-0004-002
+5,Sample Labs PLC.,Injexa,Gammacef 1 gm,IV Injection,999-0005-002
+6,Sample Labs PLC.,,Missingbrand 5 mg,Tablet,999-0006-002

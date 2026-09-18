@@ -1,0 +1,108 @@
+# Controlled dosage-form vocabulary.
+# Mapping order: (1) exact alias match on the normalized raw text (lowercase, punctuation → space,
+# whitespace collapsed); (2) ordered `patterns` (first match wins). Anything else → `unmapped` and the
+# review queue. Never guess: add an alias or pattern here after reviewing the raw value.
+forms:
+  tablet: [tab, tabs, tablet, tablets, film coated tablet, coated tablet, uncoated tablet, caplet, tablet fc]
+  chewable_tablet: [chewable tablet, chewable tab]
+  dispersible_tablet: [dispersible tablet, dispersible tab, dt tablet]
+  effervescent_tablet: [effervescent tablet, effervescent tab]
+  orally_disintegrating_tablet: [orally disintegrating tablet, odt, oro dispersible tablet, orodispersible tablet]
+  modified_release_tablet: [sr tablet, er tablet, xr tablet, cr tablet, mr tablet, xl tablet, extended release tablet, sustained release tablet, controlled release tablet, delayed release tablet, dr tablet, ec tablet, enteric coated tablet, prolonged release tablet]
+  capsule: [cap, caps, capsule, capsules, hard capsule, soft capsule, soft gelatin capsule, softgel]
+  modified_release_capsule: [sr capsule, er capsule, xr capsule, cr capsule, mr capsule, dr capsule, delayed release capsule, extended release capsule, sustained release capsule, ec capsule, enteric coated capsule]
+  syrup: [syrup, syp, pediatric syrup, paediatric syrup]
+  suspension: [suspension, susp, oral suspension]
+  powder_for_suspension: [powder for suspension, powder for oral suspension, dry syrup, pfs]
+  oral_solution: [oral solution, solution oral]
+  oral_drops: [oral drops, paediatric drops, pediatric drops, drops oral]
+  elixir: [elixir]
+  emulsion: [emulsion, oral emulsion]
+  oral_gel: [oral gel]
+  oral_paste: [oral paste]
+  injection: [injection, inj, im injection, iv injection, sc injection, iv im injection, im iv injection, injection solution, solution for injection, powder for injection, lyophilized powder for injection, vial, ampoule, prefilled syringe, pen, penfill, flexpen, cartridge, insulin]
+  infusion: [infusion, iv infusion, iv fluid, infusion solution, solution for infusion]
+  cream: [cream, topical cream, vaginal cream]
+  ointment: [ointment, oint, eye ointment, ophthalmic ointment, topical ointment]
+  gel: [gel, topical gel, vaginal gel, emulgel]
+  lotion: [lotion]
+  topical_solution: [topical solution, scalp solution, solution topical, liniment]
+  eye_drops: [eye drops, eye drop, ophthalmic solution, ophthalmic suspension, ophthalmic drops, ophthalmic emulsion, opthalmic solution, opthalmic suspension, opthalmic emulsion]
+  ear_drops: [ear drops, ear drop, otic solution, otic drops]
+  eye_ear_drops: [eye and ear drops, eye ear drops]
+  nasal_drops: [nasal drops, nasal drop, nose drops]
+  nasal_spray: [nasal spray]
+  spray: [spray, topical spray, oral spray, mouth spray, ear spray]
+  inhaler: [inhaler, metered dose inhaler, mdi, hfa inhaler, inhalation aerosol, dry powder inhaler, dpi, rotacap, inhalation capsule]
+  nebuliser_solution: [nebuliser solution, nebulizer solution, solution for nebulization, nebuliser suspension, respules, inhalation solution, respirator solution, respiratory solution, resperitory solution]
+  suppository: [suppository, supp, suppositories, rectal suppository, paediatric suppository, pediatric suppository]
+  vaginal_tablet: [vaginal tablet, vaginal pessary, pessary]
+  powder: [powder, oral powder, topical powder, dusting powder, sachet powder, sached powder]
+  powder_for_solution: [powder for solution, powder for oral solution]
+  granules: [granules, oral granules, sachet, oral saline, oral rehydration salt, ors]
+  lozenge: [lozenge, lozenges]
+  mouthwash: [mouthwash, mouth wash, oral rinse, gargle, gargle mouth wash, mouth wash antiseptic]
+  shampoo: [shampoo]
+  soap: [soap, medicated soap]
+  patch: [patch, transdermal patch]
+  enema: [enema, rectal solution]
+  dialysis_solution: [dialysis solution, haemodialysis solution, peritoneal dialysis solution]
+  implant: [implant]
+  oral_liquid: [oral liquid]
+  linctus: [linctus]
+  tincture: [tincture]
+  oral_film: [oral soluble film, oral film, orodispersible film]
+  chewing_gum: [gum, chewing gum, medicated chewing gum]
+  irrigation_solution: [irrigation solution]
+  hand_rub: [hand rub, hand sanitizer]
+  surgical_scrub: [scrub, surgical scrub]
+  medical_gas: [gas, medical gas]
+  pellets: [pellets]
+  # Veterinary presentations listed in the DGDA registry.
+  bolus_veterinary: [bolus]
+  water_soluble_powder_veterinary: [water soluble powder]
+  pour_on_veterinary: [pour on solution, pour on]
+# Deliberately NOT mapped (left for review): "Solution", "Liquid", "Drops" (route unknown), "Vaccine" (a product class,
+# not a form), "Cozycap", "Combipack", "Per Rectal", devices/consumables (Kit, Blood bag, Butterfly, Condom, ...).
+# Ordered regex rules on the normalized raw text (first match wins).
+patterns:
+  - { match: "powder for (oral )?suspension|dry syrup", form: powder_for_suspension }
+  - { match: "\\b(eye|ophthalmic)\\b.*\\b(ear|otic)\\b", form: eye_ear_drops }
+  - { match: "\\b(eye|ophthalmic|opthalmic)\\b.*\\b(drop|solution|suspension|emulsion)", form: eye_drops }
+  - { match: "\\b(eye|ophthalmic)\\b.*\\bointment", form: ointment }
+  - { match: "\\b(ear|otic)\\b.*\\b(drop|solution)", form: ear_drops }
+  - { match: "\\bnasal\\b.*\\bspray", form: nasal_spray }
+  - { match: "\\bnasal\\b.*\\bdrop", form: nasal_drops }
+  - { match: "\\b(infusion|iv fluid)\\b", form: infusion }
+  - { match: "\\b(injection|injectable|inj|vial|ampoule|ampul|syringe|penfill|flexpen)\\b", form: injection }
+  - { match: "\\bnebuli[sz]", form: nebuliser_solution }
+  - { match: "\\b(inhaler|inhalation|rotacap|respirator)\\b", form: inhaler }
+  - { match: "\\b(chewable)\\b.*\\btab", form: chewable_tablet }
+  - { match: "\\b(dispersible)\\b.*\\btab", form: dispersible_tablet }
+  - { match: "\\b(effervescent)\\b", form: effervescent_tablet }
+  - { match: "\\b(odt|orally disintegrating|orodispersible)\\b", form: orally_disintegrating_tablet }
+  - { match: "\\bvaginal\\b.*\\b(tab|pessary)", form: vaginal_tablet }
+  - { match: "\\b(sr|er|xr|cr|mr|xl|dr|ec|extended|sustained|controlled|delayed|prolonged|modified)\\b.*\\btab", form: modified_release_tablet }
+  - { match: "\\b(sr|er|xr|cr|mr|dr|ec|extended|sustained|delayed|modified)\\b.*\\bcap", form: modified_release_capsule }
+  - { match: "\\btab(let)?s?\\b", form: tablet }
+  - { match: "\\bcap(sule)?s?\\b", form: capsule }
+  - { match: "\\bsuppositor", form: suppository }
+  - { match: "\\bsyrup\\b", form: syrup }
+  - { match: "\\bsuspension\\b", form: suspension }
+  - { match: "\\bcream\\b", form: cream }
+  - { match: "\\bointment\\b", form: ointment }
+  - { match: "\\bgel\\b", form: gel }
+  - { match: "\\blotion\\b", form: lotion }
+# Routes that are explicitly stated inside a dosage-form label (never inferred from the form alone).
+explicit_routes:
+  - { match: "\\biv\\s*/?\\s*im\\b|\\bim\\s*/?\\s*iv\\b", route: "IV/IM" }
+  - { match: "\\biv\\b|\\bintravenous\\b", route: IV }
+  - { match: "\\bim\\b|\\bintramuscular\\b", route: IM }
+  - { match: "\\bsc\\b|\\bsubcutaneous\\b", route: SC }
+  - { match: "\\bvaginal\\b", route: vaginal }
+  - { match: "\\brectal\\b", route: rectal }
+  - { match: "\\b(eye|ophthalmic)\\b", route: ophthalmic }
+  - { match: "\\b(ear|otic)\\b", route: otic }
+  - { match: "\\bnasal\\b", route: nasal }
+  - { match: "\\btopical\\b", route: topical }
+  - { match: "\\boral\\b", route: oral }

@@ -1,0 +1,32 @@
+{
+  "name": "@hakeemify/medicine-data-tool",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone, compliance-gated Bangladesh medicine catalog acquisition tool. Not part of the product runtime.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@12.4.2",
+  "scripts": {
+    "md": "tsx src/cli.ts",
+    "compliance": "tsx src/cli.ts compliance",
+    "all": "tsx src/cli.ts all",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "better-sqlite3": "13.0.3",
+    "cheerio": "1.2.0",
+    "robots-parser": "3.0.1",
+    "yaml": "2.9.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "22.20.3",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2",
+    "vitest": "5.0.1"
+  }
+}
