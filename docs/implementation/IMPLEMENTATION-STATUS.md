@@ -28,7 +28,7 @@ Legend:
 | FOUND-008 observability | DONE | `900363f`, `733e72f` | unit 19 | pino + prom-client |
 | FOUND-009 CI | PROVISIONAL (H-1: no GitHub remote yet) | `f5ed321`, `fa6dfb5` | — | SHA-pinned actions, MariaDB 10.6/11.4 matrix by digest, gitleaks, OSV, SBOM, license scans, web + Playwright, mobile analyze/test/drift |
 | FOUND-010 contracts | DONE | `b9f4f98`, `e43719f` | unit (contracts) | OpenAPI 3.1 + 3.0, 25 operations, `openapi:check`, TS client (`credentials: 'omit'` default) |
-| FOUND-011 deploy scripts | PROVISIONAL (H-1, H-2, H-6) | `2dae83c`, `f90f878`, this branch | unit (build-info) | `hostinger:build:*`, `infrastructure/hostinger/*`, `promote-staging.yml`, `dist/build-info.json` version, `pnpm dev` full stack |
+| FOUND-011 deploy scripts | PROVISIONAL (H-1, H-2, H-6) | `2dae83c`, `f90f878`, `1a390d2` | unit (build-info) | `hostinger:build:*`, `infrastructure/hostinger/*`, `promote-staging.yml`, `dist/build-info.json` version, `pnpm dev` full stack |
 | FOUND-012 audit chain | DONE | `4d0bff5` | unit 5, integration 10 | `pnpm verify-audit-chain [--full]` |
 | FOUND-013 idempotency + rate limits | DONE | `991cf0a`, `5a1de2d` | integration 12 | credential routes non-replayable (C-40) |
 | Seed (SEED-DATA) | DONE | `b3cdef0` | integration 3 | idempotent, `--verify`, `--rotate-passwords`; commit message mislabels it FOUND-010 |
@@ -44,7 +44,7 @@ Legend:
 | ID-006 memberships/coverages | PROVISIONAL (HOST-001/003) | `149f50d` | integration | |
 | ID-007 platform operators | PROVISIONAL (HOST-001/003) | `149f50d` | integration | pwd + OTP step-up, `X-Platform-Context` |
 | SMS-001 envelope + vault + gates | PROVISIONAL (HOST-001/003) | `ea8b1dd` | unit + integration | AES-256-GCM, KEK ring, GATE-SMS-HTTP chain |
-| SMS-002 free provider probe | PROVISIONAL (H-4: staging capture) | this branch | unit 5, integration 2 | worker `GET /internal/diagnostics/sms-balance` + `pnpm ops:capture-sms-probe` |
+| SMS-002 free provider probe | PROVISIONAL (H-4: staging capture) | `f4e4f4b` | unit 5, integration 2 | worker `GET /internal/diagnostics/sms-balance` + `pnpm ops:capture-sms-probe` |
 | SMS-003 port + mock adapter | DONE | `f0d999a` | unit contract | |
 | SMS-004 Zaman IT adapter | PROVISIONAL (parser until SMS-002 fixtures) | `f0d999a` | unit contract 17 | |
 | SMS-005 OTP over SMS | PROVISIONAL (HOST-001/003) | `b612e4c` | integration | CheckSmsBalance, ReencryptProviderCredentials |
@@ -58,9 +58,9 @@ Out of Stage 4 scope (not started): patients, chambers, schedules, appointments,
 
 | Suite | Count | Notes |
 |---|---|---|
-| unit | __UNIT__ | Vitest `unit` project (packages, apps, tooling, scripts) |
+| unit | 259 | Vitest `unit` project (packages, apps, tooling, scripts) |
 | architecture | 37 | depcruise + ESLint rule fixtures |
-| integration + security | __INT106__ on mariadb:10.6 · __INT114__ on mariadb:11.4 | Testcontainers, `node scripts/test/run-integration.mjs` |
+| integration + security | 169 on mariadb:10.6 · 169 on mariadb:11.4 | Testcontainers, `node scripts/test/run-integration.mjs` |
 | e2e (Playwright) | 4 | built web app against a mocked API |
 | mobile (Flutter) | 13 | `dart run melos run test`; `flutter analyze --fatal-infos` clean |
 
