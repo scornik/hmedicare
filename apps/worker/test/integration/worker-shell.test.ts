@@ -46,9 +46,14 @@ afterEach(async () => {
 describe('worker mode', () => {
   it('two workers share one singleton loop; maintenance runs once per window', async () => {
     const [a, b] = [await start(), await start()];
-    await waitFor(async () => (await a.runtime.prisma.job.count({ where: { status: 'SUCCEEDED' } })) === 2);
+    await waitFor(async () => (await a.runtime.prisma.job.count({ where: { status: 'SUCCEEDED' } })) === 4);
     const jobs = await a.runtime.prisma.job.findMany({ select: { type: true, lockedBy: true } });
-    expect(jobs.map((j) => j.type).sort()).toEqual(['MaintenanceTtlCleanup', 'VerifyAppendOnlyChains']);
+    expect(jobs.map((j) => j.type).sort()).toEqual([
+      'CheckSmsBalance',
+      'MaintenanceTtlCleanup',
+      'ReencryptProviderCredentials',
+      'VerifyAppendOnlyChains',
+    ]);
 
     for (const w of [a, b]) {
       const res = await request(w.app.getHttpServer())

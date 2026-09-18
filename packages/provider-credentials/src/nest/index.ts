@@ -1,2 +1,2 @@
-// NestJS modules of the provider-credentials context.
-export {};
+// NestJS/composition surface of the provider-credentials context.
+export * from './worker-module';

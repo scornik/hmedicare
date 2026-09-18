@@ -46,7 +46,7 @@
     "hostinger:build:web": "pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/web...",
     "hostinger:build:host-probe": "pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/host-probe...",
     "host:record-results": "node scripts/host/record-results.ts",
-    "smoke:zamanit-live": "node scripts/smoke/zamanit-live.ts",
+    "smoke:zamanit-live": "pnpm --filter @hmedic/communication-adapters-zamanit run test:live-smoke",
     "mobile:bootstrap": "cd mobile && dart pub get && dart run melos bootstrap",
     "mobile:generate-api": "cd mobile && dart run melos run generate:api",
     "mobile:analyze": "cd mobile && dart run melos run analyze",

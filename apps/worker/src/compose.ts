@@ -6,7 +6,8 @@ import {
   HttpKitModule,
   type HttpRuntime,
   type JobComposition,
-  composeJobs,
+  composePlatformJobs,
+  createSmsServices,
   createHttpApp,
   createRuntime,
   jobLagCheck,
@@ -41,7 +42,7 @@ export async function buildWorker(
   overrides: { database?: Database } = {},
 ): Promise<WorkerInstance> {
   const { runtime, database } = createRuntime('worker', config, overrides);
-  const jobs = composeJobs(runtime);
+  const jobs = composePlatformJobs(runtime, createSmsServices(runtime));
   runtime.runnerLoop = jobs?.loop ?? null;
   runtime.readinessChecks.push(jobLagCheck(runtime));
   const app = await createHttpApp(WorkerModule.forRoot(runtime), runtime, { cors: false });

@@ -29,7 +29,11 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@hmedic/communication": "workspace:*",
+    "@hmedic/communication-adapters-zamanit": "workspace:*",
     "@hmedic/identity-access": "workspace:*",
+    "@hmedic/provider-credentials": "workspace:*",
+    "@hmedic/secrets": "workspace:*",
     "@hmedic/tenant-org": "workspace:*",
     "@types/supertest": "7.2.1",
     "supertest": "7.2.2"

@@ -28,6 +28,18 @@
     },
     {
       "path": "../secrets"
+    },
+    {
+      "path": "../communication"
+    },
+    {
+      "path": "../communication-adapters/mock"
+    },
+    {
+      "path": "../communication-adapters/zamanit"
+    },
+    {
+      "path": "../provider-credentials"
     }
   ]
 }

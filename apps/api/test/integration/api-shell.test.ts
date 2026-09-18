@@ -38,10 +38,15 @@ describe('apps/api shell', () => {
       .set('authorization', `Bearer ${api.runtime.config.INTERNAL_CRON_TOKEN}`)
       .set('x-request-id', newId())
       .expect(200);
-    expect(res.body).toMatchObject({ maintenance: 2 });
-    expect(res.body.claimed).toBeGreaterThanOrEqual(2);
+    expect(res.body).toMatchObject({ maintenance: 4 });
+    expect(res.body.claimed).toBeGreaterThanOrEqual(4);
     const types = await api.runtime.prisma.job.findMany({ select: { type: true, status: true } });
-    expect(types.map((t) => t.type).sort()).toEqual(['MaintenanceTtlCleanup', 'VerifyAppendOnlyChains']);
+    expect(types.map((t) => t.type).sort()).toEqual([
+      'CheckSmsBalance',
+      'MaintenanceTtlCleanup',
+      'ReencryptProviderCredentials',
+      'VerifyAppendOnlyChains',
+    ]);
     expect(types.every((t) => t.status === 'SUCCEEDED')).toBe(true);
   });
 });

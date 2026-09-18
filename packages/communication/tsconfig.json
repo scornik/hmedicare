@@ -22,6 +22,12 @@
     },
     {
       "path": "../observability"
+    },
+    {
+      "path": "../config"
+    },
+    {
+      "path": "../provider-credentials"
     }
   ]
 }

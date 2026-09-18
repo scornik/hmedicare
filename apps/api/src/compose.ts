@@ -18,7 +18,8 @@ import {
   HttpKitModule,
   type HttpRuntime,
   type JobComposition,
-  composeJobs,
+  composePlatformJobs,
+  createSmsServices,
   createHttpApp,
   createRuntime,
 } from '@hmedic/http-kit';
@@ -71,10 +72,13 @@ export async function buildApi(
 ): Promise<ApiInstance> {
   // In `worker` mode the worker app owns the loop; the api only enqueues.
   const { runtime, database } = createRuntime('api', config, overrides);
+  const sms = createSmsServices(runtime);
   const jobs =
-    config.JOB_RUNNER_MODE === 'embedded' || config.JOB_RUNNER_MODE === 'cron' ? composeJobs(runtime) : null;
+    config.JOB_RUNNER_MODE === 'embedded' || config.JOB_RUNNER_MODE === 'cron'
+      ? composePlatformJobs(runtime, sms)
+      : null;
   runtime.runnerLoop = jobs?.loop ?? null;
-  const identity = createIdentityServices(runtime);
+  const identity = createIdentityServices(runtime, sms.otpDelivery ? { otpDelivery: sms.otpDelivery } : {});
   const tenantOrg: TenantOrgServices = {
     memberships: new MembershipService(runtime.prisma, runtime.audit, runtime.clock),
     coverages: new CoverageService(runtime.prisma, runtime.audit, config.COVERAGE_MAX_DAYS, runtime.clock),

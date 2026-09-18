@@ -211,11 +211,19 @@ describe('envelope and ProblemDetails', () => {
       .set('content-type', 'application/json')
       .send('{"label":')
       .expect(400);
-    const big = await request(server)
-      .post('/api/v1/probe/items')
-      .send({ label: 'x', n: 1, pad: 'y'.repeat(1_100_000) })
-      .expect(413);
-    expect(big.body.code).toBe('PAYLOAD_TOO_LARGE');
+    // In-process inject: over a socket the server may answer 413 and close before the client finishes
+    // writing 1.1 MB (EPIPE), which made this assertion flaky.
+    const big = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: 'POST',
+        url: '/api/v1/probe/items',
+        headers: { 'content-type': 'application/json', 'idempotency-key': 'key-oversized-1' },
+        payload: JSON.stringify({ label: 'x', n: 1, pad: 'y'.repeat(1_100_000) }),
+      });
+    expect(big.statusCode).toBe(413);
+    expect(big.json()).toMatchObject({ code: 'PAYLOAD_TOO_LARGE' });
   });
 });
 

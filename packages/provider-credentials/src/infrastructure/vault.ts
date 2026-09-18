@@ -240,6 +240,26 @@ export class ProviderCredentialVault {
     });
   }
 
+  /** Tenant SMS credentials the balance job must check (ADR-018 §7): ACTIVE and SUSPENDED_BALANCE. */
+  async listSmsForBalanceCheck(
+    limit = 500,
+  ): Promise<Array<{ handle: CredentialHandle; status: CredentialStatus; balanceAlertBdt: string | null }>> {
+    const rows = await this.prisma.providerCredential.findMany({
+      where: { providerKind: 'SMS', status: { in: ['ACTIVE', 'SUSPENDED_BALANCE'] } },
+      take: limit,
+      select: { id: true, tenantId: true, status: true, balanceAlertBdt: true },
+    });
+    const out = [];
+    for (const r of rows) {
+      out.push({
+        handle: await this.resolveForAdapter(r.tenantId, r.id, ['ACTIVE', 'SUSPENDED_BALANCE']),
+        status: r.status as CredentialStatus,
+        balanceAlertBdt: r.balanceAlertBdt?.toFixed(2) ?? null,
+      });
+    }
+    return out;
+  }
+
   async list(tenantId: string, kind: ProviderKind): Promise<CredentialView[]> {
     const rows = await this.prisma.providerCredential.findMany({
       where: { tenantId, providerKind: kind },

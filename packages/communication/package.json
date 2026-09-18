@@ -15,6 +15,11 @@
       "development": "./src/nest/index.ts",
       "types": "./dist/nest/index.d.ts",
       "default": "./dist/nest/index.js"
+    },
+    "./worker": {
+      "development": "./src/nest/worker-module.ts",
+      "types": "./dist/nest/worker-module.d.ts",
+      "default": "./dist/nest/worker-module.js"
     }
   },
   "scripts": {
@@ -23,10 +28,12 @@
   },
   "dependencies": {
     "@hmedic/audit": "workspace:*",
+    "@hmedic/config": "workspace:*",
     "@hmedic/database": "workspace:*",
     "@hmedic/jobs": "workspace:*",
     "@hmedic/kernel": "workspace:*",
     "@hmedic/observability": "workspace:*",
+    "@hmedic/provider-credentials": "workspace:*",
     "zod": "3.25.76"
   }
 }

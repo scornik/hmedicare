@@ -269,9 +269,21 @@ importers:
         specifier: 3.25.76
         version: 3.25.76
     devDependencies:
+      '@hmedic/communication':
+        specifier: workspace:*
+        version: link:../../packages/communication
+      '@hmedic/communication-adapters-zamanit':
+        specifier: workspace:*
+        version: link:../../packages/communication-adapters/zamanit
       '@hmedic/identity-access':
         specifier: workspace:*
         version: link:../../packages/identity-access
+      '@hmedic/provider-credentials':
+        specifier: workspace:*
+        version: link:../../packages/provider-credentials
+      '@hmedic/secrets':
+        specifier: workspace:*
+        version: link:../../packages/secrets
       '@hmedic/tenant-org':
         specifier: workspace:*
         version: link:../../packages/tenant-org
@@ -352,6 +364,9 @@ importers:
       '@hmedic/audit':
         specifier: workspace:*
         version: link:../audit
+      '@hmedic/config':
+        specifier: workspace:*
+        version: link:../config
       '@hmedic/database':
         specifier: workspace:*
         version: link:../database
@@ -364,6 +379,9 @@ importers:
       '@hmedic/observability':
         specifier: workspace:*
         version: link:../observability
+      '@hmedic/provider-credentials':
+        specifier: workspace:*
+        version: link:../provider-credentials
       zod:
         specifier: 3.25.76
         version: 3.25.76
@@ -434,6 +452,15 @@ importers:
       '@hmedic/audit':
         specifier: workspace:*
         version: link:../audit
+      '@hmedic/communication':
+        specifier: workspace:*
+        version: link:../communication
+      '@hmedic/communication-adapters-mock':
+        specifier: workspace:*
+        version: link:../communication-adapters/mock
+      '@hmedic/communication-adapters-zamanit':
+        specifier: workspace:*
+        version: link:../communication-adapters/zamanit
       '@hmedic/config':
         specifier: workspace:*
         version: link:../config
@@ -449,6 +476,9 @@ importers:
       '@hmedic/observability':
         specifier: workspace:*
         version: link:../observability
+      '@hmedic/provider-credentials':
+        specifier: workspace:*
+        version: link:../provider-credentials
       '@hmedic/secrets':
         specifier: workspace:*
         version: link:../secrets
@@ -588,12 +618,18 @@ importers:
       '@hmedic/database':
         specifier: workspace:*
         version: link:../database
+      '@hmedic/jobs':
+        specifier: workspace:*
+        version: link:../jobs
       '@hmedic/kernel':
         specifier: workspace:*
         version: link:../kernel
       '@hmedic/secrets':
         specifier: workspace:*
         version: link:../secrets
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
     devDependencies:
       '@hmedic/config':
         specifier: workspace:*
