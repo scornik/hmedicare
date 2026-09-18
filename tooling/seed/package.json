@@ -1,0 +1,30 @@
+{
+  "name": "@hmedic/seed",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Idempotent synthetic seed (SEED-DATA.md, Stage 4 subset)",
+  "main": "./dist/main.js",
+  "exports": {
+    ".": {
+      "development": "./src/seed.ts",
+      "types": "./dist/seed.d.ts",
+      "default": "./dist/seed.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
+    "seed": "tsc -b && node dist/main.js",
+    "seed:verify": "tsc -b && node dist/main.js --verify"
+  },
+  "dependencies": {
+    "@hmedic/audit": "workspace:*",
+    "@hmedic/config": "workspace:*",
+    "@hmedic/database": "workspace:*",
+    "@hmedic/identity-access": "workspace:*",
+    "@hmedic/kernel": "workspace:*",
+    "@hmedic/provider-credentials": "workspace:*",
+    "@hmedic/secrets": "workspace:*",
+    "@hmedic/tenant-org": "workspace:*"
+  }
+}
