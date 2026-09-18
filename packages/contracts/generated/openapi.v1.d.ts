@@ -659,8 +659,8 @@ export interface components {
             refreshToken?: string;
         };
         ResponseMeta: {
-            /** @enum {boolean} */
-            replayed?: true;
+            /** @description true when this response is an idempotent replay */
+            replayed?: boolean;
             /**
              * Format: uuid
              * @example 01a0b422-fd6f-7480-8586-444e7fc66080

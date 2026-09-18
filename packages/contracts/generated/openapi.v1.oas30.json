@@ -856,9 +856,7 @@
       "ResponseMeta": {
         "properties": {
           "replayed": {
-            "enum": [
-              true
-            ],
+            "description": "true when this response is an idempotent replay",
             "type": "boolean"
           },
           "requestId": {

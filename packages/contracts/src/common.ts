@@ -99,7 +99,13 @@ export const ProblemDetails = registry.register(
 
 export const ResponseMeta = registry.register(
   'ResponseMeta',
-  z.object({ requestId: Uuid, replayed: z.literal(true).optional() }),
+  z.object({
+    requestId: Uuid,
+    replayed: z
+      .boolean()
+      .optional()
+      .openapi({ description: 'true when this response is an idempotent replay' }),
+  }),
 );
 
 /** `{ data, meta }` success envelope. */
