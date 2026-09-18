@@ -8,7 +8,7 @@
 
 ```text
 mobile/
-  pubspec.yaml                 # name: hm_workspace; environment sdk ^3.9.0; workspace: [apps/*, packages/*]; melos: scripts
+  pubspec.yaml                 # name: hm_workspace; environment sdk ^3.12.0 (Flutter 3.44.8); workspace: [apps/*, packages/*]; melos: scripts
   .fvmrc                       # Flutter stable pinned at MOB-001
   apps/doctor_app/             # resolution: workspace
   apps/patient_app/

@@ -65,14 +65,16 @@
 
 | Area | Decision | Version policy |
 |---|---|---|
-| Framework | Flutter stable, pinned with FVM in `mobile/.fvmrc` | Pinned at MOB-001 to the newest stable bundling Dart ≥ 3.9 |
-| Workspace | Melos 8.7.0 + pub workspaces (`mobile/pubspec.yaml` root with `workspace:` list; each package `resolution: workspace`) | exact |
-| State | Riverpod 3 | exact at MOB-001 |
-| HTTP | Dio 5 + generated Retrofit client | exact |
+| Framework | Flutter stable, pinned with FVM in `mobile/.fvmrc` | **Flutter 3.44.8 / Dart 3.12.2** (MOB-001); packages declare `sdk: ^3.12.0` |
+| Workspace | Melos 8.7.0 + pub workspaces (`mobile/pubspec.yaml` root with `workspace:` list; each package `resolution: workspace`). Melos is a pinned root dev dependency run as `dart run melos` | `melos@8.7.0` |
+| State | Riverpod 3 | `flutter_riverpod@3.4.3` |
+| HTTP | Dio 5 + generated Retrofit client | `dio@5.11.1`, `retrofit@4.10.0`, `json_annotation@4.12.0`; codegen (dev) `retrofit_generator@10.2.9`, `json_serializable@6.14.1`, `build_runner@2.15.1` (2.16 needs a `meta` newer than Flutter 3.44 pins) |
 | OpenAPI client generator | **`swagger_parser` 1.44.3** consuming `openapi.v1.oas30.json` (3.0.3), with `json_serializable` + `retrofit` + `build_runner` | Verified locally: generation and `dart analyze` clean for 3.0.3 and 3.1.0 inputs (HOSTING-VERIFICATION §4) |
-| Local store | Drift (SQLite), encrypted DB key in secure storage | exact |
-| Navigation | GoRouter | exact |
-| Secure storage | `flutter_secure_storage` | exact |
+| Local store | Drift (SQLite), encrypted DB key in secure storage | exact at MOB-002 (`hm_offline` is not part of the Stage 4 shell) |
+| Navigation | GoRouter | `go_router@17.5.0` (18.x depends on the unbundled `material_ui`/`cupertino_ui` packages, which need a newer Flutter than 3.44.8) |
+| Secure storage | `flutter_secure_storage` | `flutter_secure_storage@11.2.0` |
+| Lints (dev) | `flutter_lints` | `flutter_lints@6.0.0` |
+| Mobile license scan (Stage 4) | `node scripts/mobile-license-scan.mjs` over `mobile/pubspec.lock` + pub cache LICENSE files; permissive only | in-repo |
 | Payment browser (Stage 3.2) | `flutter_custom_tabs` (Android Custom Tabs / iOS SFSafariViewController); Android App Links / iOS Universal Links for `https://app.<domain>/payments/result/*` | exact at MOB-005 |
 | Auth transport | Bearer access and refresh tokens in secure storage; no cookies | — |
 

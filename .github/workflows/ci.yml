@@ -213,14 +213,18 @@ jobs:
         with:
           flutter-version-file: mobile/.fvmrc
           channel: stable
-      - run: dart pub global activate melos 8.7.0
-      - run: melos bootstrap
-      - name: generated Dart API client is up to date
+      # Melos 8.7.0 is a pinned dev dependency of the workspace root (pubspec.lock), run via `dart run melos`.
+      - run: flutter pub get --enforce-lockfile
+      - name: generated Dart API client is up to date (incl. deleted/added files)
         run: |
-          melos run generate:api
-          git diff --exit-code -- packages/hm_api/lib/generated
-      - run: melos run analyze
-      - run: melos run test
+          dart run melos run generate:api
+          test -z "$(git status --porcelain -- packages/hm_api/lib/generated)"
+      - run: dart run melos run format:check
+      - run: dart run melos run analyze
+      - run: dart run melos run test
+      - name: mobile dependency licenses
+        working-directory: .
+        run: node scripts/mobile-license-scan.mjs
 
   build:
     needs: [static, unit, integration, contracts]
