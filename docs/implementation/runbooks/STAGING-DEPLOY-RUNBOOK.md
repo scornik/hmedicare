@@ -31,7 +31,7 @@
 2. **Migrations.** The api build runs `pnpm db:migrate` (guarded, `GET_LOCK`). On staging, a pre-migration dump is confirmed manually until OPS-002 (deviation D-01):
    - hPanel → *Databases → phpMyAdmin / Backups*: export `…_hmedic_staging`;
    - set `PRE_MIGRATION_DUMP_CONFIRMED=<APP_VERSION>` on the api app for this deploy only.
-3. Fast-forward `staging` to the green commit (promotion workflow or `git push origin <sha>:staging` by a maintainer).
+3. Fast-forward `staging` to the green commit. Use the **`promote-staging`** workflow (*Actions → promote-staging → Run*, optional `sha`); it needs the repository variables `STAGING_API_URL`, `STAGING_WORKER_URL` and `STAGING_WEB_URL` and a `staging` environment. It refuses non-green or non-`main` SHAs and never force-pushes. It then waits until `/health/live` reports `version == SHA`. The build writes `dist/build-info.json` from `git rev-parse HEAD`. If the Hostinger build has no git metadata, set `APP_VERSION=<sha>` in hPanel for that deploy. Finally it runs the Stage 4 smoke checks and opens an issue on failure.
 4. Watch the build logs:
    - `MIGRATION_SKIPPED` / `MIGRATION_APPLIED` JSON lines;
    - exit code 3 (`MIGRATION_LOCKED`) or 4 (`PRE_MIGRATION_DUMP_REQUIRED`) means the deploy stopped safely and the previous version keeps serving.

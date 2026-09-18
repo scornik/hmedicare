@@ -1,0 +1,91 @@
+# promote-staging (CI-CD.md §5.1). Manual dispatch only. Fast-forwards `staging` to a green `main` SHA;
+# Hostinger then builds the staging apps (guarded migrations run in the build, DEPLOYMENT §4). This workflow
+# never touches `production`. Repository variables: STAGING_API_URL, STAGING_WORKER_URL, STAGING_WEB_URL.
+name: promote-staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'main commit to promote (default: current main head)'
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-staging
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-24.04
+    environment: staging
+    permissions:
+      contents: write # push the staging branch
+      checks: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: resolve SHA (must be on main)
+        id: sha
+        run: |
+          set -euo pipefail
+          sha="${{ inputs.sha }}"
+          [ -n "$sha" ] || sha="$(git rev-parse origin/main)"
+          sha="$(git rev-parse --verify "$sha^{commit}")"
+          git merge-base --is-ancestor "$sha" origin/main || { echo "::error::$sha is not on main"; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - name: 1. main SHA has green checks
+        run: |
+          set -euo pipefail
+          runs="$(gh api "repos/${{ github.repository }}/commits/${{ steps.sha.outputs.sha }}/check-runs?per_page=100" \
+            --jq '[.check_runs[] | select(.app.slug == "github-actions")]')"
+          total="$(jq 'length' <<<"$runs")"
+          bad="$(jq '[.[] | select(.conclusion != "success" and .conclusion != "skipped")] | length' <<<"$runs")"
+          [ "$total" -gt 0 ] || { echo "::error::no CI check runs for this SHA"; exit 1; }
+          [ "$bad" -eq 0 ] || { echo "::error::$bad check run(s) not green"; exit 1; }
+      - name: 2. fast-forward staging (never force)
+        run: |
+          set -euo pipefail
+          sha="${{ steps.sha.outputs.sha }}"
+          if git rev-parse --verify -q origin/staging >/dev/null; then
+            git merge-base --is-ancestor origin/staging "$sha" || { echo "::error::staging is not an ancestor of $sha (no fast-forward)"; exit 1; }
+          fi
+          git push origin "$sha:refs/heads/staging"
+      - name: 3-4. wait for Hostinger build; /health/live version == SHA and /health/ready not 503 (20 min)
+        run: |
+          set -euo pipefail
+          sha="${{ steps.sha.outputs.sha }}"
+          deadline=$(( $(date +%s) + 1200 ))
+          for url in "${{ vars.STAGING_API_URL }}" "${{ vars.STAGING_WORKER_URL }}"; do
+            until body="$(curl -fsS --max-time 10 "$url/health/live" 2>/dev/null)" \
+                && [ "$(jq -r '.version // empty' <<<"$body")" = "$sha" ] \
+                && curl -fsS --max-time 10 "$url/health/ready" >/dev/null 2>&1; do
+              [ "$(date +%s)" -lt "$deadline" ] || { echo "::error::$url did not reach $sha"; exit 1; }
+              sleep 20
+            done
+            echo "$url ready at $sha"
+          done
+      - name: 5. staging smoke (Stage 4 subset)
+        run: |
+          set -euo pipefail
+          api="${{ vars.STAGING_API_URL }}"; web="${{ vars.STAGING_WEB_URL }}"
+          # API is up and ready; auth routes answer with ProblemDetails (no credentials are used here).
+          [ "$(curl -fsS "$api/health/ready" | jq -r .status)" = "ready" ]
+          code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$api/api/v1/auth/session/refresh" -H 'content-type: application/json' -d '{}')"
+          [ "$code" = "401" ] || [ "$code" = "403" ] || { echo "::error::refresh without credentials returned $code"; exit 1; }
+          # Web: SPA deep link served with the security headers (HOST-012).
+          headers="$(curl -fsSI "$web/dashboard")"
+          grep -qi '^content-security-policy:' <<<"$headers"
+          grep -qi '^strict-transport-security:' <<<"$headers"
+          # The login flows with synthetic accounts (tests/smoke) arrive with the Stage 5 clinical flows.
+      - name: 6. open an incident issue on failure
+        if: failure()
+        run: |
+          gh issue create --title "promote-staging failed for ${{ steps.sha.outputs.sha || inputs.sha }}" \
+            --body "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. If the Hostinger build succeeded but smoke failed, promote a revert commit (CI-CD §5.1 step 6)."

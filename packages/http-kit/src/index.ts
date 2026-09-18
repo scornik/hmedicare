@@ -13,3 +13,4 @@ export * from './job-composition';
 export * from './migrations';
 export * from './cookies';
 export * from './sms-provider';
+export * from './build-info';

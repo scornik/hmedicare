@@ -1,12 +1,13 @@
 import 'reflect-metadata';
 import { ConfigError, type ServerConfig, loadConfig } from '@hmedic/config';
-import { recordAppliedMigrations, runGuardedMigrationsSync } from '@hmedic/http-kit';
+import { applyBuildInfo, recordAppliedMigrations, runGuardedMigrationsSync } from '@hmedic/http-kit';
 import { buildWorker } from './compose';
 
 /** Entry point (Hostinger Node app `worker.<domain>`). */
 async function main(): Promise<void> {
   let config: ServerConfig;
   try {
+    applyBuildInfo(__dirname);
     config = loadConfig<ServerConfig>('worker');
   } catch (error) {
     if (error instanceof ConfigError) {
