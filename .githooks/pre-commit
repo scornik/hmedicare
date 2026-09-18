@@ -1,0 +1,18 @@
+#!/bin/sh
+# Pre-commit: format check and lint of staged files, then a secret scan (Stage 4 §4.1).
+# Enable once per clone with: pnpm hooks:install
+set -e
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$STAGED" ] && exit 0
+
+FORMAT_FILES=$(echo "$STAGED" | grep -E '\.(ts|tsx|mts|cts|js|mjs|cjs|json|ya?ml|css)$' || true)
+if [ -n "$FORMAT_FILES" ]; then
+  echo "$FORMAT_FILES" | xargs pnpm exec prettier --check --ignore-unknown
+fi
+
+LINT_FILES=$(echo "$STAGED" | grep -E '\.(ts|tsx|mts|js|mjs|cjs)$' || true)
+if [ -n "$LINT_FILES" ]; then
+  echo "$LINT_FILES" | xargs pnpm exec eslint --max-warnings=0 --no-warn-ignored
+fi
+
+node scripts/secrets-scan.mjs --staged

@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "allowJs": true,
+    "customConditions": ["development"]
+  },
+  "include": ["apps", "packages", "tooling", "tests"]
+}

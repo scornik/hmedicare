@@ -49,3 +49,6 @@ Thumbs.db
 
 # Host probe results pasted locally before recording
 host-results*.json
+
+# Architecture fixtures need a fake node_modules tree to exercise vendor rules
+!tests/architecture/fixtures/node_modules/

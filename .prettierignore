@@ -1,0 +1,17 @@
+node_modules
+dist
+coverage
+.turbo
+pnpm-lock.yaml
+docs/
+teardown/
+tools/
+reference-repos/
+hmedic/
+mobile/
+packages/contracts/generated/
+packages/database/src/generated/
+packages/database/prisma/migrations/
+playwright-report/
+test-results/
+*.md

@@ -1,0 +1,20 @@
+{
+  "name": "@hmedic/jobs",
+  "version": "0.0.0",
+  "private": true,
+  "description": "JobPort, runner, claimers, outbox publisher, idempotency, rate limits",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {}
+}

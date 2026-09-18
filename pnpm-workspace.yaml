@@ -1,0 +1,13 @@
+packages:
+  - apps/*
+  - packages/*
+  - packages/*-adapters/*
+  - tooling/*
+# mobile/ (Dart/Melos) and tools/ (standalone Stage M tool) are intentionally not members.
+
+# Supply-chain hardening: never run arbitrary install scripts; only allow-listed native builds.
+onlyBuiltDependencies:
+  - argon2
+  - '@prisma/engines'
+  - prisma
+  - esbuild

@@ -1,0 +1,10 @@
+{
+  "name": "eslint-plugin-hmedic",
+  "version": "0.0.0",
+  "private": true,
+  "description": "In-repo ESLint rules that encode HMedic build-contract rules (TECHNOLOGY-STACK.md §5)",
+  "main": "./index.cjs",
+  "exports": {
+    ".": "./index.cjs"
+  }
+}

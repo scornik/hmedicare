@@ -1,0 +1,25 @@
+{
+  "name": "@hmedic/timeline",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Stage 5+: timeline projection",
+  "main": "./dist/public/index.js",
+  "types": "./dist/public/index.d.ts",
+  "exports": {
+    ".": {
+      "development": "./src/public/index.ts",
+      "types": "./dist/public/index.d.ts",
+      "default": "./dist/public/index.js"
+    },
+    "./nest": {
+      "development": "./src/nest/index.ts",
+      "types": "./dist/nest/index.d.ts",
+      "default": "./dist/nest/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {}
+}
