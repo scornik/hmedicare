@@ -49,7 +49,7 @@
 
 ## 4. Metrics
 
-- **Endpoint:** `GET /internal/metrics` on api and worker, protected by `Bearer INTERNAL_METRICS_TOKEN`, in Prometheus text exposition format (`prom-client`, pinned at FOUND-008).
+- **Endpoint:** `GET /internal/metrics` on api and worker, protected by `Bearer INTERNAL_METRICS_TOKEN`, in Prometheus text exposition format (`prom-client@15.1.3`, pinned at FOUND-008).
 - **Collection:** no scraper runs on Hostinger. Metrics are pulled by an external monitor (external decision), or pushed as OTLP metrics when `OTEL_ENABLED=true`.
 
 | Metric | Type | Labels |

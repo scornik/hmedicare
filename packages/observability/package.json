@@ -16,5 +16,8 @@
     "build": "tsc -b",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
   },
-  "dependencies": {}
+  "dependencies": {
+    "pino": "10.3.1",
+    "prom-client": "15.1.3"
+  }
 }
