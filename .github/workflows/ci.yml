@@ -1,0 +1,244 @@
+# CI (CI-CD.md §3). Every action is pinned by full commit SHA (tag in the comment). No deploy steps here:
+# Hostinger builds from protected branches, and nothing in CI ever pushes to `production`.
+# No provider credentials exist in GitHub secrets; SMS runs with the mock (the live smoke aborts on CI=true).
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: 'true'
+  SMS_PROVIDER: mock
+  ZAMANIT_LIVE_SMOKE: 'false'
+  TURBO_TELEMETRY_DISABLED: '1'
+  PRISMA_HIDE_UPDATE_MESSAGE: '1'
+
+jobs:
+  install:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm install --frozen-lockfile
+
+  static:
+    needs: install
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm install --frozen-lockfile
+      - name: format
+        run: pnpm format:check
+      - name: lint
+        run: pnpm lint
+      - name: typecheck
+        run: pnpm typecheck
+      - name: dependency rules (depcruise)
+        run: pnpm depcruise
+      - name: architecture rule fixtures
+        run: pnpm test:architecture
+      - name: migration lint + applied-migration immutability
+        run: |
+          pnpm --filter @hmedic/database run db:migration:lint
+          BASE_REF=origin/main node scripts/ci/check-applied-migrations.mjs
+
+  unit:
+    needs: install
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm install --frozen-lockfile
+      - name: unit (incl. authorization-matrix doc parity, SMS adapter contract vs mock-providers)
+        run: pnpm test:unit
+
+  integration:
+    needs: install
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # Supported MariaDB series (ADR-014: 10.6 floor; 11.4 also tested). Digests pinned.
+        image:
+          - mariadb:10.6@sha256:40153feb479c0da88b5cfe3f50f44c91f7baf05a1b7bcc5beb7eb37a890a8f16
+          - mariadb:11.4@sha256:70cc072b29b4a89ae07abb2d4da2c64678a7f2dfe092751bb51c87d67dc1338b
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm install --frozen-lockfile
+      - name: integration + security (migrations from clean, engine contract, jobs, auth, tenant isolation, secrets)
+        env:
+          MARIADB_IMAGES: ${{ matrix.image }}
+        run: pnpm test:integration
+
+  contracts:
+    needs: install
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
+      - run: pnpm install --frozen-lockfile
+      - name: OpenAPI 3.1 + 3.0 up to date, operationIds, money lint, TS client types
+        run: pnpm openapi:check
+      - name: TS client compiles
+        run: pnpm --filter @hmedic/contracts run build
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: openapi
+          path: packages/contracts/generated/
+          retention-days: 30
+
+  security-static:
+    needs: install
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
+      - run: pnpm install --frozen-lockfile
+      - name: repository secrets scan (provider keys, sandbox values, real BD phones)
+        run: pnpm secrets:scan
+      - name: gitleaks (pinned version; checksum verified against the release manifest)
+        env:
+          GITLEAKS_VERSION: 8.30.1
+        run: |
+          set -euo pipefail
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          curl -fsSLO "${base}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSLO "${base}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          grep " gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\$" "gitleaks_${GITLEAKS_VERSION}_checksums.txt" | sha256sum -c -
+          tar -xzf "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" gitleaks
+          ./gitleaks git --redact --no-banner --exit-code 1 .
+      - name: license allow-list
+        run: pnpm license:scan
+      - name: dependency audit (production, high+)
+        run: pnpm audit --prod --audit-level high
+      - name: SBOM (CycloneDX, workspace)
+        run: pnpm dlx @cyclonedx/cdxgen@12.8.4 -t js --required-only -o sbom.cdx.json .
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom
+          path: sbom.cdx.json
+          retention-days: 90
+
+  osv:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
+        with:
+          scan-args: |-
+            --lockfile=pnpm-lock.yaml
+
+  web:
+    needs: install
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
+      - run: pnpm install --frozen-lockfile
+      - name: web build (VITE_* secret-name check) + component tests
+        run: |
+          pnpm --filter @hmedic/web build
+          pnpm --filter @hmedic/web test
+      - name: Playwright smoke (built app against a mocked API)
+        run: |
+          pnpm --filter @hmedic/web exec playwright install --with-deps chromium
+          pnpm test:e2e
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: web-dist
+          path: apps/web/dist/
+          retention-days: 14
+
+  mobile:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version-file: mobile/.fvmrc
+          channel: stable
+      - run: dart pub global activate melos 8.7.0
+      - run: melos bootstrap
+      - name: generated Dart API client is up to date
+        run: |
+          melos run generate:api
+          git diff --exit-code -- packages/hm_api/lib/generated
+      - run: melos run analyze
+      - run: melos run test
+
+  build:
+    needs: [static, unit, integration, contracts]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
+      - run: pnpm install --frozen-lockfile
+      - name: build api, worker, host-probe
+        run: pnpm exec turbo run build --filter=@hmedic/api... --filter=@hmedic/worker... --filter=@hmedic/host-probe...
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: server-dist
+          path: |
+            apps/api/dist/
+            apps/worker/dist/
+            apps/host-probe/dist/
+          retention-days: 14
