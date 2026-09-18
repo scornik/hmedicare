@@ -3,6 +3,14 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import type { ServerConfig } from '@hmedic/config';
 import type { Database } from '@hmedic/database';
 import {
+  IdentityWriteModule,
+  type IdentityServices,
+  createIdentityServices,
+} from '@hmedic/identity-access/nest';
+import { AuthController, SessionController } from './identity/auth.controller';
+import { DevInboxController } from './identity/dev-inbox.controller';
+import { MeController } from './identity/me.controller';
+import {
   HttpKitModule,
   type HttpRuntime,
   type JobComposition,
@@ -17,11 +25,21 @@ import {
  */
 @Module({})
 export class ApiModule {
-  static forRoot(runtime: HttpRuntime): DynamicModule {
+  static forRoot(runtime: HttpRuntime, identity: IdentityServices): DynamicModule {
     const mode = runtime.config.JOB_RUNNER_MODE;
+    const devInbox = identity.mockOtp !== null || identity.mockReset !== null;
     return {
       module: ApiModule,
-      imports: [HttpKitModule.forRoot(runtime, { jobsEndpoint: mode === 'embedded' || mode === 'cron' })],
+      imports: [
+        HttpKitModule.forRoot(runtime, { jobsEndpoint: mode === 'embedded' || mode === 'cron' }),
+        IdentityWriteModule.forRoot(identity),
+      ],
+      controllers: [
+        AuthController,
+        SessionController,
+        MeController,
+        ...(devInbox ? [DevInboxController] : []),
+      ],
     };
   }
 }
@@ -29,6 +47,7 @@ export class ApiModule {
 export interface ApiInstance {
   app: NestFastifyApplication;
   runtime: HttpRuntime;
+  identity: IdentityServices;
   jobs: JobComposition | null;
   close(): Promise<void>;
 }
@@ -43,12 +62,14 @@ export async function buildApi(
   const jobs =
     config.JOB_RUNNER_MODE === 'embedded' || config.JOB_RUNNER_MODE === 'cron' ? composeJobs(runtime) : null;
   runtime.runnerLoop = jobs?.loop ?? null;
-  const app = await createHttpApp(ApiModule.forRoot(runtime), runtime, { cors: true });
+  const identity = createIdentityServices(runtime);
+  const app = await createHttpApp(ApiModule.forRoot(runtime, identity), runtime, { cors: true });
   if (config.JOB_RUNNER_MODE === 'embedded') jobs?.loop.start();
   let closed = false;
   return {
     app,
     runtime,
+    identity,
     jobs,
     async close() {
       if (closed) return;

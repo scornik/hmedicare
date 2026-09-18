@@ -1,7 +1,12 @@
 import type { FastifyRequest } from 'fastify';
+import type { ActorContext, PlatformContext, TenantContext } from '@hmedic/kernel';
 
 /** Per-request state set by the HTTP layer and later by the auth guards (identity-access). */
 export interface HmRequestState {
+  /** Set by the identity AuthGuard after bearer authentication. */
+  actor?: ActorContext;
+  tenant?: TenantContext;
+  platform?: PlatformContext;
   /** Resolved tenant (after membership validation), null for platform/public routes. */
   tenantId?: string | null;
   actorUserId?: string | null;

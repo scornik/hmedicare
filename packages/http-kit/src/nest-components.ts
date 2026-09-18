@@ -18,7 +18,7 @@ import { type Observable, catchError, from, map, mergeMap, of, throwError } from
 import { AppError } from '@hmedic/kernel';
 import { withTransaction } from '@hmedic/database';
 import { IDEMPOTENCY_KEY_RE, isIdempotencyConflict, requestHash } from '@hmedic/jobs';
-import { IDEMPOTENT, RATE_LIMITS, RAW_RESPONSE, type RouteRateLimit } from './decorators';
+import { IDEMPOTENT, IDEMPOTENT_REPLAY, RATE_LIMITS, RAW_RESPONSE, type RouteRateLimit } from './decorators';
 import { sendProblem } from './fastify-hooks';
 import { hmState, routeTemplate, setResponseStatus } from './request';
 import { HTTP_RUNTIME, type HttpRuntime } from './runtime';
@@ -110,10 +110,14 @@ export class IdempotencyInterceptor implements NestInterceptor {
     };
     const store = this.runtime.idempotency;
     const status = defaultStatus(this.reflector, context, request.method);
+    const refuseReplay =
+      this.reflector.get<'snapshot' | 'refuse' | undefined>(IDEMPOTENT_REPLAY, context.getHandler()) ===
+      'refuse';
 
     return from(store.lookup(scope)).pipe(
       mergeMap((found) => {
         if (found.state === 'REPLAY') {
+          if (refuseReplay) throw new AppError('IDEMPOTENCY_KEY_REUSED', 'idempotency.not_replayable');
           state.replayed = true;
           setResponseStatus(request, found.response.status);
           void reply.header('idempotent-replayed', 'true');
@@ -132,7 +136,12 @@ export class IdempotencyInterceptor implements NestInterceptor {
               mergeMap((body: unknown) =>
                 from(
                   (async () => {
-                    if (!state.idempotency?.completedInTx) await store.complete(recordId, { status, body });
+                    if (!state.idempotency?.completedInTx) {
+                      await store.complete(recordId, {
+                        status,
+                        body: refuseReplay ? { notReplayable: true } : body,
+                      });
+                    }
                     return body;
                   })(),
                 ),

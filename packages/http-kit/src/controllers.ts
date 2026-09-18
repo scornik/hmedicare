@@ -1,7 +1,7 @@
 import { Controller, Get, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ping } from '@hmedic/database';
-import { RawResponse } from './decorators';
+import { Public, RawResponse } from './decorators';
 import { InternalToken } from './internal-token';
 import { setResponseStatus } from './request';
 import { HTTP_RUNTIME, type HttpRuntime } from './runtime';
@@ -21,6 +21,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Pro
 }
 
 /** `GET /health/live` and `GET /health/ready` (API-IMPLEMENTATION §3.1). Bodies carry no secrets or PHI. */
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(@Inject(HTTP_RUNTIME) private readonly runtime: HttpRuntime) {}
@@ -58,6 +59,7 @@ export class HealthController {
 }
 
 /** `GET /internal/metrics` (Prometheus text; bearer INTERNAL_METRICS_TOKEN). */
+@Public()
 @Controller('internal')
 export class InternalMetricsController {
   constructor(@Inject(HTTP_RUNTIME) private readonly runtime: HttpRuntime) {}
@@ -75,6 +77,7 @@ export class InternalMetricsController {
  * `POST /internal/jobs/run` (cron kick, ADR-015 §7): one bounded batch under the singleton lock. `202`
  * with `skipped: runner_active` when another runner holds it (the request still keeps the process warm).
  */
+@Public()
 @Controller('internal/jobs')
 export class InternalJobsController {
   constructor(@Inject(HTTP_RUNTIME) private readonly runtime: HttpRuntime) {}

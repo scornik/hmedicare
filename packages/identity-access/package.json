@@ -24,12 +24,18 @@
   "dependencies": {
     "@hmedic/audit": "workspace:*",
     "@hmedic/database": "workspace:*",
+    "@hmedic/http-kit": "workspace:*",
     "@hmedic/jobs": "workspace:*",
     "@hmedic/kernel": "workspace:*",
     "@hmedic/localization": "workspace:*",
     "@hmedic/observability": "workspace:*",
+    "@nestjs/common": "11.2.5",
+    "@nestjs/core": "11.2.5",
     "argon2": "0.45.1",
-    "jose": "6.2.12"
+    "fastify": "5.11.3",
+    "jose": "6.2.12",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
   },
   "devDependencies": {
     "@hmedic/config": "workspace:*"
