@@ -80,10 +80,21 @@ describe('hmedic/no-get-provider-call', () => {
 
 describe('hmedic/no-tls-disable', () => {
   tester.run('no-tls-disable', plugin.rules['no-tls-disable'], {
-    valid: ['new Agent({ rejectUnauthorized: true });'],
+    valid: [
+      'new Agent({ rejectUnauthorized: true });',
+      // Reading the variable to refuse startup is the enforcement (packages/config).
+      "if (env.NODE_TLS_REJECT_UNAUTHORIZED === '0') throw new Error('refused');",
+    ],
     invalid: [
       { code: 'new Agent({ rejectUnauthorized: false });', errors: [{ messageId: 'reject' }] },
       { code: "process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';", errors: [{ messageId: 'env' }] },
+      { code: "process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';", errors: [{ messageId: 'env' }] },
+      { code: 'delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;', errors: [{ messageId: 'env' }] },
+      { code: "spawn(cmd, { env: { NODE_TLS_REJECT_UNAUTHORIZED: '0' } });", errors: [{ messageId: 'env' }] },
+      {
+        code: "Object.assign(process.env, { NODE_TLS_REJECT_UNAUTHORIZED: '0' });",
+        errors: [{ messageId: 'env' }],
+      },
     ],
   });
 });

@@ -166,21 +166,51 @@ importers:
 
   .:
     devDependencies:
+      '@hmedic/api':
+        specifier: workspace:*
+        version: link:apps/api
+      '@hmedic/communication':
+        specifier: workspace:*
+        version: link:packages/communication
+      '@hmedic/communication-adapters-zamanit':
+        specifier: workspace:*
+        version: link:packages/communication-adapters/zamanit
       '@hmedic/config':
         specifier: workspace:*
         version: link:packages/config
       '@hmedic/database':
         specifier: workspace:*
         version: link:packages/database
+      '@hmedic/identity-access':
+        specifier: workspace:*
+        version: link:packages/identity-access
+      '@hmedic/jobs':
+        specifier: workspace:*
+        version: link:packages/jobs
       '@hmedic/kernel':
         specifier: workspace:*
         version: link:packages/kernel
+      '@hmedic/observability':
+        specifier: workspace:*
+        version: link:packages/observability
+      '@hmedic/provider-credentials':
+        specifier: workspace:*
+        version: link:packages/provider-credentials
+      '@hmedic/tenant-org':
+        specifier: workspace:*
+        version: link:packages/tenant-org
+      '@hmedic/worker':
+        specifier: workspace:*
+        version: link:apps/worker
       '@testcontainers/mariadb':
         specifier: 12.1.0
         version: 12.1.0(supports-color@7.2.0)
       '@types/node':
         specifier: 24.13.5
         version: 24.13.5
+      '@types/supertest':
+        specifier: 7.2.1
+        version: 7.2.1
       '@vitest/coverage-v8':
         specifier: 5.0.1
         version: 5.0.1(vitest@5.0.1)
@@ -199,6 +229,9 @@ importers:
       prettier:
         specifier: 3.9.7
         version: 3.9.7
+      supertest:
+        specifier: 7.2.2
+        version: 7.2.2(supports-color@7.2.0)
       testcontainers:
         specifier: 12.1.0
         version: 12.1.0(supports-color@7.2.0)
@@ -293,6 +326,18 @@ importers:
       supertest:
         specifier: 7.2.2
         version: 7.2.2(supports-color@7.2.0)
+
+  apps/host-probe:
+    dependencies:
+      '@hmedic/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      argon2:
+        specifier: 0.45.1
+        version: 0.45.1
+      mariadb:
+        specifier: 3.5.4
+        version: 3.5.4
 
   apps/worker:
     dependencies:
@@ -691,6 +736,33 @@ importers:
   packages/timeline: {}
 
   tooling/eslint-plugin-hmedic: {}
+
+  tooling/seed:
+    dependencies:
+      '@hmedic/audit':
+        specifier: workspace:*
+        version: link:../../packages/audit
+      '@hmedic/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@hmedic/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@hmedic/identity-access':
+        specifier: workspace:*
+        version: link:../../packages/identity-access
+      '@hmedic/kernel':
+        specifier: workspace:*
+        version: link:../../packages/kernel
+      '@hmedic/provider-credentials':
+        specifier: workspace:*
+        version: link:../../packages/provider-credentials
+      '@hmedic/secrets':
+        specifier: workspace:*
+        version: link:../../packages/secrets
+      '@hmedic/tenant-org':
+        specifier: workspace:*
+        version: link:../../packages/tenant-org
 
 packages:
 

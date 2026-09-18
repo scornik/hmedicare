@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false,
+    "noEmit": true,
+    "rootDir": "..",
+    "types": ["node"],
+    "customConditions": ["development"]
+  },
+  "include": ["security/**/*.ts", "support/**/*.ts"]
+}

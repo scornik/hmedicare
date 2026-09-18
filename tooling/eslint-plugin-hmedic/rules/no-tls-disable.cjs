@@ -12,7 +12,7 @@ module.exports = {
   },
   create(context) {
     return {
-      Property(node) {
+      'Property[key.name="rejectUnauthorized"], Property[key.value="rejectUnauthorized"]'(node) {
         let key = null;
         if (node.key.type === 'Identifier') key = node.key.name;
         else if (node.key.type === 'Literal') key = node.key.value;
@@ -20,13 +20,30 @@ module.exports = {
           context.report({ node, messageId: 'reject' });
         }
       },
+      // Writing the variable (assignment, delete, or an env object literal that sets it) is forbidden;
+      // reading it to refuse startup is the enforcement itself (packages/config).
       MemberExpression(node) {
-        if (node.property.type === 'Identifier' && node.property.name === 'NODE_TLS_REJECT_UNAUTHORIZED') {
-          context.report({ node, messageId: 'env' });
-        }
+        const name =
+          node.property.type === 'Identifier' && !node.computed
+            ? node.property.name
+            : node.property.type === 'Literal'
+              ? node.property.value
+              : null;
+        if (name !== 'NODE_TLS_REJECT_UNAUTHORIZED') return;
+        const parent = node.parent;
+        const written =
+          (parent.type === 'AssignmentExpression' && parent.left === node) ||
+          (parent.type === 'UnaryExpression' && parent.operator === 'delete');
+        if (written) context.report({ node, messageId: 'env' });
       },
-      Literal(node) {
-        if (node.value === 'NODE_TLS_REJECT_UNAUTHORIZED') context.report({ node, messageId: 'env' });
+      Property(node) {
+        const key =
+          node.key.type === 'Identifier'
+            ? node.key.name
+            : node.key.type === 'Literal'
+              ? node.key.value
+              : null;
+        if (key === 'NODE_TLS_REJECT_UNAUTHORIZED') context.report({ node, messageId: 'env' });
       },
     };
   },

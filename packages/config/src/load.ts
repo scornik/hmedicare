@@ -40,6 +40,11 @@ function crossChecks(env: Env, appEnv: AppEnv, app: AppName): string[] {
   const problems: string[] = [];
   const deployed = appEnv === 'staging' || appEnv === 'production';
 
+  // TLS verification is never disabled (ADR-018 §2, T27): refuse to start instead of running insecurely.
+  if (env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
+    problems.push('NODE_TLS_REJECT_UNAUTHORIZED: disabling TLS verification is not allowed');
+  }
+
   if (deployed) {
     for (const [name, isSet] of Object.entries(LOCAL_ONLY)) {
       const value = env[name];

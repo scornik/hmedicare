@@ -21,7 +21,8 @@ export default defineConfig({
             'packages/**/src/**/*.test.ts',
             'packages/**/test/unit/**/*.test.ts',
             'apps/*/test/unit/**/*.test.ts',
-            'tooling/**/test/**/*.test.ts',
+            'tooling/**/test/unit/**/*.test.ts',
+            'tooling/eslint-plugin-hmedic/test/**/*.test.ts',
             'scripts/**/*.test.ts',
           ],
           exclude: ['**/node_modules/**', '**/dist/**'],
@@ -32,7 +33,11 @@ export default defineConfig({
         test: {
           name: 'integration',
           environment: 'node',
-          include: ['packages/**/test/integration/**/*.test.ts', 'apps/*/test/integration/**/*.test.ts'],
+          include: [
+            'packages/**/test/integration/**/*.test.ts',
+            'apps/*/test/integration/**/*.test.ts',
+            'tooling/*/test/integration/**/*.test.ts',
+          ],
           globalSetup: ['tests/support/mariadb-global-setup.ts'],
           testTimeout: 60_000,
           hookTimeout: 180_000,
