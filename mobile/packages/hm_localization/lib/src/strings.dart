@@ -1,0 +1,71 @@
+import 'package:flutter/widgets.dart';
+
+/// UI strings (bn-BD default, en-BD). Keys must match in both maps (unit test).
+class HmStrings {
+  const HmStrings._(this._m);
+
+  static const Map<String, Map<String, String>> all = {
+    'bn': {
+      'doctorApp': 'এইচমেডিক ডাক্তার',
+      'patientApp': 'এইচমেডিক',
+      'loginTitle': 'লগইন',
+      'email': 'ইমেইল',
+      'password': 'পাসওয়ার্ড',
+      'signIn': 'লগইন করুন',
+      'loginFailed': 'লগইন হয়নি। তথ্য যাচাই করে আবার চেষ্টা করুন।',
+      'phone': 'মোবাইল নম্বর',
+      'invalidPhone': 'সঠিক বাংলাদেশি মোবাইল নম্বর দিন।',
+      'sendCode': 'কোড পাঠান',
+      'resendCode': 'নতুন কোড চান',
+      'code': 'ছয় অঙ্কের কোড',
+      'verify': 'যাচাই করুন',
+      'hintSENT': 'কোড পাঠানো হয়েছে।',
+      'hintRETRY_LATER': 'কোড পাঠানো যায়নি। একটু পরে আবার চেষ্টা করুন।',
+      'hintMAY_ARRIVE': 'কোড না এলে নতুন কোড চান।',
+      'home': 'হোম',
+      'organizations': 'আপনার প্রতিষ্ঠান',
+      'noOrganizations': 'আপনার কোনো সক্রিয় প্রতিষ্ঠান নেই।',
+      'noClinics': 'এখনও কোনো ক্লিনিকের সাথে যুক্ত নন।',
+      'logout': 'লগআউট',
+      'language': 'English',
+      'loading': 'লোড হচ্ছে…',
+      'error': 'কিছু একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।',
+      'offline': 'ইন্টারনেট সংযোগ নেই।',
+    },
+    'en': {
+      'doctorApp': 'HMedic Doctor',
+      'patientApp': 'HMedic',
+      'loginTitle': 'Sign in',
+      'email': 'Email',
+      'password': 'Password',
+      'signIn': 'Sign in',
+      'loginFailed': 'Sign-in failed. Check your details and try again.',
+      'phone': 'Mobile number',
+      'invalidPhone': 'Enter a valid Bangladesh mobile number.',
+      'sendCode': 'Send code',
+      'resendCode': 'Request a new code',
+      'code': '6-digit code',
+      'verify': 'Verify',
+      'hintSENT': 'Code sent.',
+      'hintRETRY_LATER': 'We could not send the code. Please try again later.',
+      'hintMAY_ARRIVE': 'If the code doesn\'t arrive, request a new one.',
+      'home': 'Home',
+      'organizations': 'Your organizations',
+      'noOrganizations': 'You have no active organization.',
+      'noClinics': 'Not linked to any clinic yet.',
+      'logout': 'Sign out',
+      'language': 'বাংলা',
+      'loading': 'Loading…',
+      'error': 'Something went wrong. Please try again.',
+      'offline': 'You are offline.',
+    },
+  };
+
+  final Map<String, String> _m;
+
+  factory HmStrings.forLocale(Locale l) => HmStrings._(all[l.languageCode] ?? all['bn']!);
+
+  static HmStrings of(BuildContext context) => HmStrings.forLocale(Localizations.localeOf(context));
+
+  String t(String key) => _m[key] ?? all['bn']![key] ?? key;
+}

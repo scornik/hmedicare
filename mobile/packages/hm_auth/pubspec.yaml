@@ -1,0 +1,18 @@
+name: hm_auth
+description: OTP/password login, secure token storage, single-flight refresh, logout.
+publish_to: none
+resolution: workspace
+environment:
+  sdk: ^3.12.0
+dependencies:
+  dio: 5.11.1
+  flutter:
+    sdk: flutter
+  flutter_riverpod: 3.4.3
+  flutter_secure_storage: 11.2.0
+  hm_api:
+  hm_core:
+dev_dependencies:
+  flutter_lints: 6.0.0
+  flutter_test:
+    sdk: flutter

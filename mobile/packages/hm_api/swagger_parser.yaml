@@ -1,0 +1,14 @@
+# Consumes the committed OpenAPI 3.0.3 artifact (REPOSITORY-STRUCTURE.md §3 cross-tooling contract).
+swagger_parser:
+  schema_path: ../../../packages/contracts/generated/openapi.v1.oas30.json
+  output_directory: lib/generated
+  name: hm_api
+  language: dart
+  json_serializer: json_serializable
+  root_client: true
+  root_client_name: HmApiClient
+  put_clients_in_folder: true
+  enums_to_json: true
+  unknown_enum_value: true
+  mark_files_as_generated: true
+  original_http_response: false

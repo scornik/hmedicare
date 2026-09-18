@@ -1,0 +1,13 @@
+name: hm_design
+description: HMedic design system (theme, spacing, basic widgets).
+publish_to: none
+resolution: workspace
+environment:
+  sdk: ^3.12.0
+dependencies:
+  flutter:
+    sdk: flutter
+dev_dependencies:
+  flutter_lints: 6.0.0
+  flutter_test:
+    sdk: flutter
