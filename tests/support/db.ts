@@ -60,8 +60,9 @@ export async function truncateAll(): Promise<void> {
   const conn = await rawConnection();
   try {
     for (const t of TABLES) await conn.query(`DELETE FROM \`${t}\``);
-    // patients has a self-referencing composite FK (merged_into_patient_id): clear it before deleting.
-    await conn.query('UPDATE patients SET merged_into_patient_id = NULL');
+    // patients has a self-referencing composite FK (merged_into_patient_id) and a CHECK that MERGED rows keep
+    // their pointer: delete the merged sources first, then everything else.
+    await conn.query('DELETE FROM patients WHERE merged_into_patient_id IS NOT NULL');
     await conn.query('DELETE FROM patients');
     await conn.query("UPDATE tenants SET owner_doctor_profile_id = NULL, practice_type = 'GROUP'");
     await conn.query('DELETE FROM doctor_profiles');
