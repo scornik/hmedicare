@@ -15,3 +15,11 @@ allowBuilds:
   cpu-features: false
   ssh2: false
   protobufjs: false
+
+# Security overrides (OSV, Stage 5 CI-000). Each entry pins a patched release of a transitive dependency whose
+# parent still declares the vulnerable version. Remove an override when the parent range moves past it.
+overrides:
+  fastify@5.11.3: 5.12.5 # GHSA-3m5p-2c4r-xxw2, GHSA-w2qp-rph6-63g4 (NestJS 11 platform-fastify pins 5.11.3)
+  mariadb@3.4.5: 3.4.7 # GHSA-42r5-vhpq-m858, GHSA-cqhc-2h57-wpxf, GHSA-g5xc-5w98-jfvm (@prisma/adapter-mariadb 7.10.0)
+  mysql2@3.15.3: 3.24.4 # GHSA-3f6p-5ww8-9rcr, GHSA-rgwj-5xj2-c3m3 (prisma CLI 7.10.0, dev only)
+  deepmerge-ts@7.1.5: 8.0.2 # GHSA-ggr8-5vv4-36mx (@prisma/config 7.10.0, dev only)
