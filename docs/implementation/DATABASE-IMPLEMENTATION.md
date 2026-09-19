@@ -80,8 +80,8 @@
 | 0002 | `identity_tenants` | `tenants`, `users`, `tenant_memberships`, `clinics`, `doctor_profiles`, `staff_profiles`, `doctor_coverages`, `audit_logs`, `outbox_events`, `idempotency_records` |
 | 0003 | `auth_sessions` | `sessions`, `refresh_tokens`, `otp_challenges`, `password_reset_tokens`, `email_verification_tokens`, `push_devices` |
 | 0004 | `patient_identity` | `patients`, `patient_search_tokens` (Stage 5, C-41), `patient_contacts`, `patient_identifiers`, `patient_consents`, `patient_merge_cases`, `patient_accounts`, `patient_guardianships`, `care_team_members` |
-| 0005 | `scheduling` | `chambers` (+ payment modes, Stage 3.2), `doctor_schedule_rules`, `chamber_days`, `appointment_slots`, `appointments` (+ `PENDING_PAYMENT`, hold and waiver columns, Stage 3.2) |
-| 0006 | `queue` | `serials`, `check_ins`, `queue_events` |
+| 0005 | `scheduling` | `chambers` (+ payment modes, Stage 3.2), `doctor_schedule_rules`, `chamber_days`, `appointment_slots`, `appointments` (+ `PENDING_PAYMENT`, hold and waiver columns, Stage 3.2). Created in Stage 5 (`202609191236_0005_scheduling`) |
+| 0006 | `queue` | `serials`, `check_ins`, `queue_events`. Created in Stage 5 (`202609191237_0006_queue`) |
 | 0007 | `encounters` | `encounters`, `encounter_participants`, `encounter_notes`, `encounter_note_versions` |
 | 0008 | `clinical_catalog` | `symptom_observations`, `diagnoses`, `medications`, `medication_generics`, `medication_generic_links`, `medication_manufacturers`, `medication_aliases`, `medication_price_observations`, `medication_usage_stats`, `medication_dataset_imports`, `medication_dataset_gate_attestations`, `patient_medications` (catalog redesigned in Stage 3.2, ADR-020) |
 | 0009 | `prescriptions` | `prescriptions`, `prescription_items` |
@@ -373,7 +373,7 @@ Notation: `FK→t(tenant_id,id)` means a composite tenant FK `(tenant_id, <col>)
 
 **`queue_events`** (append-only, hash-chained per chamber day):
 - `id id36 PK`, `tenant_id`, `chamber_day_id FK→chamber_days(tenant_id,id)`, `serial_id id36 NULL` FK→serials(tenant_id,id) (null for day-level events), `seq INT UNSIGNED` (per chamber day)
-- `event_type code(32)` CHECK `SERIAL_ISSUED|CONFIRMED|CHECKED_IN|REMOTE_READY|WAITING|CALLED|SKIPPED|RECALLED|NO_SHOW|CANCELLED|RESCHEDULED|CONSULTATION_STARTED|COMPLETED|QUEUE_REORDERED|DELAY_RECORDED|DAY_OPENED|DAY_PAUSED|DAY_CLOSED|POLICY_CHANGED|DUPLICATE_OVERRIDE`
+- `event_type code(32)` CHECK `SERIAL_ISSUED|CONFIRMED|CHECKED_IN|REMOTE_READY|WAITING|CALLED|SKIPPED|RECALLED|NO_SHOW|CANCELLED|RESCHEDULED|CONSULTATION_STARTED|COMPLETED|QUEUE_REORDERED|DELAY_RECORDED|DAY_OPENED|DAY_PAUSED|DAY_CLOSED|DAY_CANCELLED|POLICY_CHANGED|DUPLICATE_OVERRIDE` (`DAY_CANCELLED`: Stage 5, the day-level event of `CancelChamberDay`, audit C-43)
 - `from_status code(16) NULL`, `to_status code(16) NULL`, `position_before INT NULL`, `position_after INT NULL`
 - `details json:QueueEventDetails` (e.g. reorder before/after arrays of serial ids; delay minutes; reason code)
 - `reason text(300) NULL`, `actor_user_id id36 NULL`, `actor_type code(16)` CHECK `USER|SYSTEM|PATIENT_CONTEXT`
