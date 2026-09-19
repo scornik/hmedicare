@@ -37,7 +37,17 @@ describe('schema sections', () => {
   it('splits the schema into the Stage 4 logical migrations', () => {
     const { sections } = splitSections(schema) as { sections: Array<{ number: string }> };
     // Backlog order, not numeric order: 0004 (Stage 5) was appended after 0016 (DATABASE §1.3).
-    expect(sections.map((s) => s.number)).toEqual(['0001', '0002', '0003', '0014', '0015', '0016', '0004']);
+    expect(sections.map((s) => s.number)).toEqual([
+      '0001',
+      '0002',
+      '0003',
+      '0014',
+      '0015',
+      '0016',
+      '0004',
+      '0005',
+      '0006',
+    ]);
     expect(cumulativeSchema(schema, '0001')).not.toContain('model Tenant ');
     expect(cumulativeSchema(schema, '0002')).toContain('model Tenant ');
   });

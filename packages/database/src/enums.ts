@@ -86,6 +86,68 @@ export const DB_ENUMS = {
   'patient_guardianships.verification_method': ['STAFF_VERIFIED_IN_PERSON', 'STAFF_VERIFIED_DOCUMENT'],
   'patient_guardianships.status': ['PENDING', 'ACTIVE', 'ENDED', 'REVOKED'],
   'care_team_members.role': ['DOCTOR', 'NURSE', 'OTHER'],
+  // 0005 scheduling (Stage 5)
+  'chambers.status': ['ACTIVE', 'INACTIVE'],
+  'chambers.chamber_payment_mode': ['PAY_AT_CHAMBER', 'PREPAID_REQUIRED', 'OPTIONAL_ONLINE'],
+  'chambers.telemedicine_payment_mode': ['PREPAID_REQUIRED', 'OPTIONAL_ONLINE'],
+  'doctor_schedule_rules.rule_type': ['WEEKLY', 'EXCEPTION_OPEN', 'EXCEPTION_CLOSED'],
+  'chamber_days.status': ['SCHEDULED', 'OPEN', 'PAUSED', 'CLOSED', 'CANCELLED'],
+  'appointment_slots.status': ['OPEN', 'FULL', 'CLOSED'],
+  'appointments.source': ['ADVANCE_BOOKING', 'WALK_IN', 'FOLLOW_UP', 'RESCHEDULE'],
+  'appointments.care_mode': ['PHYSICAL', 'REMOTE', 'HYBRID'],
+  'appointments.status': [
+    'REQUESTED',
+    'PENDING_PAYMENT',
+    'BOOKED',
+    'CANCELLED',
+    'RESCHEDULED',
+    'FULFILLED',
+    'NO_SHOW',
+  ],
+  'appointments.payment_requirement': ['NONE', 'OPTIONAL', 'PREPAID'],
+  'appointments.payment_status': ['NOT_REQUIRED', 'PENDING', 'PAID', 'WAIVED', 'REFUNDED'],
+  'appointments.booked_on_behalf': ['SELF', 'GUARDIAN', 'STAFF'],
+  // 0006 queue (Stage 5)
+  'serials.source': ['ADVANCE_BOOKING', 'WALK_IN', 'FOLLOW_UP', 'RESCHEDULE'],
+  'serials.care_mode': ['PHYSICAL', 'REMOTE', 'HYBRID'],
+  'serials.status': [
+    'BOOKED',
+    'CONFIRMED',
+    'CHECKED_IN',
+    'WAITING',
+    'CALLED',
+    'IN_CONSULTATION',
+    'SKIPPED',
+    'NO_SHOW',
+    'CANCELLED',
+    'RESCHEDULED',
+    'COMPLETED',
+  ],
+  'check_ins.method': ['STAFF_DESK', 'PATIENT_APP', 'REMOTE_READY', 'KIOSK'],
+  'queue_events.event_type': [
+    'SERIAL_ISSUED',
+    'CONFIRMED',
+    'CHECKED_IN',
+    'REMOTE_READY',
+    'WAITING',
+    'CALLED',
+    'SKIPPED',
+    'RECALLED',
+    'NO_SHOW',
+    'CANCELLED',
+    'RESCHEDULED',
+    'CONSULTATION_STARTED',
+    'COMPLETED',
+    'QUEUE_REORDERED',
+    'DELAY_RECORDED',
+    'DAY_OPENED',
+    'DAY_PAUSED',
+    'DAY_CLOSED',
+    'DAY_CANCELLED',
+    'POLICY_CHANGED',
+    'DUPLICATE_OVERRIDE',
+  ],
+  'queue_events.actor_type': ['USER', 'SYSTEM', 'PATIENT_CONTEXT'],
 } as const;
 
 export type DbEnumKey = keyof typeof DB_ENUMS;
@@ -96,3 +158,7 @@ export type StaffRoleCode = DbEnum<'tenant_memberships.role'>;
 export type MembershipStatus = DbEnum<'tenant_memberships.status'>;
 export type OtpStatus = DbEnum<'otp_challenges.status'>;
 export type SessionRevokeReason = DbEnum<'sessions.revoke_reason'>;
+export type ChamberDayStatus = DbEnum<'chamber_days.status'>;
+export type AppointmentStatus = DbEnum<'appointments.status'>;
+export type SerialStatus = DbEnum<'serials.status'>;
+export type QueueEventType = DbEnum<'queue_events.event_type'>;
