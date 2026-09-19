@@ -21,6 +21,15 @@ export async function rawConnection(root = false): Promise<mariadb.Connection> {
 
 /** Tables owned by Stage 4/5 migrations, in delete-safe order (children first). */
 const TABLES = [
+  // 0006 queue, 0005 scheduling (children of chamber_days/chambers/clinics/patients)
+  'queue_events',
+  'check_ins',
+  'serials',
+  'appointments',
+  'appointment_slots',
+  'chamber_days',
+  'doctor_schedule_rules',
+  'chambers',
   // 0004 patient_identity (children of patients/users/tenants)
   'patient_search_tokens',
   'patient_contacts',

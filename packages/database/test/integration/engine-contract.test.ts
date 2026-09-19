@@ -423,6 +423,123 @@ describe('generated-column unique keys (DATABASE-IMPLEMENTATION.md §4.1)', () =
       .catch((e: unknown) => e);
     expect(dbErrorInfo(err).kind).toBe('CHECK_VIOLATION');
   });
+
+  async function seedChamberDay(tenantId: string, doctorId: string, label: string) {
+    const t = now();
+    const clinicId = newId();
+    const chamberId = newId();
+    const dayId = newId();
+    await db.prisma.clinic.create({
+      data: {
+        id: clinicId,
+        tenantId,
+        name: `DEMO ${label}`,
+        nameNormalizedHash: 'e'.repeat(64),
+        status: 'ACTIVE',
+        createdAt: t,
+        updatedAt: t,
+      },
+    });
+    await db.prisma.chamber.create({
+      data: {
+        id: chamberId,
+        tenantId,
+        clinicId,
+        doctorProfileId: doctorId,
+        name: `DEMO chamber ${label}`,
+        supportsPhysical: true,
+        supportsRemote: false,
+        supportsHybrid: false,
+        defaultQueuePolicy: {},
+        status: 'ACTIVE',
+        createdAt: t,
+        updatedAt: t,
+      },
+    });
+    await db.prisma.chamberDay.create({
+      data: {
+        id: dayId,
+        tenantId,
+        chamberId,
+        doctorProfileId: doctorId,
+        localDate: new Date('2026-09-19T00:00:00.000Z'),
+        timezone: 'Asia/Dhaka',
+        localStartTime: new Date('1970-01-01T17:00:00.000Z'),
+        localEndTime: new Date('1970-01-01T21:00:00.000Z'),
+        status: 'OPEN',
+        queuePolicy: {},
+        createdAt: t,
+        updatedAt: t,
+      },
+    });
+    return dayId;
+  }
+
+  it('serials: one non-terminal serial per patient and chamber day unless overridden with a reason', async () => {
+    const { tenantId, doctorId } = await seedTenantWithDoctor('serial');
+    const patientId = await seedPatient(tenantId, 'serial');
+    const chamberDayId = await seedChamberDay(tenantId, doctorId, 'serial');
+    const t = now();
+    let n = 0;
+    const serial = (extra: Record<string, unknown>) => ({
+      id: newId(),
+      tenantId,
+      chamberDayId,
+      patientId,
+      serialNumber: ++n,
+      source: 'ADVANCE_BOOKING',
+      careMode: 'PHYSICAL',
+      status: 'BOOKED',
+      createdAt: t,
+      updatedAt: t,
+      ...extra,
+    });
+    await db.prisma.serial.create({ data: serial({}) });
+    const err = await db.prisma.serial
+      .create({ data: serial({ status: 'WAITING' }) })
+      .catch((e: unknown) => e);
+    expect(dbErrorInfo(err)).toMatchObject({
+      kind: 'UNIQUE_VIOLATION',
+      constraint: 'uq_serials_active_patient_day',
+    });
+    // Terminal serials and audited overrides do not occupy the key.
+    await db.prisma.serial.create({ data: serial({ status: 'CANCELLED', cancelReason: 'PATIENT_REQUEST' }) });
+    await db.prisma.serial.create({
+      data: serial({ duplicateOverride: true, duplicateOverrideReason: 'second visit same day' }),
+    });
+    const bad = await db.prisma.serial
+      .create({ data: serial({ duplicateOverride: true }) })
+      .catch((e: unknown) => e);
+    expect(dbErrorInfo(bad)).toMatchObject({ kind: 'CHECK_VIOLATION' });
+  });
+
+  it('check_ins: one non-revoked check-in per serial', async () => {
+    const { tenantId, doctorId } = await seedTenantWithDoctor('checkin');
+    const patientId = await seedPatient(tenantId, 'checkin');
+    const chamberDayId = await seedChamberDay(tenantId, doctorId, 'checkin');
+    const t = now();
+    const serialId = newId();
+    await db.prisma.serial.create({
+      data: {
+        id: serialId,
+        tenantId,
+        chamberDayId,
+        patientId,
+        serialNumber: 1,
+        source: 'WALK_IN',
+        careMode: 'PHYSICAL',
+        status: 'CHECKED_IN',
+        createdAt: t,
+        updatedAt: t,
+      },
+    });
+    const c = { tenantId, serialId, method: 'STAFF_DESK', checkedInAt: t, createdAt: t, updatedAt: t };
+    await db.prisma.checkIn.create({ data: { id: newId(), ...c } });
+    const err = await db.prisma.checkIn.create({ data: { id: newId(), ...c } }).catch((e: unknown) => e);
+    expect(dbErrorInfo(err)).toMatchObject({ kind: 'UNIQUE_VIOLATION', constraint: 'uq_check_ins_active' });
+    await db.prisma.checkIn.updateMany({ where: { serialId }, data: { revokedAt: t } });
+    await expect(db.prisma.checkIn.create({ data: { id: newId(), ...c } })).resolves.toBeDefined();
+  });
 });
 
 describe('composite tenant foreign keys (DATABASE-IMPLEMENTATION.md §4.2)', () => {

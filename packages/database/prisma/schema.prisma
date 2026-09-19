@@ -994,3 +994,318 @@ model CareTeamMember {
   @@index([tenantId, patientId], map: "ix_care_team_members_patient")
   @@map("care_team_members")
 }
+
+// ---------------------------------------------------------------- 0005 scheduling
+
+model Chamber {
+  /// @ascii
+  id                       String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId                 String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  clinicId                 String    @map("clinic_id") @db.VarChar(36)
+  /// @ascii
+  doctorProfileId          String    @map("doctor_profile_id") @db.VarChar(36)
+  name                     String    @db.VarChar(120)
+  supportsPhysical         Boolean   @map("supports_physical")
+  supportsRemote           Boolean   @map("supports_remote")
+  supportsHybrid           Boolean   @map("supports_hybrid")
+  defaultQueuePolicy       Json      @map("default_queue_policy")
+  /// @ascii
+  status                   String    @db.VarChar(16)
+  /// @ascii
+  chamberPaymentMode       String    @default("PAY_AT_CHAMBER") @map("chamber_payment_mode") @db.VarChar(20)
+  /// @ascii
+  telemedicinePaymentMode  String    @default("PREPAID_REQUIRED") @map("telemedicine_payment_mode") @db.VarChar(20)
+  deletedAt                DateTime? @map("deleted_at") @db.DateTime(3)
+  createdAt                DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt                DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId          String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId          String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion               Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_chambers_tenant_id")
+  @@index([tenantId, doctorProfileId, status], map: "ix_chambers_doctor")
+  @@index([tenantId, clinicId], map: "ix_chambers_clinic")
+  @@map("chambers")
+}
+
+model DoctorScheduleRule {
+  /// @ascii
+  id              String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId        String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  chamberId       String    @map("chamber_id") @db.VarChar(36)
+  /// @ascii
+  doctorProfileId String    @map("doctor_profile_id") @db.VarChar(36)
+  /// @ascii
+  ruleType        String    @map("rule_type") @db.VarChar(16)
+  weekday         Int?      @db.TinyInt
+  exceptionDate   DateTime? @map("exception_date") @db.Date
+  localStartTime  DateTime  @map("local_start_time") @db.Time(0)
+  localEndTime    DateTime  @map("local_end_time") @db.Time(0)
+  capacity        Int?      @db.SmallInt
+  effectiveFrom   DateTime  @map("effective_from") @db.Date
+  effectiveTo     DateTime? @map("effective_to") @db.Date
+  createdAt       DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt       DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion      Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_doctor_schedule_rules_tenant_id")
+  @@index([tenantId, chamberId, ruleType, effectiveFrom], map: "ix_doctor_schedule_rules_chamber")
+  @@map("doctor_schedule_rules")
+}
+
+model ChamberDay {
+  /// @ascii
+  id                   String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId             String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  chamberId            String    @map("chamber_id") @db.VarChar(36)
+  /// @ascii
+  doctorProfileId      String    @map("doctor_profile_id") @db.VarChar(36)
+  localDate            DateTime  @map("local_date") @db.Date
+  /// @ascii
+  timezone             String    @db.VarChar(40)
+  localStartTime       DateTime  @map("local_start_time") @db.Time(0)
+  localEndTime         DateTime  @map("local_end_time") @db.Time(0)
+  /// @ascii
+  status               String    @db.VarChar(16)
+  queuePolicy          Json      @map("queue_policy")
+  nextSerialNumber     Int       @default(1) @map("next_serial_number") @db.UnsignedInt
+  queueOrderVersion    Int       @default(1) @map("queue_order_version") @db.UnsignedInt
+  expectedDelayMinutes Int?      @map("expected_delay_minutes") @db.SmallInt
+  closedAt             DateTime? @map("closed_at") @db.DateTime(3)
+  /// @ascii
+  closedByUserId       String?   @map("closed_by_user_id") @db.VarChar(36)
+  createdAt            DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt            DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId      String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId      String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion           Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_chamber_days_tenant_id")
+  @@unique([tenantId, chamberId, localDate], map: "uq_chamber_days_date")
+  @@index([tenantId, doctorProfileId, localDate], map: "ix_chamber_days_doctor_date")
+  @@map("chamber_days")
+}
+
+model AppointmentSlot {
+  /// @ascii
+  id              String   @id @db.VarChar(36)
+  /// @ascii
+  tenantId        String   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  chamberDayId    String   @map("chamber_day_id") @db.VarChar(36)
+  startsAt        DateTime @map("starts_at") @db.DateTime(3)
+  endsAt          DateTime @map("ends_at") @db.DateTime(3)
+  localLabel      String   @map("local_label") @db.VarChar(40)
+  capacity        Int      @db.SmallInt
+  bookedCount     Int      @default(0) @map("booked_count") @db.SmallInt
+  /// @ascii
+  status          String   @db.VarChar(16)
+  createdAt       DateTime @map("created_at") @db.DateTime(3)
+  updatedAt       DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String?  @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String?  @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion      Int      @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_appointment_slots_tenant_id")
+  @@index([tenantId, chamberDayId, startsAt], map: "ix_appointment_slots_day")
+  @@map("appointment_slots")
+}
+
+model Appointment {
+  /// @ascii
+  id                           String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId                     String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  patientId                    String    @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  doctorProfileId              String    @map("doctor_profile_id") @db.VarChar(36)
+  /// @ascii
+  chamberId                    String    @map("chamber_id") @db.VarChar(36)
+  /// @ascii
+  chamberDayId                 String    @map("chamber_day_id") @db.VarChar(36)
+  /// @ascii
+  slotId                       String?   @map("slot_id") @db.VarChar(36)
+  /// @ascii
+  source                       String    @db.VarChar(24)
+  /// @ascii
+  careMode                     String    @map("care_mode") @db.VarChar(16)
+  /// @ascii
+  status                       String    @db.VarChar(16)
+  /// @ascii
+  paymentRequirement           String    @map("payment_requirement") @db.VarChar(16)
+  /// @ascii
+  paymentStatus                String    @map("payment_status") @db.VarChar(16)
+  paymentHoldExpiresAt         DateTime? @map("payment_hold_expires_at") @db.DateTime(3)
+  paymentWaivedReason          String?   @map("payment_waived_reason") @db.VarChar(300)
+  /// @ascii
+  paymentWaivedByUserId        String?   @map("payment_waived_by_user_id") @db.VarChar(36)
+  /// @ascii
+  cancelReason                 String?   @map("cancel_reason") @db.VarChar(32)
+  reason                       String?   @db.VarChar(300)
+  /// @ascii
+  rescheduledFromAppointmentId String?   @map("rescheduled_from_appointment_id") @db.VarChar(36)
+  /// @ascii
+  followUpPlanId               String?   @map("follow_up_plan_id") @db.VarChar(36)
+  /// @ascii
+  bookedByUserId               String    @map("booked_by_user_id") @db.VarChar(36)
+  /// @ascii
+  bookedOnBehalf               String?   @map("booked_on_behalf") @db.VarChar(16)
+  deletedAt                    DateTime? @map("deleted_at") @db.DateTime(3)
+  createdAt                    DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt                    DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId              String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId              String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion                   Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_appointments_tenant_id")
+  @@index([tenantId, patientId, createdAt], map: "ix_appointments_patient")
+  @@index([tenantId, doctorProfileId, chamberDayId, status], map: "ix_appointments_day")
+  @@index([status, paymentHoldExpiresAt], map: "ix_appointments_hold")
+  @@map("appointments")
+}
+
+// ---------------------------------------------------------------- 0006 queue
+
+model Serial {
+  /// @ascii
+  id                        String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId                  String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  chamberDayId              String    @map("chamber_day_id") @db.VarChar(36)
+  /// @ascii
+  patientId                 String    @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  appointmentId             String?   @map("appointment_id") @db.VarChar(36)
+  /// @ascii
+  encounterId               String?   @map("encounter_id") @db.VarChar(36)
+  serialNumber              Int       @map("serial_number") @db.UnsignedInt
+  queuePosition             Int?      @map("queue_position") @db.UnsignedInt
+  /// @ascii
+  source                    String    @db.VarChar(24)
+  /// @ascii
+  careMode                  String    @map("care_mode") @db.VarChar(16)
+  /// @ascii
+  status                    String    @db.VarChar(16)
+  recallCount               Int       @default(0) @map("recall_count") @db.SmallInt
+  recallDeadlineAt          DateTime? @map("recall_deadline_at") @db.DateTime(3)
+  lateArrival               Boolean   @default(false) @map("late_arrival")
+  duplicateOverride         Boolean   @default(false) @map("duplicate_override")
+  duplicateOverrideReason   String?   @map("duplicate_override_reason") @db.VarChar(300)
+  /// @ascii
+  duplicateOverrideByUserId String?   @map("duplicate_override_by_user_id") @db.VarChar(36)
+  /// @ascii
+  rescheduledFromSerialId   String?   @map("rescheduled_from_serial_id") @db.VarChar(36)
+  /// @ascii
+  rescheduledToSerialId     String?   @map("rescheduled_to_serial_id") @db.VarChar(36)
+  bookedAt                  DateTime? @map("booked_at") @db.DateTime(3)
+  confirmedAt               DateTime? @map("confirmed_at") @db.DateTime(3)
+  checkedInAt               DateTime? @map("checked_in_at") @db.DateTime(3)
+  waitingAt                 DateTime? @map("waiting_at") @db.DateTime(3)
+  calledAt                  DateTime? @map("called_at") @db.DateTime(3)
+  consultationStartedAt     DateTime? @map("consultation_started_at") @db.DateTime(3)
+  completedAt               DateTime? @map("completed_at") @db.DateTime(3)
+  cancelledAt               DateTime? @map("cancelled_at") @db.DateTime(3)
+  noShowAt                  DateTime? @map("no_show_at") @db.DateTime(3)
+  /// @ascii
+  cancelReason              String?   @map("cancel_reason") @db.VarChar(32)
+  createdAt                 DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt                 DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId           String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId           String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion                Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_serials_tenant_id")
+  @@unique([tenantId, chamberDayId, serialNumber], map: "uq_serials_number")
+  @@index([tenantId, chamberDayId, status, queuePosition, serialNumber], map: "ix_serials_queue")
+  @@index([tenantId, patientId, createdAt], map: "ix_serials_patient")
+  @@map("serials")
+}
+
+model CheckIn {
+  /// @ascii
+  id               String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId         String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  serialId         String    @map("serial_id") @db.VarChar(36)
+  /// @ascii
+  method           String    @db.VarChar(24)
+  remoteReady      Boolean   @default(false) @map("remote_ready")
+  remoteReadyAt    DateTime? @map("remote_ready_at") @db.DateTime(3)
+  checkedInAt      DateTime  @map("checked_in_at") @db.DateTime(3)
+  /// @ascii
+  verifiedByUserId String?   @map("verified_by_user_id") @db.VarChar(36)
+  deviceMeta       Json?     @map("device_meta")
+  revokedAt        DateTime? @map("revoked_at") @db.DateTime(3)
+  createdAt        DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt        DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId  String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId  String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion       Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_check_ins_tenant_id")
+  @@index([tenantId, serialId], map: "ix_check_ins_serial")
+  @@map("check_ins")
+}
+
+model QueueEvent {
+  /// @ascii
+  id             String   @id @db.VarChar(36)
+  /// @ascii
+  tenantId       String   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  chamberDayId   String   @map("chamber_day_id") @db.VarChar(36)
+  /// @ascii
+  serialId       String?  @map("serial_id") @db.VarChar(36)
+  seq            Int      @db.UnsignedInt
+  /// @ascii
+  eventType      String   @map("event_type") @db.VarChar(32)
+  /// @ascii
+  fromStatus     String?  @map("from_status") @db.VarChar(16)
+  /// @ascii
+  toStatus       String?  @map("to_status") @db.VarChar(16)
+  positionBefore Int?     @map("position_before")
+  positionAfter  Int?     @map("position_after")
+  details        Json
+  reason         String?  @db.VarChar(300)
+  /// @ascii
+  actorUserId    String?  @map("actor_user_id") @db.VarChar(36)
+  /// @ascii
+  actorType      String   @map("actor_type") @db.VarChar(16)
+  /// @ascii
+  idempotencyKey String?  @map("idempotency_key") @db.VarChar(191)
+  occurredAt     DateTime @map("occurred_at") @db.DateTime(3)
+  /// @ascii
+  prevRowHash    String?  @map("prev_row_hash") @db.VarChar(64)
+  /// @ascii
+  rowHash        String   @map("row_hash") @db.VarChar(64)
+
+  @@unique([tenantId, chamberDayId, seq], map: "uq_queue_events_day_seq")
+  @@unique([tenantId, idempotencyKey], map: "uq_queue_events_idempotency")
+  @@index([tenantId, serialId, occurredAt], map: "ix_queue_events_serial")
+  @@map("queue_events")
+}
