@@ -243,9 +243,19 @@ jobs:
         with:
           node-version-file: .nvmrc
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        if: runner.environment == 'github-hosted'
         with:
           flutter-version-file: mobile/.fvmrc
           channel: stable
+      # Self-hosted runners use the machine's Flutter; it must be exactly the version pinned in .fvmrc.
+      - name: Flutter version matches mobile/.fvmrc (self-hosted)
+        if: runner.environment != 'github-hosted'
+        run: |
+          set -euo pipefail
+          want="$(node -p "JSON.parse(require('fs').readFileSync('.fvmrc','utf8')).flutter")"
+          have="$(flutter --version --machine | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).frameworkVersion))")"
+          echo "Flutter pinned ${want}, installed ${have}"
+          test "$want" = "$have"
       # Melos 8.7.0 is a pinned dev dependency of the workspace root (pubspec.lock), run via `dart run melos`.
       - run: flutter pub get --enforce-lockfile
       - name: generated Dart API client is up to date (incl. deleted/added files)
