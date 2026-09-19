@@ -2,6 +2,7 @@ export * from './client';
 export * from './errors';
 export * from './tx';
 export * from './locks/lock-row';
+export * from './locks/lock-ranking';
 export * from './locks/named-lock';
 export * from './locks/singleton-lease';
 export * from './locks/chain-head';

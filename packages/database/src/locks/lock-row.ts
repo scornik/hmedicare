@@ -1,30 +1,12 @@
 import type { Tx } from '../tx';
+import { LOCK_RANKING, recordLock } from './lock-ranking';
 
 /**
  * Row locks (DATABASE-IMPLEMENTATION.md §1.4). The only place `FOR UPDATE` appears outside claims.
- * Table names come from a fixed allow-list; values are always bound parameters.
+ * Table names come from a fixed allow-list (the lock ranking, audit C-46); values are always bound
+ * parameters. Every lock is recorded on the transaction so an out-of-order lock fails fast.
  */
-export const LOCKABLE_TABLES = new Set([
-  'tenants',
-  'users',
-  'tenant_memberships',
-  'clinics',
-  'doctor_profiles',
-  'staff_profiles',
-  'doctor_coverages',
-  'sessions',
-  'refresh_tokens',
-  'otp_challenges',
-  'password_reset_tokens',
-  'email_verification_tokens',
-  'idempotency_records',
-  'integrity_chain_checkpoints',
-  'platform_operators',
-  'provider_credentials',
-  'jobs',
-  'outbox_events',
-  'singleton_locks',
-]);
+export const LOCKABLE_TABLES: ReadonlySet<string> = new Set(Object.keys(LOCK_RANKING));
 
 function assertTable(table: string): void {
   if (!LOCKABLE_TABLES.has(table)) throw new Error(`lockRow: table ${table} is not lockable`);
@@ -33,6 +15,7 @@ function assertTable(table: string): void {
 /** Locks one row by id (and tenant when tenant-scoped). Returns false when the row does not exist. */
 export async function lockRow(tx: Tx, table: string, id: string, tenantId?: string): Promise<boolean> {
   assertTable(table);
+  recordLock(tx, table);
   const rows =
     tenantId === undefined
       ? await tx.$queryRawUnsafe<Array<{ id: string }>>(
@@ -67,6 +50,7 @@ export async function lockRowBy<T extends Record<string, unknown>>(
   value: string,
 ): Promise<T | null> {
   assertTable(table);
+  recordLock(tx, table);
   const rows = await tx.$queryRawUnsafe<T[]>(
     `SELECT * FROM \`${table}\` WHERE \`${column}\` = ? FOR UPDATE`,
     value,
