@@ -3,4 +3,6 @@ export * from './common';
 export * from './health';
 export * from './auth';
 export * from './tenant-org';
+export * from './patient';
+export * from './patient-access';
 export * from './openapi';
