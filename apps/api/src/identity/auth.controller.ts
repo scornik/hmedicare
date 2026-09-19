@@ -23,6 +23,7 @@ import {
   serializeCookie,
 } from '@hmedic/http-kit';
 import { hashForLog } from '@hmedic/observability';
+import { normalizeBdMobile } from '@hmedic/localization';
 import type { OtpRequestHint } from '@hmedic/identity-access';
 import { CurrentActor, IDENTITY_SERVICES, type IdentityServices } from '@hmedic/identity-access/nest';
 import { loadMeUser } from './me.controller';
@@ -172,6 +173,16 @@ export class AuthController {
       deviceLabel: dto.deviceLabel ?? null,
       ...requestMeta(this.runtime, req),
     });
+    // Patient auto-link (AUTHORIZATION-MATRIX §4): after the session commit, never inside it; failures must
+    // not break the login, they are logged without the phone.
+    const phone = normalizeBdMobile(dto.phone);
+    if (phone && this.identity.onOtpVerified) {
+      try {
+        await this.identity.onOtpVerified(s.userId, phone);
+      } catch (error) {
+        this.runtime.logger.error({ err: error, requestId: req.id }, 'patient auto-link failed');
+      }
+    }
     return sessionResponse(this.runtime, this.identity, reply, s, dto.client);
   }
 

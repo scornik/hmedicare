@@ -42,6 +42,9 @@
       "path": "../../packages/observability"
     },
     {
+      "path": "../../packages/patient"
+    },
+    {
       "path": "../../packages/tenant-org"
     }
   ]

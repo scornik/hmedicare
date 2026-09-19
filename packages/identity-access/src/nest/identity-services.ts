@@ -1,5 +1,5 @@
 import type { HttpRuntime } from '@hmedic/http-kit';
-import type { OtpDeliveryPort, PasswordResetNotifierPort } from '../application/ports';
+import type { OtpDeliveryPort, PasswordResetNotifierPort, PatientContextPort } from '../application/ports';
 import { Argon2idHasher } from '../infrastructure/argon2-hasher';
 import { CsrfService } from '../infrastructure/csrf';
 import { MockOtpDelivery, OtpService } from '../infrastructure/otp-service';
@@ -27,6 +27,10 @@ export interface IdentityServices {
   /** Present only in development/test (dev inbox). */
   mockReset: MockPasswordResetNotifier | null;
   cookies: { refreshName: string; csrfName: string; secure: boolean };
+  /** Registered by the api composition root with the patient context's resolver (Stage 5). */
+  patientContexts: PatientContextPort | null;
+  /** Called after a successful OTP login with the verified phone (patient auto-link, AUTHORIZATION §4). */
+  onOtpVerified: ((userId: string, phoneE164: string) => Promise<void>) | null;
 }
 
 /**
@@ -105,6 +109,8 @@ export function createIdentityServices(
     operators: new PlatformOperatorService(runtime.prisma, runtime.audit, runtime.clock),
     mockOtp: local ? mockOtp : null,
     mockReset,
+    patientContexts: null,
+    onOtpVerified: null,
     cookies: devCookies
       ? { refreshName: 'hm_rt', csrfName: 'hm_csrf', secure: false }
       : { refreshName: '__Host-hm_rt', csrfName: '__Host-hm_csrf', secure: true },

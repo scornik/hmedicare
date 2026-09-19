@@ -15,6 +15,23 @@ import { PlatformTenantController } from './tenant-org/platform-tenants.controll
 import { CoverageService, MembershipService, TenantBootstrapService } from '@hmedic/tenant-org';
 import { TenantOrgWriteModule, type TenantOrgServices } from '@hmedic/tenant-org/nest';
 import {
+  ConsentService,
+  MergeRepointerRegistry,
+  MergeService,
+  PatientAccessService,
+  PatientContextResolver,
+  PatientEvents,
+  PatientService,
+} from '@hmedic/patient';
+import { PatientWriteModule, type PatientServices } from '@hmedic/patient/nest';
+import { OutboxPort } from '@hmedic/jobs';
+import { ConsentController, MergeCaseController, PatientController } from './patient/patient.controllers';
+import {
+  CareTeamController,
+  GuardianshipController,
+  PatientAccountController,
+} from './patient/patient-access.controllers';
+import {
   HttpKitModule,
   type HttpRuntime,
   type JobComposition,
@@ -34,6 +51,7 @@ export class ApiModule {
     runtime: HttpRuntime,
     identity: IdentityServices,
     tenantOrg: TenantOrgServices,
+    patient: PatientServices,
   ): DynamicModule {
     const mode = runtime.config.JOB_RUNNER_MODE;
     const devInbox = identity.mockOtp !== null || identity.mockReset !== null;
@@ -43,6 +61,7 @@ export class ApiModule {
         HttpKitModule.forRoot(runtime, { jobsEndpoint: mode === 'embedded' || mode === 'cron' }),
         IdentityWriteModule.forRoot(identity),
         TenantOrgWriteModule.forRoot(tenantOrg),
+        PatientWriteModule.forRoot(patient),
       ],
       controllers: [
         AuthController,
@@ -51,16 +70,38 @@ export class ApiModule {
         MembershipController,
         CoverageController,
         PlatformTenantController,
+        PatientController,
+        ConsentController,
+        MergeCaseController,
+        PatientAccountController,
+        GuardianshipController,
+        CareTeamController,
         ...(devInbox ? [DevInboxController] : []),
       ],
     };
   }
 }
 
+/** Patient context services (Stage 5, CP3). The merge repointer registry is filled by scheduling/queue. */
+export function createPatientServices(
+  runtime: HttpRuntime,
+  repointers = new MergeRepointerRegistry(),
+): PatientServices {
+  const events = new PatientEvents(new OutboxPort(runtime.clock), runtime.clock);
+  return {
+    patients: new PatientService(runtime.prisma, runtime.audit, events, runtime.clock),
+    merges: new MergeService(runtime.prisma, runtime.audit, events, repointers, runtime.clock),
+    consents: new ConsentService(runtime.prisma, runtime.audit, events, runtime.clock),
+    access: new PatientAccessService(runtime.prisma, runtime.audit, events, runtime.clock),
+    contexts: new PatientContextResolver(runtime.prisma),
+  };
+}
+
 export interface ApiInstance {
   app: NestFastifyApplication;
   runtime: HttpRuntime;
   identity: IdentityServices;
+  patient: PatientServices;
   jobs: JobComposition | null;
   close(): Promise<void>;
 }
@@ -84,13 +125,21 @@ export async function buildApi(
     coverages: new CoverageService(runtime.prisma, runtime.audit, config.COVERAGE_MAX_DAYS, runtime.clock),
     bootstrap: new TenantBootstrapService(runtime.prisma, runtime.audit, runtime.clock),
   };
-  const app = await createHttpApp(ApiModule.forRoot(runtime, identity, tenantOrg), runtime, { cors: true });
+  const patient = createPatientServices(runtime);
+  identity.patientContexts = patient.contexts;
+  identity.onOtpVerified = async (userId, phoneE164) => {
+    await patient.access.autoLinkOnOtpVerify(userId, phoneE164);
+  };
+  const app = await createHttpApp(ApiModule.forRoot(runtime, identity, tenantOrg, patient), runtime, {
+    cors: true,
+  });
   if (config.JOB_RUNNER_MODE === 'embedded') jobs?.loop.start();
   let closed = false;
   return {
     app,
     runtime,
     identity,
+    patient,
     jobs,
     async close() {
       if (closed) return;
