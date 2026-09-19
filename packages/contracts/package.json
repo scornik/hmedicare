@@ -20,8 +20,8 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
-    "contracts:generate": "tsc -b && node scripts/generate.mjs",
-    "openapi:check": "tsc -b && node scripts/generate.mjs --check"
+    "contracts:generate": "tsc -b --force && node scripts/generate.mjs",
+    "openapi:check": "tsc -b --force && node scripts/generate.mjs --check"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "7.3.4",
