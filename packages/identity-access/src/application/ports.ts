@@ -46,6 +46,29 @@ export interface OtpDeliveryPort {
 }
 
 /**
+ * Patient context (AUTHORIZATION-MATRIX §4), resolved per request from `X-Patient-Context`. Implemented by
+ * the patient context (`PatientContextResolver`) and injected by the api composition root; identity-access
+ * only defines the port so the guard never depends on patient tables.
+ */
+export interface ResolvedPatientContext {
+  userId: string;
+  tenantId: string;
+  patientId: string;
+  actingAs: 'SELF' | 'GUARDIAN';
+  guardianshipId: string | null;
+  authorityScope: ReadonlySet<string>;
+}
+
+export interface PatientContextPort {
+  resolve(
+    userId: string,
+    tenantId: string,
+    patientId: string,
+    now: Date,
+  ): Promise<ResolvedPatientContext | null>;
+}
+
+/**
  * Password reset delivery. Email is outside Stage 4 (communications beyond OTP/SMS), so only the mock
  * inbox exists; deployed environments get a NoopPasswordResetNotifier until the email adapter lands.
  */

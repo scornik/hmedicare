@@ -2,6 +2,7 @@ import { Controller, Delete, Get, HttpCode, Inject, Param, ParseUUIDPipe } from 
 import { AppError, type ActorContext, type TenantContext } from '@hmedic/kernel';
 import { HTTP_RUNTIME, type HttpRuntime } from '@hmedic/http-kit';
 import { maskPhone } from '@hmedic/localization';
+import { PATIENT_SERVICES, type PatientServices } from '@hmedic/patient/nest';
 import {
   CurrentActor,
   CurrentTenant,
@@ -28,6 +29,7 @@ export class MeController {
   constructor(
     @Inject(HTTP_RUNTIME) private readonly runtime: HttpRuntime,
     @Inject(IDENTITY_SERVICES) private readonly identity: IdentityServices,
+    @Inject(PATIENT_SERVICES) private readonly patient: PatientServices,
   ) {}
 
   @Get()
@@ -59,13 +61,10 @@ export class MeController {
     };
   }
 
-  /**
-   * Tenant picker for patient users (AUTHORIZATION-MATRIX §4). `patient_accounts`/`patient_guardianships`
-   * arrive with the patient context in Stage 5, so no context can exist yet (deferred, IMPLEMENTATION-STATUS).
-   */
+  /** Tenant picker for patient users (AUTHORIZATION-MATRIX §4): active SELF accounts and guardianships. */
   @Get('patient-contexts')
-  patientContexts() {
-    return [];
+  patientContexts(@CurrentActor() actor: ActorContext) {
+    return this.patient.contexts.listForUser(actor.userId, this.runtime.clock.now());
   }
 
   @Get('tenant-context')
