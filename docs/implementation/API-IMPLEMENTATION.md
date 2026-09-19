@@ -87,14 +87,24 @@ Legend: **Tx** = transaction (RC = READ COMMITTED with locks; RR = default). **I
 | `POST /guardianships/{id}/activate` · `/end` · `/revoke` | Activate/End/RevokeGuardianship | `guardianship.manage` | RR | ✓ |
 | `POST /patients/{id}/care-team`, `POST /care-team-members/{id}/end` | Add/EndCareTeamMember | `care_team.manage` | RR | ✓ |
 | `POST /patients/{id}/consents`, `POST /consents/{id}/withdraw` | Grant/WithdrawConsent | staff `patient.write` or patient context (`GIVE_CONSENT` for guardians) | RR | ✓ |
+| `POST /patients/duplicate-check` (Stage 5, C-43) | CheckDuplicatePatients (candidates + scores; no side effects) | `patient.write` | – | – |
+| `GET /merge-cases?status=&cursor=` (Stage 5, C-43) | ListMergeCases | `patient.merge` | – | – |
+| `GET /patient-accounts?status=&cursor=` (Stage 5, C-43) | ListPatientAccounts | `patient_account.manage` | – | – |
+| `GET /patients/{id}/guardianships` · `GET /guardianships?status=&cursor=` (Stage 5, C-43) | ListGuardianships | `guardianship.manage` (or `patient.read` for the patient view) | – | – |
+| `GET /patients/{id}/care-team` (Stage 5, C-43) | ListCareTeam | `patient.read` | – | – |
+| `GET /patients/{id}/consents` (Stage 5, C-43) | ListConsents | `patient.read` or patient context | – | – |
 
 ### 3.5 Scheduling and queue
 
 | Method / path | Use case | Permission | Tx | Idem |
 |---|---|---|---|---|
 | `POST /chambers` · `PATCH /chambers/{id}` | chamber mgmt | `chamber.manage` | RR | ✓ |
+| `GET /chambers?clinicId=&doctorProfileId=` · `GET /chambers/{id}` (Stage 5, C-43) | ListChambers / GetChamber | `appointment.read` (patient context: public chamber info) | – | – |
+| `GET /chambers/{id}/schedule-rules` · `POST /schedule-rules/{id}/end` (Stage 5, C-43) | ListScheduleRules / EndScheduleRule (`effective_to`) | `appointment.read` / `schedule.manage` | – / RR | – / ✓ |
 | `POST /chambers/{id}/schedule-rules` | CreateScheduleRule | `schedule.manage` | RR | ✓ |
 | `POST /chamber-days` | MaterializeChamberDay | `schedule.manage` | RR | ✓ |
+| `GET /chamber-days?chamberId=&from=&to=&doctorProfileId=` (Stage 5, C-43) | ListChamberDays (today's list for the doctor app) | `appointment.read` | – | – |
+| `POST /chamber-days/{id}/cancel` (Stage 5, C-43; QUEUE §3.3) | CancelChamberDay | `schedule.manage` | RC day lock | ✓ |
 | `GET /chamber-days/{id}` · `/availability` | queries | `appointment.read` | – | – |
 | `POST /chamber-days/{id}/open` · `/pause` | Open/PauseChamberDay | `schedule.manage` | RC day lock | ✓ |
 | **`POST /chamber-days/{id}/close`** | CloseChamberDay | `chamber_day.close` | RC day lock | ✓ |
@@ -103,6 +113,8 @@ Legend: **Tx** = transaction (RC = READ COMMITTED with locks; RR = default). **I
 | `POST /chamber-days/{id}/reorder` | ReorderQueue | `queue.manage` | RC day+serials | ✓ |
 | `GET /chamber-days/{id}/queue` | GetQueue (staff view; ETag) | `queue.read` | – | – |
 | `POST /appointments` · `POST /appointments/{id}/cancel` | Create/CancelAppointment | `appointment.write` or patient context `BOOK_APPOINTMENTS` | RC day lock | ✓ |
+| `GET /appointments?chamberDayId=&patientId=&status=&cursor=` · `GET /appointments/{id}` (Stage 5, C-43) | ListAppointments / GetAppointment | `appointment.read` | – | – |
+| `GET /me/appointments` (Stage 5, C-43) | ListMyAppointments | patient context | – | – |
 | `POST /appointments/{id}/serial` | IssueAppointmentSerial | `serial.write` or patient context `MANAGE_SERIALS` | RC | ✓ |
 | `POST /chamber-days/{id}/walk-ins` | IssueWalkInSerial | `serial.write` | RC | ✓ |
 | `GET /serials/{id}` | GetSerial (staff or patient view by context) | `queue.read` / patient context | – | – |
@@ -117,6 +129,7 @@ Legend: **Tx** = transaction (RC = READ COMMITTED with locks; RR = default). **I
 | **`POST /serials/{id}/no-show`** | MarkNoShow | `serial.manage` | RC | ✓ |
 | **`POST /serials/{id}/cancel`** | CancelSerial | `serial.manage` / patient context (BOOKED/CONFIRMED only) | RC | ✓ |
 | **`POST /serials/{id}/reschedule`** | RescheduleSerial | `appointment.write` / patient context `BOOK_APPOINTMENTS` | RC both days | ✓ |
+| `POST /serials/{id}/start-consultation` · `POST /serials/{id}/complete` (Stage 5 only; ADR-021, C-42; retired in Stage 6) | StartConsultation / CompleteConsultation (pre-clinical) | `encounter.start` / `encounter.complete` + doctor of the chamber | RC day+serial | ✓ |
 | `POST /appointments/{id}/payment-override` | WaiveAppointmentPayment (`PENDING_PAYMENT` → `BOOKED`, serial issued; reason required) | `appointment.write` | RC | ✓ |
 
 ### 3.6 Clinical

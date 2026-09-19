@@ -27,6 +27,9 @@ Every command carries `tenantId`, `actor`, `correlationId`, `idempotencyKey` (re
 | `OverrideDuplicateActiveSerial` | flag on issue commands: `duplicateOverride: {reason}` | — | role listed in policy `duplicateOverrideRoles` |
 | `ExpireRecallDeadlines` | job (`queue` queue, every minute via runner) | — | system |
 | `ApplyNoShowPolicy` | job (every 5 min) | — | system |
+| `CancelChamberDay` | `POST /chamber-days/{id}/cancel` (Stage 5, audit C-43; §3.3) | `expectedRowVersion` | `schedule.manage` |
+| `StartConsultation` (pre-clinical, Stage 5 only; ADR-021) | `POST /serials/{id}/start-consultation` | `expectedRowVersion` | `encounter.start` + doctor of the chamber |
+| `CompleteConsultation` (pre-clinical, Stage 5 only; ADR-021) | `POST /serials/{id}/complete` | `expectedRowVersion` | `encounter.complete` + doctor of the chamber |
 | `StartEncounter` | `POST /serials/{id}/encounter` (clinical) | `expectedRowVersion` | `encounter.start` |
 | `InterruptEncounter` / `CompleteEncounter` | `POST /encounters/{id}/interrupt` · `/complete` | encounter `expectedRowVersion` | `encounter.manage` / `encounter.complete` |
 
@@ -54,6 +57,16 @@ Every command carries `tenantId`, `actor`, `correlationId`, `idempotencyKey` (re
 | `duplicateOverrideRoles` | `["clinic_admin","receptionist"]` | Roles allowed to create a second active serial for the same patient/day with a reason |
 | `dayCloseDisposition` | `{ "BOOKED":"NO_SHOW", "CONFIRMED":"NO_SHOW", "CHECKED_IN":"CANCELLED", "WAITING":"CANCELLED", "CALLED":"CANCELLED", "SKIPPED":"NO_SHOW" }` | Status applied to unserved serials at close (cancel reason `DAY_CLOSED`) |
 | `capacity` | null | Max non-cancelled serials; null = unlimited |
+| `advanceBookingEnabled` | true | Stage 5 (C-44). `false` = walk-in-only chamber (`CreateAppointment` → `VALIDATION_FAILED` `booking_disabled`) |
+| `walkInsEnabled` | true | Stage 5 (C-44). `false` = booking-only chamber (`IssueWalkInSerial` → `VALIDATION_FAILED` `walk_ins_disabled`) |
+| `maxBookedSerials` | null | Stage 5 (C-44). Max non-cancelled advance-booking serials (`CAPACITY_EXCEEDED`); null = limited only by `capacity` |
+| `maxWalkIns` | null | Stage 5 (C-44). Max non-cancelled walk-in serials (`CAPACITY_EXCEEDED`) |
+| `bookingWindowDays` | 14 | Stage 5 (C-44). Furthest local date bookable from today (chamber timezone) |
+| `bookingCutoffMinutes` | 60 | Stage 5 (C-44). Booking closes this long before the day local start (staff bookings are exempt) |
+| `earlyCheckInMinutes` | 60 | Stage 5 (C-44). Check-in on a `SCHEDULED` day is allowed from local start minus this |
+| `avgConsultationMinutes` | 10 | Stage 5 (C-44). Used only for patient-facing estimates (never persisted as a promise) |
+| `slotMinutes` | null | Stage 5 (C-44). null = serial-number booking; otherwise materialization creates `appointment_slots` of this length |
+| `slotCapacity` | 1 | Stage 5 (C-44). Bookings per slot when `slotMinutes` is set |
 
 ## 3. Serial state machine
 
