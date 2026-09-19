@@ -20,7 +20,13 @@
       "path": "../../packages/identity-access"
     },
     {
+      "path": "../../packages/jobs"
+    },
+    {
       "path": "../../packages/kernel"
+    },
+    {
+      "path": "../../packages/patient"
     },
     {
       "path": "../../packages/provider-credentials"

@@ -14,6 +14,7 @@ import { Argon2idHasher, PlatformOperatorService, PolicyEngine } from '@hmedic/i
 import { CoverageService, MembershipService, TenantBootstrapService } from '@hmedic/tenant-org';
 import { ProviderCredentialVault } from '@hmedic/provider-credentials';
 import { SecretEnvelope, gateChainSource, kekFromBase64 } from '@hmedic/secrets';
+import { seedPatients, verifyPatientSeed } from './patients';
 
 /**
  * Synthetic seed (SEED-DATA.md, Stage 4 subset): tenants, clinics, every staff role, coverages, a platform
@@ -46,7 +47,7 @@ export const STAFF_A: ReadonlyArray<{ key: string; role: StaffRole; name: string
 ];
 export const DOCTOR_B = { key: 'dr.b1', name: 'Dr. DEMO B1', phone: 301 };
 export const OPERATOR = { key: 'operator', name: 'DEMO Platform Operator', phone: 900 };
-export const PATIENTS = [101, 102, 103];
+export const PATIENTS = [101, 102, 103, 104];
 export const OPERATOR_PERMISSIONS = [
   'ops.jobs.replay',
   'ops.metrics.read',
@@ -273,6 +274,26 @@ export class Seeder {
       }
     }
     await this.seedSms(tenantA);
+    // Stage 5: patients, accounts, guardianships, care teams, consents, one open merge case (SEED-DATA §2.2).
+    const patientUserIds = new Map<string, string>();
+    for (const n of PATIENTS) {
+      const u = await this.prisma.user.findUnique({ where: { phoneE164: PHONE(n) }, select: { id: true } });
+      if (u) patientUserIds.set(PHONE(n), u.id);
+    }
+    const ownerB = await this.prisma.user.findUniqueOrThrow({
+      where: { emailNormalized: email(DOCTOR_B.key) },
+    });
+    await seedPatients({
+      prisma: this.prisma,
+      audit: this.audit,
+      clock: this.clock,
+      tenantA: { tenantId: tenantA, ownerCtx },
+      tenantB: { tenantId: tenantB, ownerCtx: await this.tenantContext(tenantB, ownerB.id) },
+      staffUserIds: ids,
+      patientUserIds,
+      phone: PHONE,
+      report: this.report,
+    });
     return this.report;
   }
 
@@ -343,6 +364,7 @@ export class Seeder {
 export async function verifySeed(prisma: PrismaClient): Promise<string[]> {
   const problems: string[] = [];
   const a = await prisma.tenant.findUnique({ where: { slug: TENANT_A.slug } });
+  if (a) problems.push(...(await verifyPatientSeed(prisma, a.id, PHONE)));
   const b = await prisma.tenant.findUnique({ where: { slug: TENANT_B.slug } });
   if (!a || !b) return ['demo tenants missing (run pnpm db:seed)'];
   if (b.practiceType !== 'SOLO' || !b.ownerDoctorProfileId)
