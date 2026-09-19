@@ -75,6 +75,15 @@ class PatientProfileScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              if (ctx != null && ctx.relationship != 'SELF')
+                MaterialBanner(
+                  key: const Key('actingFor'),
+                  leading: const Icon(Icons.family_restroom),
+                  content: Text(s.t('actingFor').replaceFirst('{name}', ctx.patientDisplayName)),
+                  actions: [
+                    TextButton(onPressed: () => context.go('/contexts'), child: Text(s.t('switchProfile'))),
+                  ],
+                ),
               Chip(
                 key: const Key('staleness'),
                 avatar: Icon(read.stale ? Icons.cloud_off : Icons.cloud_done, size: 18),
