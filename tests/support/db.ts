@@ -19,8 +19,17 @@ export async function rawConnection(root = false): Promise<mariadb.Connection> {
   return mariadb.createConnection({ ...parseDatabaseUrl(url), timezone: '+00:00' });
 }
 
-/** Tables owned by Stage 4 migrations, in delete-safe order (children first). */
+/** Tables owned by Stage 4/5 migrations, in delete-safe order (children first). */
 const TABLES = [
+  // 0004 patient_identity (children of patients/users/tenants)
+  'patient_search_tokens',
+  'patient_contacts',
+  'patient_identifiers',
+  'patient_consents',
+  'patient_merge_cases',
+  'patient_accounts',
+  'patient_guardianships',
+  'care_team_members',
   'sms_balance_snapshots',
   'provider_credentials',
   'platform_gate_decisions',
@@ -51,6 +60,9 @@ export async function truncateAll(): Promise<void> {
   const conn = await rawConnection();
   try {
     for (const t of TABLES) await conn.query(`DELETE FROM \`${t}\``);
+    // patients has a self-referencing composite FK (merged_into_patient_id): clear it before deleting.
+    await conn.query('UPDATE patients SET merged_into_patient_id = NULL');
+    await conn.query('DELETE FROM patients');
     await conn.query("UPDATE tenants SET owner_doctor_profile_id = NULL, practice_type = 'GROUP'");
     await conn.query('DELETE FROM doctor_profiles');
     await conn.query('DELETE FROM tenants');

@@ -5,8 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { lintMigrations } from '../../scripts/lib/lint.mjs';
 // @ts-expect-error untyped .mjs tooling
 import { NORMALIZED_MARKER, normalizeMigration } from '../../scripts/lib/normalize.mjs';
+// prettier-ignore
 // @ts-expect-error untyped .mjs tooling
-import { columnMeta, cumulativeSchema, splitSections } from '../../scripts/lib/schema-meta.mjs';
+import { columnMeta, cumulativeSchema, migratedSectionNumbers, schemaForSections, splitSections } from '../../scripts/lib/schema-meta.mjs';
 
 const pkg = path.resolve(__dirname, '../..');
 const schema = readFileSync(path.join(pkg, 'prisma/schema.prisma'), 'utf8');
@@ -35,9 +36,21 @@ const TABLE = [
 describe('schema sections', () => {
   it('splits the schema into the Stage 4 logical migrations', () => {
     const { sections } = splitSections(schema) as { sections: Array<{ number: string }> };
-    expect(sections.map((s) => s.number)).toEqual(['0001', '0002', '0003', '0014', '0015', '0016']);
+    // Backlog order, not numeric order: 0004 (Stage 5) was appended after 0016 (DATABASE §1.3).
+    expect(sections.map((s) => s.number)).toEqual(['0001', '0002', '0003', '0014', '0015', '0016', '0004']);
     expect(cumulativeSchema(schema, '0001')).not.toContain('model Tenant ');
     expect(cumulativeSchema(schema, '0002')).toContain('model Tenant ');
+  });
+
+  it('builds the before/after schemas from the migrated set, not from numeric order (0004 after 0016)', () => {
+    const dirs = ['202609180952_0001_platform_jobs', '202609180952_0016_sms', 'migration_lock.toml'];
+    expect(migratedSectionNumbers(dirs)).toEqual(['0001', '0016']);
+    const before = schemaForSections(schema, ['0001', '0016']);
+    expect(before).toContain('model SmsBalanceSnapshot ');
+    expect(before).not.toContain('model Patient ');
+    const after = schemaForSections(schema, ['0001', '0016', '0004']);
+    expect(after).toContain('model SmsBalanceSnapshot ');
+    expect(after).toContain('model Patient ');
   });
 
   it('finds ascii columns from /// @ascii docs', () => {

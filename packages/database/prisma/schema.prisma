@@ -697,3 +697,295 @@ model SmsBalanceSnapshot {
   @@index([credentialScope, credentialId, checkedAt], map: "ix_sms_balance_snapshots_credential")
   @@map("sms_balance_snapshots")
 }
+
+// ---------------------------------------------------------------- 0004 patient_identity
+
+model Patient {
+  /// @ascii
+  id                   String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId             String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  medicalRecordNumber  String    @map("medical_record_number") @db.VarChar(64)
+  legalName            String    @map("legal_name") @db.VarChar(200)
+  legalNameBn          String?   @map("legal_name_bn") @db.VarChar(200)
+  displayName          String    @map("display_name") @db.VarChar(120)
+  dateOfBirth          DateTime? @map("date_of_birth") @db.Date
+  birthYear            Int?      @map("birth_year") @db.SmallInt
+  /// @ascii
+  sex                  String?   @db.VarChar(16)
+  genderIdentity       String?   @map("gender_identity") @db.VarChar(60)
+  address              Json?
+  /// @ascii
+  preferredLocale      String?   @map("preferred_locale") @db.VarChar(20)
+  /// @ascii
+  status               String    @db.VarChar(16)
+  /// @ascii
+  mergedIntoPatientId  String?   @map("merged_into_patient_id") @db.VarChar(36)
+  createdAt            DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt            DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId      String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId      String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion           Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_patients_tenant_id")
+  @@unique([tenantId, medicalRecordNumber], map: "uq_patients_mrn")
+  @@index([tenantId, legalName], map: "ix_patients_legal_name")
+  @@index([tenantId, status, createdAt], map: "ix_patients_status_created")
+  @@map("patients")
+}
+
+/// Derived search index (audit C-41): ASCII tokens of the patient's names (folded Latin, versioned Bangla
+/// transliteration and phonetic skeletons). Rebuilt from `patients` on every name change; never a source of truth.
+model PatientSearchToken {
+  /// @ascii
+  id              String   @id @db.VarChar(36)
+  /// @ascii
+  tenantId        String   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  patientId       String   @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  tokenKind       String   @map("token_kind") @db.VarChar(16)
+  /// @ascii
+  token           String   @db.VarChar(64)
+  translitVersion Int      @map("translit_version") @db.SmallInt
+  createdAt       DateTime @map("created_at") @db.DateTime(3)
+
+  @@unique([tenantId, patientId, tokenKind, token], map: "uq_patient_search_tokens")
+  @@index([tenantId, token, patientId], map: "ix_patient_search_tokens_token")
+  @@map("patient_search_tokens")
+}
+
+model PatientContact {
+  /// @ascii
+  id                  String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId            String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  patientId           String    @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  type                String    @db.VarChar(16)
+  normalizedValue     String    @map("normalized_value") @db.VarChar(254)
+  /// @ascii
+  normalizedValueHash String    @map("normalized_value_hash") @db.VarChar(64)
+  displayValue        String    @map("display_value") @db.VarChar(254)
+  /// @ascii
+  verificationStatus  String    @map("verification_status") @db.VarChar(16)
+  verifiedAt          DateTime? @map("verified_at") @db.DateTime(3)
+  isPreferred         Boolean   @default(false) @map("is_preferred")
+  /// @ascii
+  status              String    @db.VarChar(16)
+  /// @ascii
+  relationship        String    @db.VarChar(24)
+  createdAt           DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt           DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId     String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId     String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion          Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_patient_contacts_tenant_id")
+  @@index([tenantId, type, normalizedValueHash], map: "ix_patient_contacts_lookup")
+  @@index([tenantId, patientId], map: "ix_patient_contacts_patient")
+  @@map("patient_contacts")
+}
+
+model PatientIdentifier {
+  /// @ascii
+  id                       String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId                 String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  patientId                String    @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  identifierType           String    @map("identifier_type") @db.VarChar(24)
+  /// @ascii
+  identifierValueEncrypted String    @map("identifier_value_encrypted") @db.VarChar(512)
+  /// @ascii
+  identifierValueHash      String    @map("identifier_value_hash") @db.VarChar(64)
+  /// @ascii
+  source                   String    @db.VarChar(16)
+  /// @ascii
+  verificationStatus       String    @map("verification_status") @db.VarChar(16)
+  verifiedAt               DateTime? @map("verified_at") @db.DateTime(3)
+  createdAt                DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt                DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId          String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId          String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion               Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_patient_identifiers_tenant_id")
+  @@index([tenantId, identifierType, identifierValueHash], map: "ix_patient_identifiers_lookup")
+  @@index([tenantId, patientId], map: "ix_patient_identifiers_patient")
+  @@map("patient_identifiers")
+}
+
+model PatientConsent {
+  /// @ascii
+  id                   String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId             String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  patientId            String    @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  purpose              String    @db.VarChar(32)
+  /// @ascii
+  status               String    @db.VarChar(16)
+  policyVersion        Int       @map("policy_version")
+  /// @ascii
+  givenByUserId        String?   @map("given_by_user_id") @db.VarChar(36)
+  /// @ascii
+  givenByRelationship  String    @map("given_by_relationship") @db.VarChar(24)
+  /// @ascii
+  evidenceRef          String?   @map("evidence_ref") @db.VarChar(191)
+  capturedAt           DateTime  @map("captured_at") @db.DateTime(3)
+  withdrawnAt          DateTime? @map("withdrawn_at") @db.DateTime(3)
+  createdAt            DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt            DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId      String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId      String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion           Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_patient_consents_tenant_id")
+  @@index([tenantId, patientId, purpose, status], map: "ix_patient_consents_purpose")
+  @@map("patient_consents")
+}
+
+model PatientMergeCase {
+  /// @ascii
+  id                String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId          String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  sourcePatientId   String    @map("source_patient_id") @db.VarChar(36)
+  /// @ascii
+  targetPatientId   String    @map("target_patient_id") @db.VarChar(36)
+  reason            String    @db.VarChar(500)
+  duplicateScore    Decimal?  @map("duplicate_score") @db.Decimal(5, 4)
+  /// @ascii
+  status            String    @db.VarChar(16)
+  /// @ascii
+  requestedByUserId String    @map("requested_by_user_id") @db.VarChar(36)
+  /// @ascii
+  reviewedByUserId  String?   @map("reviewed_by_user_id") @db.VarChar(36)
+  reviewedAt        DateTime? @map("reviewed_at") @db.DateTime(3)
+  createdAt         DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt         DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId   String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId   String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion        Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_patient_merge_cases_tenant_id")
+  @@index([tenantId, status, createdAt], map: "ix_patient_merge_cases_status")
+  @@map("patient_merge_cases")
+}
+
+model PatientAccount {
+  /// @ascii
+  id                 String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId           String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  userId             String    @map("user_id") @db.VarChar(36)
+  /// @ascii
+  patientId          String    @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  relationship       String    @db.VarChar(8)
+  /// @ascii
+  verificationMethod String    @map("verification_method") @db.VarChar(32)
+  /// @ascii
+  verifiedByUserId   String?   @map("verified_by_user_id") @db.VarChar(36)
+  verifiedAt         DateTime? @map("verified_at") @db.DateTime(3)
+  /// @ascii
+  status             String    @db.VarChar(16)
+  createdAt          DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt          DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId    String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId    String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion         Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_patient_accounts_tenant_id")
+  @@index([userId, status], map: "ix_patient_accounts_user")
+  @@index([tenantId, patientId], map: "ix_patient_accounts_patient")
+  @@map("patient_accounts")
+}
+
+model PatientGuardianship {
+  /// @ascii
+  id                 String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId           String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  guardianUserId     String    @map("guardian_user_id") @db.VarChar(36)
+  /// @ascii
+  guardianPatientId  String?   @map("guardian_patient_id") @db.VarChar(36)
+  /// @ascii
+  dependentPatientId String    @map("dependent_patient_id") @db.VarChar(36)
+  /// @ascii
+  relationship       String    @db.VarChar(24)
+  authorityScope     Json      @map("authority_scope")
+  /// @ascii
+  verificationMethod String?   @map("verification_method") @db.VarChar(32)
+  /// @ascii
+  verifiedByUserId   String?   @map("verified_by_user_id") @db.VarChar(36)
+  verifiedAt         DateTime? @map("verified_at") @db.DateTime(3)
+  /// @ascii
+  evidenceRef        String?   @map("evidence_ref") @db.VarChar(191)
+  /// @ascii
+  status             String    @db.VarChar(16)
+  startsOn           DateTime  @map("starts_on") @db.Date
+  endsOn             DateTime? @map("ends_on") @db.Date
+  createdAt          DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt          DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId    String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId    String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion         Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_patient_guardianships_tenant_id")
+  @@index([guardianUserId, status], map: "ix_patient_guardianships_guardian")
+  @@index([tenantId, dependentPatientId], map: "ix_patient_guardianships_dependent")
+  @@map("patient_guardianships")
+}
+
+model CareTeamMember {
+  /// @ascii
+  id              String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId        String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  patientId       String    @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  memberUserId    String    @map("member_user_id") @db.VarChar(36)
+  /// @ascii
+  role            String    @db.VarChar(16)
+  startsAt        DateTime  @map("starts_at") @db.DateTime(3)
+  endsAt          DateTime? @map("ends_at") @db.DateTime(3)
+  reason          String?   @db.VarChar(300)
+  /// @ascii
+  addedByUserId   String    @map("added_by_user_id") @db.VarChar(36)
+  createdAt       DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt       DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion      Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_care_team_members_tenant_id")
+  @@index([tenantId, memberUserId, endsAt], map: "ix_care_team_members_member")
+  @@index([tenantId, patientId], map: "ix_care_team_members_patient")
+  @@map("care_team_members")
+}

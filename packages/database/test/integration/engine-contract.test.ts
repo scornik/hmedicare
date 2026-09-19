@@ -121,13 +121,17 @@ describe('CHECK lists equal the TypeScript enums (DB_ENUMS)', () => {
       )) as Array<{ t: string; c: string }>;
       for (const [key, values] of Object.entries(DB_ENUMS)) {
         const [table, column] = key.split('.') as [string, string];
-        const clause = rows.find(
-          (r) => r.t === table && new RegExp(`\`?${column}\`?\\s+in\\s*\\(`, 'i').test(r.c),
-        );
+        // Word-anchored: `status IN (` must not match `verification_status IN (`. MariaDB stores a
+        // one-element list as `col = 'X'`, so that form is accepted too.
+        const inRe = new RegExp(`(^|[^a-z0-9_])\`?${column}\`?\\s+in\\s*\\(([^)]*)\\)`, 'i');
+        const eqRe = new RegExp(`(^|[^a-z0-9_])\`?${column}\`?\\s*=\\s*'([^']*)'`, 'i');
+        const clause = rows.find((r) => r.t === table && (inRe.test(r.c) || eqRe.test(r.c)));
         expect(clause, key).toBeDefined();
-        const listed = [...(clause?.c.match(/in\s*\(([^)]*)\)/i)?.[1] ?? '').matchAll(/'([^']*)'/g)].map(
-          (m) => m[1],
-        );
+        const inList = clause?.c.match(inRe)?.[2];
+        const listed =
+          inList !== undefined
+            ? [...inList.matchAll(/'([^']*)'/g)].map((m) => m[1])
+            : [clause?.c.match(eqRe)?.[2] ?? ''];
         expect(new Set(listed), key).toEqual(new Set(values));
       }
     } finally {
@@ -230,6 +234,194 @@ describe('generated-column unique keys (DATABASE-IMPLEMENTATION.md §4.1)', () =
     const err = await db.prisma.pushDevice.create({ data: { id: newId(), ...p } }).catch((e: unknown) => e);
     expect(dbErrorInfo(err)).toMatchObject({ kind: 'UNIQUE_VIOLATION', constraint: 'uq_push_active_token' });
     await db.prisma.pushDevice.create({ data: { id: newId(), ...p, revokedAt: t } });
+  });
+
+  // 0004 patient_identity (Stage 5): every generated unique of DATABASE §4.1 inserts a duplicate → 1062.
+  async function seedPatient(tenantId: string, label: string) {
+    const t = now();
+    const id = newId();
+    await db.prisma.patient.create({
+      data: {
+        id,
+        tenantId,
+        medicalRecordNumber: `DEMO-${label}-${id.slice(-6)}`,
+        legalName: `DEMO ${label}`,
+        displayName: `DEMO ${label}`,
+        status: 'ACTIVE',
+        createdAt: t,
+        updatedAt: t,
+      },
+    });
+    return id;
+  }
+
+  it('patient_contacts: one ACTIVE contact per patient, type and value hash', async () => {
+    const { tenantId } = await seedTenantWithDoctor('contact');
+    const patientId = await seedPatient(tenantId, 'contact');
+    const t = now();
+    const c = {
+      tenantId,
+      patientId,
+      type: 'PHONE',
+      normalizedValue: '+8801700000123',
+      normalizedValueHash: 'f'.repeat(64),
+      displayValue: '01700000123',
+      verificationStatus: 'UNVERIFIED',
+      status: 'ACTIVE',
+      relationship: 'SELF',
+      createdAt: t,
+      updatedAt: t,
+    };
+    await db.prisma.patientContact.create({ data: { id: newId(), ...c } });
+    const err = await db.prisma.patientContact
+      .create({ data: { id: newId(), ...c } })
+      .catch((e: unknown) => e);
+    expect(dbErrorInfo(err)).toMatchObject({
+      kind: 'UNIQUE_VIOLATION',
+      constraint: 'uq_patient_contacts_active',
+    });
+    await db.prisma.patientContact.create({ data: { id: newId(), ...c, status: 'INACTIVE' } });
+  });
+
+  it('patient_identifiers: one VERIFIED identifier value per type and tenant', async () => {
+    const { tenantId } = await seedTenantWithDoctor('ident');
+    const p1 = await seedPatient(tenantId, 'ident-1');
+    const p2 = await seedPatient(tenantId, 'ident-2');
+    const t = now();
+    const i = {
+      tenantId,
+      identifierType: 'NID',
+      identifierValueEncrypted: 'enc',
+      identifierValueHash: '0'.repeat(64),
+      source: 'STAFF',
+      verificationStatus: 'VERIFIED',
+      verifiedAt: t,
+      createdAt: t,
+      updatedAt: t,
+    };
+    await db.prisma.patientIdentifier.create({ data: { id: newId(), patientId: p1, ...i } });
+    const err = await db.prisma.patientIdentifier
+      .create({ data: { id: newId(), patientId: p2, ...i } })
+      .catch((e: unknown) => e);
+    expect(dbErrorInfo(err)).toMatchObject({
+      kind: 'UNIQUE_VIOLATION',
+      constraint: 'uq_patient_identifiers_verified',
+    });
+    await db.prisma.patientIdentifier.create({
+      data: { id: newId(), patientId: p2, ...i, verificationStatus: 'UNVERIFIED', verifiedAt: null },
+    });
+  });
+
+  it('patient_merge_cases: one OPEN/IN_REVIEW case per source patient; the source may not be the target', async () => {
+    const { tenantId } = await seedTenantWithDoctor('merge');
+    const src = await seedPatient(tenantId, 'merge-src');
+    const tgt = await seedPatient(tenantId, 'merge-tgt');
+    const t = now();
+    const m = {
+      tenantId,
+      sourcePatientId: src,
+      targetPatientId: tgt,
+      reason: 'duplicate',
+      status: 'OPEN',
+      requestedByUserId: newId(),
+      createdAt: t,
+      updatedAt: t,
+    };
+    await db.prisma.patientMergeCase.create({ data: { id: newId(), ...m } });
+    const dup = await db.prisma.patientMergeCase
+      .create({ data: { id: newId(), ...m, status: 'IN_REVIEW' } })
+      .catch((e: unknown) => e);
+    expect(dbErrorInfo(dup)).toMatchObject({ kind: 'UNIQUE_VIOLATION', constraint: 'uq_merge_open_source' });
+    const self = await db.prisma.patientMergeCase
+      .create({ data: { id: newId(), ...m, targetPatientId: src, status: 'REJECTED' } })
+      .catch((e: unknown) => e);
+    expect(dbErrorInfo(self).kind).toBe('CHECK_VIOLATION');
+  });
+
+  it('patient_accounts and patient_guardianships: one live row per (user, patient)', async () => {
+    const { tenantId, userId } = await seedTenantWithDoctor('acct');
+    const patientId = await seedPatient(tenantId, 'acct');
+    const t = now();
+    const a = {
+      tenantId,
+      userId,
+      patientId,
+      relationship: 'SELF',
+      verificationMethod: 'OTP_PHONE_MATCH',
+      status: 'PENDING',
+      createdAt: t,
+      updatedAt: t,
+    };
+    await db.prisma.patientAccount.create({ data: { id: newId(), ...a } });
+    const dupA = await db.prisma.patientAccount
+      .create({ data: { id: newId(), ...a, status: 'ACTIVE' } })
+      .catch((e: unknown) => e);
+    expect(dbErrorInfo(dupA)).toMatchObject({
+      kind: 'UNIQUE_VIOLATION',
+      constraint: 'uq_patient_accounts_live',
+    });
+    await db.prisma.patientAccount.create({ data: { id: newId(), ...a, status: 'REVOKED' } });
+
+    const g = {
+      tenantId,
+      guardianUserId: userId,
+      dependentPatientId: patientId,
+      relationship: 'PARENT',
+      authorityScope: ['VIEW_RECORDS'],
+      status: 'PENDING',
+      startsOn: new Date('2026-09-01T00:00:00.000Z'),
+      createdAt: t,
+      updatedAt: t,
+    };
+    await db.prisma.patientGuardianship.create({ data: { id: newId(), ...g } });
+    const dupG = await db.prisma.patientGuardianship
+      .create({ data: { id: newId(), ...g, status: 'ACTIVE' } })
+      .catch((e: unknown) => e);
+    expect(dbErrorInfo(dupG)).toMatchObject({
+      kind: 'UNIQUE_VIOLATION',
+      constraint: 'uq_guardianships_live',
+    });
+    const badWindow = await db.prisma.patientGuardianship
+      .create({ data: { id: newId(), ...g, status: 'ENDED', endsOn: new Date('2026-08-01T00:00:00.000Z') } })
+      .catch((e: unknown) => e);
+    expect(dbErrorInfo(badWindow).kind).toBe('CHECK_VIOLATION');
+  });
+
+  it('care_team_members: one open membership per (patient, member, role)', async () => {
+    const { tenantId, userId } = await seedTenantWithDoctor('care');
+    const patientId = await seedPatient(tenantId, 'care');
+    const t = now();
+    const c = {
+      tenantId,
+      patientId,
+      memberUserId: userId,
+      role: 'NURSE',
+      startsAt: t,
+      addedByUserId: userId,
+      createdAt: t,
+      updatedAt: t,
+    };
+    await db.prisma.careTeamMember.create({ data: { id: newId(), ...c } });
+    const err = await db.prisma.careTeamMember
+      .create({ data: { id: newId(), ...c } })
+      .catch((e: unknown) => e);
+    expect(dbErrorInfo(err)).toMatchObject({ kind: 'UNIQUE_VIOLATION', constraint: 'uq_care_team_open' });
+    await db.prisma.careTeamMember.create({
+      data: { id: newId(), ...c, endsAt: new Date(t.getTime() + 60_000) },
+    });
+  });
+
+  it('patients: Bangla legal_name_bn round-trips byte-equal; MERGED requires the merged_into pointer', async () => {
+    const { tenantId } = await seedTenantWithDoctor('bn');
+    const id = await seedPatient(tenantId, 'bn');
+    const bn = 'মোছাঃ রহিমা খাতুন'.normalize('NFC');
+    await db.prisma.patient.update({ where: { id }, data: { legalNameBn: bn } });
+    const read = await db.prisma.patient.findUniqueOrThrow({ where: { id } });
+    expect(Buffer.from(read.legalNameBn ?? '', 'utf8').equals(Buffer.from(bn, 'utf8'))).toBe(true);
+    const err = await db.prisma.patient
+      .update({ where: { id }, data: { status: 'MERGED' } })
+      .catch((e: unknown) => e);
+    expect(dbErrorInfo(err).kind).toBe('CHECK_VIOLATION');
   });
 });
 
