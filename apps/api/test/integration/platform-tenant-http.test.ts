@@ -182,7 +182,17 @@ describe('platform operators (T31)', () => {
     async () => {
       const op = await user({ phone: '+8801700000055' });
       const pkg = path.resolve(__dirname, '../../../../packages/identity-access');
-      execFileSync(process.execPath, [require.resolve('typescript/bin/tsc'), '-b'], { cwd: pkg });
+      // Builds the CLI's package (a no-op when CI pre-built it). Surface tsc's own output on failure.
+      try {
+        execFileSync(process.execPath, [require.resolve('typescript/bin/tsc'), '-b'], {
+          cwd: pkg,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          encoding: 'utf8',
+        });
+      } catch (error) {
+        const e = error as { stdout?: string; stderr?: string; message: string };
+        throw new Error(`tsc -b failed in ${pkg}:\n${e.stdout ?? ''}\n${e.stderr ?? ''}\n${e.message}`);
+      }
       const run = (...args: string[]) =>
         execFileSync(process.execPath, ['dist/cli/platform-operator.js', ...args], {
           cwd: pkg,

@@ -1,0 +1,5 @@
+# gitleaks fingerprints (commit:file:rule:line) accepted after review (Stage 5 CI-000).
+# packages/http-kit/test/integration/http-kit.test.ts: a synthetic Idempotency-Key literal in a test
+# (`.set('idempotency-key', '<random-looking string>')`) matched the generic-api-key rule. It is not a secret.
+5a1de2d273c87aaa84e666a07d578a21e0d059af:packages/http-kit/test/integration/http-kit.test.ts:generic-api-key:204
+acabf4d28380d26ebd308b66d0d0836a97cc37a8:packages/http-kit/test/integration/http-kit.test.ts:generic-api-key:204

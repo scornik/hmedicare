@@ -105,6 +105,10 @@ jobs:
           node-version-file: .nvmrc
       - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
       - run: pnpm install --frozen-lockfile
+      # The CLI tests spawn built entry points (dist/cli/*.js); building first keeps their in-test `tsc -b`
+      # a no-op instead of a cold multi-package build inside a test timeout.
+      - name: build packages used by CLI tests
+        run: pnpm exec turbo run build --filter=@hmedic/identity-access... --filter=@hmedic/secrets...
       - name: integration + security (migrations from clean, engine contract, jobs, auth, tenant isolation, secrets)
         env:
           MARIADB_IMAGES: ${{ matrix.image }}
