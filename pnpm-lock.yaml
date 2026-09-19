@@ -283,6 +283,9 @@ importers:
       '@hmedic/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@hmedic/patient':
+        specifier: workspace:*
+        version: link:../../packages/patient
       '@nestjs/common':
         specifier: 11.2.5
         version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0)
@@ -692,7 +695,33 @@ importers:
         specifier: 15.1.3
         version: 15.1.3
 
-  packages/patient: {}
+  packages/patient:
+    dependencies:
+      '@hmedic/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@hmedic/database':
+        specifier: workspace:*
+        version: link:../database
+      '@hmedic/jobs':
+        specifier: workspace:*
+        version: link:../jobs
+      '@hmedic/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@hmedic/localization':
+        specifier: workspace:*
+        version: link:../localization
+      '@nestjs/common':
+        specifier: 11.2.5
+        version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2)
+    devDependencies:
+      '@hmedic/config':
+        specifier: workspace:*
+        version: link:../config
+      '@hmedic/identity-access':
+        specifier: workspace:*
+        version: link:../identity-access
 
   packages/payments: {}
 
@@ -794,9 +823,15 @@ importers:
       '@hmedic/identity-access':
         specifier: workspace:*
         version: link:../../packages/identity-access
+      '@hmedic/jobs':
+        specifier: workspace:*
+        version: link:../../packages/jobs
       '@hmedic/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
+      '@hmedic/patient':
+        specifier: workspace:*
+        version: link:../../packages/patient
       '@hmedic/provider-credentials':
         specifier: workspace:*
         version: link:../../packages/provider-credentials

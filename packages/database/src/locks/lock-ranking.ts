@@ -52,19 +52,23 @@ export const LOCK_RANKING: Readonly<Record<string, number>> = {
   integrity_chain_checkpoints: 80,
 };
 
-export const LOCK_ORDER_STATE = Symbol('hm:lock-order');
-
 interface LockOrderState {
   highestRank: number;
   highestTable: string;
 }
 
+/**
+ * Keyed by the transaction client's identity. A WeakMap (not a property) is required: Prisma's interactive
+ * transaction client is a Proxy, and defining a property on it writes through to the shared client, which
+ * would leak the state of one transaction into every later one.
+ */
+const states = new WeakMap<object, LockOrderState>();
+
 /** Records a lock on `table` for the transaction object and throws when the order is violated. */
 export function recordLock(tx: object, table: string): void {
   const rank = LOCK_RANKING[table];
   if (rank === undefined) throw new Error(`lock ranking: table ${table} is not ranked`);
-  const holder = tx as { [LOCK_ORDER_STATE]?: LockOrderState };
-  const state = holder[LOCK_ORDER_STATE];
+  const state = states.get(tx);
   if (state && rank < state.highestRank) {
     throw new AppError('INTERNAL_ERROR', 'lock order violation', {
       cause: new Error(
@@ -72,17 +76,10 @@ export function recordLock(tx: object, table: string): void {
       ),
     });
   }
-  if (!state || rank > state.highestRank) {
-    Object.defineProperty(holder, LOCK_ORDER_STATE, {
-      value: { highestRank: rank, highestTable: table } satisfies LockOrderState,
-      enumerable: false,
-      configurable: true,
-      writable: true,
-    });
-  }
+  if (!state || rank > state.highestRank) states.set(tx, { highestRank: rank, highestTable: table });
 }
 
 /** Test/inspection helper. */
 export function lockOrderStateOf(tx: object): LockOrderState | undefined {
-  return (tx as { [LOCK_ORDER_STATE]?: LockOrderState })[LOCK_ORDER_STATE];
+  return states.get(tx);
 }
