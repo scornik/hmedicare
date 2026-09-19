@@ -38,6 +38,22 @@ export function cumulativeSchema(schema, number) {
   return [header, ...included.map((s) => s.body)].join('\n');
 }
 
+/**
+ * Builds the schema made of exactly the sections in `numbers` (any order). Migrations are created in backlog
+ * order, not numeric order (DATABASE-IMPLEMENTATION §1.3), so the "before" schema of a new migration is the set
+ * of sections that already have a migration directory, whatever their numbers.
+ */
+export function schemaForSections(schema, numbers) {
+  const { header, sections } = splitSections(schema);
+  const wanted = new Set(numbers);
+  return [header, ...sections.filter((s) => wanted.has(s.number)).map((s) => s.body)].join('\n');
+}
+
+/** Section numbers that already have a migration directory (`<stamp>_<nnnn>_<name>`). */
+export function migratedSectionNumbers(migrationDirs) {
+  return migrationDirs.map((d) => d.match(/^\d+_(\d{4})_/)?.[1]).filter(Boolean);
+}
+
 /** Returns Map<table, Set<column>> of ascii columns, and Map<table, Set<column>> of all columns. */
 export function columnMeta(schema) {
   const ascii = new Map();

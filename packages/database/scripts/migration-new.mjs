@@ -9,7 +9,13 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync 
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { columnMeta, cumulativeSchema, readSchema, splitSections } from './lib/schema-meta.mjs';
+import {
+  columnMeta,
+  migratedSectionNumbers,
+  readSchema,
+  schemaForSections,
+  splitSections,
+} from './lib/schema-meta.mjs';
 import { normalizeMigration } from './lib/normalize.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -29,26 +35,27 @@ if (index === -1) {
   console.error(`no schema section ${number}`);
   process.exit(2);
 }
-const existing = existsSync(migrationsDir)
-  ? readdirSync(migrationsDir).filter((d) => d.includes(`_${number}_`))
-  : [];
+const migrationDirs = existsSync(migrationsDir) ? readdirSync(migrationsDir) : [];
+const existing = migrationDirs.filter((d) => d.includes(`_${number}_`));
 if (existing.length) {
   console.error(`migration for section ${number} already exists: ${existing.join(', ')}`);
   process.exit(2);
 }
 const section = sections[index];
-const previous = index === 0 ? null : sections[index - 1].number;
+// "Before" = every section that already has a migration (backlog order, not numeric order); "after" adds this one.
+const migrated = migratedSectionNumbers(migrationDirs);
+const previous = migrated.length ? migrated : null;
 
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'hmedic-migration-'));
 try {
   const before = path.join(tmp, 'before.prisma');
   const after = path.join(tmp, 'after.prisma');
-  writeFileSync(after, cumulativeSchema(schema, number));
+  writeFileSync(after, schemaForSections(schema, [...(previous ?? []), number]));
   const prismaCli = createRequire(import.meta.url).resolve('prisma/build/index.js');
   const args = [prismaCli, 'migrate', 'diff', '--script', '--to-schema', after];
   if (previous === null) args.push('--from-empty');
   else {
-    writeFileSync(before, cumulativeSchema(schema, previous));
+    writeFileSync(before, schemaForSections(schema, previous));
     args.push('--from-schema', before);
   }
   const sql = execFileSync(process.execPath, args, {
