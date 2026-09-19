@@ -2,10 +2,27 @@ import { QueryClient, useQuery } from '@tanstack/react-query';
 import { createApiClient } from '@hmedic/contracts/client';
 import { apiBase, getAccessToken, refresh } from './auth/session';
 
-/** Selected tenant for X-Tenant-ID (a UI choice; the server re-validates membership on every request). */
-let tenantId: string | null = null;
+/**
+ * Selected tenant for X-Tenant-ID: a UI choice kept in localStorage so reloads and deep links keep working
+ * (not auth state, never a secret; the server re-validates membership on every request).
+ */
+const TENANT_KEY = 'hm.tenant';
+function readTenant(): string | null {
+  try {
+    return localStorage.getItem(TENANT_KEY);
+  } catch {
+    return null;
+  }
+}
+let tenantId: string | null = readTenant();
 export const setTenant = (id: string | null) => {
   tenantId = id;
+  try {
+    if (id) localStorage.setItem(TENANT_KEY, id);
+    else localStorage.removeItem(TENANT_KEY);
+  } catch {
+    /* storage unavailable */
+  }
 };
 export const getTenant = () => tenantId;
 
@@ -33,6 +50,7 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
+    readonly details?: Record<string, unknown>,
   ) {
     super(code);
   }

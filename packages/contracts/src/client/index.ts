@@ -1,7 +1,9 @@
 import createClient, { type Client, type Middleware } from 'openapi-fetch';
-import type { paths } from '../../generated/openapi.v1';
+import type { components, paths } from '../../generated/openapi.v1';
 
 export type ApiPaths = paths;
+/** Generated component schemas (`ApiSchemas['schemas']['Patient']`) for typed UI code. */
+export type ApiSchemas = components;
 export type ApiClient = Client<paths>;
 
 export interface ApiClientOptions {
