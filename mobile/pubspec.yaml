@@ -23,7 +23,7 @@ melos:
       run: dart run melos exec -c 1 --dir-exists=test -- flutter test
       description: unit and widget tests
     format:check:
-      run: dart format --output=none --set-exit-if-changed apps packages/hm_core packages/hm_auth packages/hm_localization packages/hm_design packages/hm_api/lib/hm_api.dart
+      run: dart format --output=none --set-exit-if-changed apps/doctor_app/lib apps/doctor_app/test apps/patient_app/lib apps/patient_app/test packages/hm_core/lib packages/hm_core/test packages/hm_auth/lib packages/hm_auth/test packages/hm_localization/lib packages/hm_localization/test packages/hm_design/lib packages/hm_api/lib/hm_api.dart packages/hm_api/tool
     generate:api:
       run: dart run melos exec --scope=hm_api -- "dart run tool/clean_generated.dart && dart run swagger_parser && dart run build_runner build --delete-conflicting-outputs"
       description: regenerate the Dart API client from packages/contracts/generated/openapi.v1.oas30.json
