@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 import { z } from 'zod';
 
 /**
@@ -5,6 +6,27 @@ import { z } from 'zod';
  * the sections it needs. Stage 4 covers runtime, database/jobs, auth/crypto, SMS/OTP and observability.
  * Storage, AI, payments, backups and medicine import sections are added by their stages.
  */
+const TRUST_PROXY_KEYWORDS = new Set(['loopback', 'linklocal', 'uniquelocal']);
+
+/** Parses TRUST_PROXY into proxy-addr entries; null when any entry is malformed. */
+export function parseTrustProxy(value: string): string[] | null {
+  const items = value
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+  for (const item of items) {
+    if (TRUST_PROXY_KEYWORDS.has(item)) continue;
+    const [addr, prefix, extra] = item.split('/');
+    const family = isIP(addr ?? '');
+    if (family === 0 || extra !== undefined) return null;
+    if (prefix !== undefined) {
+      const n = Number(prefix);
+      if (!/^\d{1,3}$/.test(prefix) || n > (family === 4 ? 32 : 128)) return null;
+    }
+  }
+  return items;
+}
+
 export const APP_ENVS = ['development', 'test', 'staging', 'production'] as const;
 export type AppEnv = (typeof APP_ENVS)[number];
 export type AppName = 'api' | 'worker' | 'host-probe' | 'seed' | 'cli';
@@ -28,8 +50,18 @@ export const runtimeSection = {
   WEB_PUBLIC_URL: url.default('http://localhost:5173'),
   WORKER_PUBLIC_URL: url.default('http://localhost:3001'),
   CORS_ALLOWED_ORIGINS: z.string().default('http://localhost:5173'),
-  /** Reverse-proxy hops whose X-Forwarded-For is trusted (0 = none; HOST-013 confirms Hostinger's value). */
-  TRUST_PROXY_HOPS: int(0, 0, 5),
+  /**
+   * Trusted reverse proxies (audit C-48): comma list of IPs, CIDRs or the keywords loopback | linklocal |
+   * uniquelocal. Only requests whose immediate peer is listed get their client IP from X-Forwarded-For.
+   * Empty = trust nothing. HOST-013 records Hostinger's proxy address. Hop counts are not accepted.
+   */
+  TRUST_PROXY: z
+    .string()
+    .default('')
+    .refine(
+      (v) => parseTrustProxy(v) !== null,
+      'must be a comma list of IPs, CIDRs or loopback|linklocal|uniquelocal',
+    ),
   DEFAULT_TIMEZONE: z.string().default('Asia/Dhaka'),
   DEFAULT_LOCALE: z.enum(['bn-BD', 'en-BD']).default('bn-BD'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional(),

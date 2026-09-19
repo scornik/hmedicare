@@ -137,6 +137,7 @@ export function createProbeServer(cfg: ProbeServerConfig): http.Server {
         }
         case 'GET /probe/limits/headers':
           return json(res, 200, {
+            // HOST-013: `remoteAddress` is the proxy the app sees; it becomes TRUST_PROXY (audit C-48).
             remoteAddress: req.socket.remoteAddress,
             forwardedFor: req.headers['x-forwarded-for'] ?? null,
             forwardedProto: req.headers['x-forwarded-proto'] ?? null,
