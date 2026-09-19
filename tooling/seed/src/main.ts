@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { ConfigError, loadConfig } from '@hmedic/config';
 import { createDatabase } from '@hmedic/database';
@@ -11,6 +13,10 @@ async function main(): Promise<number> {
   const { values } = parseArgs({
     options: { verify: { type: 'boolean' }, 'rotate-passwords': { type: 'boolean' } },
   });
+  // Standalone runs (`pnpm db:seed`) read the repo-root .env like `pnpm dev` does; variables already set in the
+  // environment (e.g. an explicit staging DATABASE_URL) take precedence because loadEnvFile never overrides.
+  const envFile = path.resolve(__dirname, '../../../.env');
+  if (existsSync(envFile)) process.loadEnvFile(envFile);
   let cfg: Record<string, unknown>;
   try {
     cfg = loadConfig('seed');
