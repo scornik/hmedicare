@@ -22,7 +22,9 @@
     "@hmedic/config": "workspace:*",
     "@hmedic/database": "workspace:*",
     "@hmedic/identity-access": "workspace:*",
+    "@hmedic/jobs": "workspace:*",
     "@hmedic/kernel": "workspace:*",
+    "@hmedic/patient": "workspace:*",
     "@hmedic/provider-credentials": "workspace:*",
     "@hmedic/secrets": "workspace:*",
     "@hmedic/tenant-org": "workspace:*"
