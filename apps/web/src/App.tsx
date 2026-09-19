@@ -9,6 +9,10 @@ import { I18nProvider, useI18n } from './i18n/i18n';
 import { DashboardPage } from './pages/DashboardPage';
 import { ForbiddenPage, NotFoundPage, OfflinePage } from './pages/ErrorPages';
 import { LoginPage } from './pages/LoginPage';
+import { MergeCasesPage } from './pages/MergeCasesPage';
+import { PatientCreatePage } from './pages/PatientCreatePage';
+import { PatientDetailPage } from './pages/PatientDetailPage';
+import { PatientSearchPage } from './pages/PatientSearchPage';
 import { TenantPickerPage } from './pages/TenantPickerPage';
 
 function subscribeOnline(cb: () => void) {
@@ -45,6 +49,10 @@ const router = createBrowserRouter([
           { path: '/', element: <Navigate to="/dashboard" replace /> },
           { path: '/select-tenant', element: <TenantPickerPage /> },
           { path: '/dashboard', element: <DashboardPage /> },
+          { path: '/patients/search', element: <PatientSearchPage /> },
+          { path: '/patients/new', element: <PatientCreatePage /> },
+          { path: '/patients/merge-cases', element: <MergeCasesPage /> },
+          { path: '/patients/:patientId', element: <PatientDetailPage /> },
         ],
       },
       { path: '*', element: <NotFoundPage /> },
