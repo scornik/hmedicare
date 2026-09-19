@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest, FastifyServerOptions } from 'fastify';
+import { parseTrustProxy } from '@hmedic/config';
 import { isUuid, newId } from '@hmedic/kernel';
 import { runWithLogContext, statusClass } from '@hmedic/observability';
 import { toProblem } from './problem-details';
@@ -8,7 +9,8 @@ import type { HttpRuntime } from './runtime';
 /**
  * Fastify server options (API-IMPLEMENTATION §1, OBSERVABILITY §1). The request id is the inbound
  * `X-Request-ID` when it is a UUID, else a new UUIDv7. JSON bodies are capped (uploads never pass through
- * the API). Proxy trust is explicit (`TRUST_PROXY_HOPS`, HOST-013).
+ * the API). Proxy trust is by peer address only (`TRUST_PROXY`, audit C-48, HOST-013): a hop count would let
+ * a direct client spoof X-Forwarded-For, which is why Fastify >= 5.12 fails closed on numeric trust.
  */
 export function fastifyOptions(runtime: Pick<HttpRuntime, 'config'>): FastifyServerOptions {
   return {
@@ -19,11 +21,17 @@ export function fastifyOptions(runtime: Pick<HttpRuntime, 'config'>): FastifySer
       return typeof inbound === 'string' && isUuid(inbound) ? inbound.toLowerCase() : newId();
     },
     bodyLimit: 1_048_576,
-    trustProxy: runtime.config.TRUST_PROXY_HOPS > 0 ? runtime.config.TRUST_PROXY_HOPS : false,
+    trustProxy: trustProxyOption(runtime.config.TRUST_PROXY),
     connectionTimeout: 30_000,
     requestTimeout: 25_000,
     return503OnClosing: true,
   };
+}
+
+/** `false` (ignore every X-Forwarded-* header) unless at least one trusted proxy is configured. */
+export function trustProxyOption(value: string): string[] | false {
+  const list = parseTrustProxy(value) ?? [];
+  return list.length ? list : false;
 }
 
 /** Security headers for JSON API responses (SECURITY-IMPLEMENTATION §1, ADR-013 §2). */

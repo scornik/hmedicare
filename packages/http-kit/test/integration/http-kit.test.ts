@@ -84,6 +84,11 @@ class ProbeController {
     throw new AppError('RATE_LIMITED', undefined, { retryAfterSeconds: 7 });
   }
 
+  @Get('ip')
+  ip(@Req() req: FastifyRequest) {
+    return { ip: req.ip };
+  }
+
   @Get('context')
   context() {
     return { requestId: currentLogContext()?.requestId ?? null };
@@ -297,6 +302,36 @@ describe('rate limits and internal tokens', () => {
     expect(
       JSON.stringify(audits, (_k, v: unknown) => (typeof v === 'bigint' ? v.toString() : v)),
     ).not.toContain('wrong');
+  });
+
+  it('ignores X-Forwarded-For unless the immediate peer is a trusted proxy (audit C-48)', async () => {
+    const spoofed = await request(server)
+      .get('/api/v1/probe/ip')
+      .set('x-forwarded-for', '203.0.113.9')
+      .expect(200);
+    expect(spoofed.body.data.ip).not.toBe('203.0.113.9');
+
+    // Same tree with the loopback peer trusted: the forwarded client address is used.
+    const trusted = createRuntime(
+      'api',
+      loadConfig<ServerConfig>('api', testEnv({ DATABASE_URL: testDatabaseUrl(), TRUST_PROXY: 'loopback' })),
+      { database: db },
+    ).runtime;
+    @Module({
+      imports: [HttpKitModule.forRoot(trusted, { jobsEndpoint: false })],
+      controllers: [ProbeController],
+    })
+    class TrustedModule {}
+    const trustedApp = await createHttpApp(TrustedModule, trusted, { cors: false });
+    try {
+      const res = await request(trustedApp.getHttpServer())
+        .get('/api/v1/probe/ip')
+        .set('x-forwarded-for', '203.0.113.9')
+        .expect(200);
+      expect(res.body.data.ip).toBe('203.0.113.9');
+    } finally {
+      await trustedApp.close();
+    }
   });
 
   it('protects the cron kick and reports a disabled runner with 202', async () => {

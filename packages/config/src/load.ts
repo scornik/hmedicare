@@ -96,6 +96,11 @@ function crossChecks(env: Env, appEnv: AppEnv, app: AppName): string[] {
   if (appEnv === 'production' && env.OTP_PROVIDER !== undefined && env.OTP_PROVIDER === 'mock') {
     problems.push('OTP_PROVIDER: mock delivery is refused in production');
   }
+  if (env.TRUST_PROXY_HOPS !== undefined) {
+    problems.push(
+      'TRUST_PROXY_HOPS: removed (audit C-48); set TRUST_PROXY to the proxy address or CIDR instead',
+    );
+  }
   const diagnostics = env.DIAGNOSTICS_ENABLED === 'true' || env.DIAGNOSTICS_ENABLED === '1';
   if (diagnostics && appEnv === 'production') {
     problems.push('DIAGNOSTICS_ENABLED: diagnostics endpoints are refused in production');

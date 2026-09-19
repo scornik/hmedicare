@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ConfigError, assertPublicViteEnv, loadConfig } from '../../src/index';
+import { ConfigError, assertPublicViteEnv, loadConfig, parseTrustProxy } from '../../src/index';
 import { testEnv } from '../../src/testing';
 
 function problemsOf(fn: () => unknown): readonly string[] {
@@ -110,6 +110,32 @@ describe('loadConfig (ENVIRONMENT-CONTRACT.md)', () => {
         loadConfig('worker', testEnv({ JOB_RUNNER_MODE: 'worker', INTERNAL_CRON_TOKEN: undefined })),
       ),
     ).toContain('INTERNAL_CRON_TOKEN: required when a job runner is active (worker/embedded/cron)');
+  });
+
+  it('TRUST_PROXY accepts addresses, CIDRs and keywords only (audit C-48; hop counts are rejected)', () => {
+    expect(parseTrustProxy('')).toEqual([]);
+    expect(parseTrustProxy('loopback, 10.0.0.0/8 ,2001:db8::1, fd00::/8')).toEqual([
+      'loopback',
+      '10.0.0.0/8',
+      '2001:db8::1',
+      'fd00::/8',
+    ]);
+    for (const bad of [
+      '1',
+      'proxy.example',
+      '10.0.0.0/33',
+      'fd00::/129',
+      '10.0.0.1/8/1',
+      'loopback;linklocal',
+    ]) {
+      expect(parseTrustProxy(bad), bad).toBeNull();
+    }
+    expect(problemsOf(() => loadConfig('api', testEnv({ TRUST_PROXY: '1' })))).toContain(
+      'TRUST_PROXY: must be a comma list of IPs, CIDRs or loopback|linklocal|uniquelocal',
+    );
+    expect(problemsOf(() => loadConfig('api', testEnv({ TRUST_PROXY_HOPS: '1' })))).toContain(
+      'TRUST_PROXY_HOPS: removed (audit C-48); set TRUST_PROXY to the proxy address or CIDR instead',
+    );
   });
 
   it('diagnostics (SMS-002/HOST) need their own token and are refused in production', () => {

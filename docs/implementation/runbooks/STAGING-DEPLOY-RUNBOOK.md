@@ -20,7 +20,7 @@
    | `worker-staging.<domain>` | `staging` | `pnpm hostinger:build:worker` | `apps/worker/dist/main.js` |
    | `app-staging.<domain>` (static) | `staging` | `pnpm hostinger:build:web` | output `apps/web/dist` |
 5. **Environment variables.** Follow the api and worker columns of `ENVIRONMENT-CONTRACT.md`. Staging essentials:
-   - `APP_ENV=staging`, `DATABASE_URL`, `CORS_ALLOWED_ORIGINS=https://app-staging.<domain>`, `TRUST_PROXY_HOPS` (from HOST-013);
+   - `APP_ENV=staging`, `DATABASE_URL`, `CORS_ALLOWED_ORIGINS=https://app-staging.<domain>`, `TRUST_PROXY` (the proxy address from HOST-013; leave empty until recorded);
    - api `JOB_RUNNER_MODE=off`, worker `JOB_RUNNER_MODE=worker` (or `cron` if HOST-005 showed idle stops);
    - `SMS_PROVIDER=mock`, `OTP_PROVIDER=mock` (staging is synthetic; no Zaman IT key on staging unless an owner-approved SMS-002 probe is running).
 6. **Cron.** Upload `infrastructure/hostinger/cron/kick-worker.sh` to `~/hmedic-ops/` and create the token file (mode 600) as shown in the script header. Then add the hPanel Custom Cron `* * * * *`.

@@ -94,7 +94,7 @@ DB-dependent tasks stay PROVISIONAL until HOST-001, HOST-003 and HOST-005 pass. 
 | D-07 | Runner mode names follow the docs (`worker`/`embedded`/`cron`/`off`) | BUILD-CONTRACT precedence | — |
 | D-08 | MinIO runs under a compose profile | object storage is out of Stage 4 | — |
 | D-09 | No git remote; tasks merged locally (fast-forward of task-scoped commits, split per the 600-line rule) | H-1 | squash policy applies once PRs exist |
-| D-10 | `packages/http-kit` (C-36); no `nestjs-pino` (C-37); `TRUST_PROXY_HOPS` (C-38) | see audit rows | — |
+| D-10 | `packages/http-kit` (C-36); no `nestjs-pino` (C-37); `TRUST_PROXY_HOPS` (C-38; replaced by `TRUST_PROXY` in Stage 5, C-48) | see audit rows | — |
 | D-11 | The dev OTP inbox (`/internal/test/otp/:id`) is enabled in `development` as well as `test` | `pnpm dev` OTP login without SMS | never in staging/production (config-guarded) |
 | D-12 | Seed uses `@example.invalid` (prompt) instead of `@example.test` (SEED-DATA) | Stage 4 prompt precedence | align SEED-DATA wording |
 | D-13 | `ResponseMeta.replayed` is `boolean` (was literal `true`) | swagger_parser emits a broken enum for boolean enums | server behaviour unchanged |

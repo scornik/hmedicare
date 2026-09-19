@@ -27,7 +27,7 @@ Column **Apps** lists the Hostinger apps that need the variable (`api`, `worker`
 | `WEB_PUBLIC_URL` | REQ-PROD | api | `https://app.<domain>` | |
 | `WORKER_PUBLIC_URL` | REQ-PROD | worker | `https://worker.<domain>` | |
 | `CORS_ALLOWED_ORIGINS` | REQ-PROD | api | comma list; prod `https://app.<domain>` | no wildcard (startup check) |
-| `TRUST_PROXY_HOPS` | OPT | api, worker | `0` (local); Hostinger value from HOST-013 (expected `1`) | integer 0–5; `X-Forwarded-For` is ignored when `0` (Stage 4, IP-keyed rate limits) |
+| `TRUST_PROXY` | OPT | api, worker | empty (local); Hostinger proxy address/CIDR from HOST-013 | comma list of IPs, CIDRs or `loopback`|`linklocal`|`uniquelocal`; `X-Forwarded-For` is honored only when the immediate peer matches; empty = ignored. Replaces `TRUST_PROXY_HOPS`, which is refused at startup (Stage 5, audit C-48) |
 | `DEFAULT_TIMEZONE` | OPT | api, worker | `Asia/Dhaka` | |
 | `DEFAULT_LOCALE` | OPT | api, worker | `bn-BD` | |
 | `LOG_LEVEL` | OPT | api, worker | `info` (prod), `debug` (staging/local) | |
