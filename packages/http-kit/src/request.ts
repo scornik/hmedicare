@@ -7,6 +7,15 @@ export interface HmRequestState {
   actor?: ActorContext;
   tenant?: TenantContext;
   platform?: PlatformContext;
+  /** Set by the identity AuthGuard from `X-Patient-Context` (shape owned by identity-access ports). */
+  patientContext?: {
+    userId: string;
+    tenantId: string;
+    patientId: string;
+    actingAs: 'SELF' | 'GUARDIAN';
+    guardianshipId: string | null;
+    authorityScope: ReadonlySet<string>;
+  };
   /** Resolved tenant (after membership validation), null for platform/public routes. */
   tenantId?: string | null;
   actorUserId?: string | null;
