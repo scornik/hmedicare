@@ -1,14 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hm_api/hm_api.dart' show PatientContext;
 import 'package:hm_auth/hm_auth.dart';
 import 'package:hm_localization/hm_localization.dart';
 
-/// `GET /me/patient-contexts` (tenant picker / profile switcher shell; empty until Stage 5).
+import 'active_context.dart';
+
+/// `GET /me/patient-contexts`: the profile switcher (own record per clinic + dependents as guardian).
 final patientContextsProvider = FutureProvider.autoDispose<List<PatientContext>>((ref) async {
   final r = await ref.read(apiClientProvider).me.listPatientContexts();
   return r.data;
 });
+
+String relationshipLabel(HmStrings s, String relationship) {
+  final key = 'rel$relationship';
+  final v = s.t(key);
+  return v == key ? relationship : v;
+}
 
 class PatientContextsScreen extends ConsumerWidget {
   const PatientContextsScreen({super.key});
@@ -26,7 +35,11 @@ class PatientContextsScreen extends ConsumerWidget {
             key: const Key('logout'),
             tooltip: s.t('logout'),
             icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+            onPressed: () {
+              ref.read(readCacheProvider).clear();
+              ref.read(activeContextProvider.notifier).select(null);
+              ref.read(authControllerProvider.notifier).logout();
+            },
           ),
         ],
       ),
@@ -37,8 +50,20 @@ class PatientContextsScreen extends ConsumerWidget {
             ? Center(child: Text(s.t('noClinics')))
             : ListView(
                 children: [
+                  ListTile(title: Text(s.t('selectProfile'))),
                   for (final c in list)
-                    ListTile(title: Text(c.patientDisplayName), subtitle: Text(c.tenantName)),
+                    ListTile(
+                      key: Key('context-${c.patientId}'),
+                      leading: Icon(c.relationship == 'SELF' ? Icons.person : Icons.family_restroom),
+                      title: Text(c.patientDisplayName),
+                      subtitle: Text('${c.tenantName} · ${relationshipLabel(s, c.relationship)}'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        ref.read(readCacheProvider).clear();
+                        ref.read(activeContextProvider.notifier).select(c);
+                        context.go('/profile');
+                      },
+                    ),
                 ],
               ),
       ),
