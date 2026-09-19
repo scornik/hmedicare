@@ -61,6 +61,7 @@ mobile/
   - The selected context is stored per device, and the header is set per request.
 - Guardian actions are gated in the UI by `authorityScope`, but authorization is always server-side. A `FORBIDDEN` response returns to the context switcher with a message.
 - Dependent profiles show a persistent banner: "Acting for <display name>".
+- **Stage 5 CP3 state.** The patient app has the switcher and the own-record screen (`GET /patients/{id}` with `X-Tenant-ID` + `X-Patient-Context`). Reads go through `hm_core` `ReadCache` (in memory for the session: on a network failure the saved copy is shown with a staleness indicator; authorization failures are never masked). The selected context lives per launch and mutations are online-only until `hm_offline` (MOB-002) adds Drift storage.
 
 ## 6. Routes
 

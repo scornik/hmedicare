@@ -25,7 +25,8 @@ beforeEach(async () => {
 });
 
 describe('seed', () => {
-  it('creates the Stage 4 dataset once, verifies, and is idempotent', async () => {
+  // Stage 5 adds ~65 patients with duplicate checks and audit rows per run; the container is slow under CI load.
+  it('creates the Stage 4 dataset once, verifies, and is idempotent', { timeout: 300_000 }, async () => {
     const first = await new Seeder(db.prisma, cfg, { rotatePasswords: false }).run();
     expect(first.created.length).toBeGreaterThan(10);
     expect(first.credentials.map((c) => c.role).sort()).toEqual(
@@ -50,18 +51,22 @@ describe('seed', () => {
     expect(await verifySeed(db.prisma)).toEqual([]);
   });
 
-  it('stores no plaintext SMS key and never seeds outside the synthetic ranges', async () => {
-    await new Seeder(db.prisma, cfg, { rotatePasswords: false }).run();
-    const creds = await db.prisma.providerCredential.findMany();
-    expect(creds.map((c) => c.status).sort()).toEqual(['ACTIVE', 'SUSPENDED_BALANCE']);
-    expect(JSON.stringify(creds)).not.toMatch(/fake_mock_[0-9a-f]{32}/);
-    expect(await db.prisma.smsBalanceSnapshot.count({ where: { parseStatus: 'UNPARSED' } })).toBe(1);
-    const users = await db.prisma.user.findMany();
-    expect(users.every((u) => !u.emailNormalized || u.emailNormalized.endsWith('@example.invalid'))).toBe(
-      true,
-    );
-    expect(users.every((u) => !u.phoneE164 || /^\+8801700000\d{3}$/.test(u.phoneE164))).toBe(true);
-  });
+  it(
+    'stores no plaintext SMS key and never seeds outside the synthetic ranges',
+    { timeout: 180_000 },
+    async () => {
+      await new Seeder(db.prisma, cfg, { rotatePasswords: false }).run();
+      const creds = await db.prisma.providerCredential.findMany();
+      expect(creds.map((c) => c.status).sort()).toEqual(['ACTIVE', 'SUSPENDED_BALANCE']);
+      expect(JSON.stringify(creds)).not.toMatch(/fake_mock_[0-9a-f]{32}/);
+      expect(await db.prisma.smsBalanceSnapshot.count({ where: { parseStatus: 'UNPARSED' } })).toBe(1);
+      const users = await db.prisma.user.findMany();
+      expect(users.every((u) => !u.emailNormalized || u.emailNormalized.endsWith('@example.invalid'))).toBe(
+        true,
+      );
+      expect(users.every((u) => !u.phoneE164 || /^\+8801700000\d{3}$/.test(u.phoneE164))).toBe(true);
+    },
+  );
 
   it('refuses production', async () => {
     await expect(

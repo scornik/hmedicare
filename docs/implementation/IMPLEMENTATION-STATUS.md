@@ -1,6 +1,6 @@
-# Implementation Status — Stage 4 (Foundation + Tenant/Identity)
+# Implementation Status — Stage 4 (Foundation + Tenant/Identity) and Stage 5 (Patient, Scheduling, Queue)
 
-Living document for Stage 4 (BUILD-CONTRACT; Stage 4 prompt §8). Updated after every merged task.
+Living document (BUILD-CONTRACT; Stage 4 prompt §8, Stage 5 prompt §10). Updated after every merged task.
 Legend:
 - **DONE:** merged to `main` with tests.
 - **PROVISIONAL:** merged with tests; final only after the listed HOST items or human actions pass.
@@ -13,6 +13,9 @@ Legend:
 |---|---|---|---|
 | CP1 Foundation | FOUND-*, JOB-*, HOST harness, CI, api/worker shells, SEC suite, seed | PASS (local gates; CI evidence pending H-1, HOST evidence pending H-2) | `stage4-cp1-foundation` |
 | CP2 Tenant/Identity | ID-001…ID-007, SMS-001…005/008, web + mobile shells | PASS (local gates; SMS-002 capture and SMS-008 live send are human-run) | `stage4-cp2-identity` |
+| CP3 Patient registry (Stage 5) | CI-000, PAT-001…PAT-007: migration 0004, search normalization, lock ranking, patient/merge/consent/access services, HTTP routes + patient context, seed, web staff screens, mobile profile switcher | PASS (local gates on both MariaDB versions; GitHub CI on the self-hosted runner) | `stage5-cp3-patient` (set on `main` by `scripts/checkpoint-verify.mjs` after the PR merge) |
+| CP4 Chamber & scheduling (Stage 5) | CHAM-*, SCHED-*, APPT-* | NOT STARTED | `stage5-cp4-scheduling` |
+| CP5 Serial/queue engine (Stage 5) | SERIAL-*, QUEUE-*, LOC-* | NOT STARTED (gated on HOST-001/003/004/005 evidence, Stage 5 §0.3) | `stage5-cp5-queue` |
 
 ## 2. Tasks
 
@@ -52,17 +55,30 @@ Legend:
 | WEB-001 web shell | PROVISIONAL (HOST-012, staging deploy) | `79994a4`, `ffa92c4` | unit 4, e2e 4 | in-memory tokens, CSRF refresh, bn/en + Noto Sans Bengali |
 | MOB-001 mobile workspace + shells | DONE | `12c6fe6`, `615088c`, `47bcfb7`, `fa6dfb5` | Flutter 13 | Melos 8.7.0, generated Dart client, secure storage, OTP mock login |
 
-Out of Stage 4 scope (not started): patients, chambers, schedules, appointments, queue, clinical, prescriptions, MEDDATA, payments, AI, SMS-006/007/009, communications beyond OTP, MOB-002+ (`hm_offline`), WEB-002+.
+### Stage 5
+
+| Task | Status | Commit(s) | Tests added | Notes |
+|---|---|---|---|---|
+| CI-000 CI on GitHub (H-1) | DONE | PR #1 (`33cb023` … `a497860`) | — | self-hosted runner `hmedic-local` via repository variable `CI_RUNS_ON`; pinned gitleaks/osv binaries with checksums; mobile job uses the machine Flutter pinned to `.fvmrc`; pnpm overrides for fastify/mariadb/mysql2/deepmerge-ts advisories; `TRUST_PROXY` replaces `TRUST_PROXY_HOPS` (C-48); `scripts/checkpoint-verify.mjs` |
+| PAT-001 migration 0004 + search normalization + lock ranking | PROVISIONAL (HOST-001/003) | `b00299a` | unit (localization 14, database 5), integration engine-contract 28 | 9 tables, 6 generated unique keys, `patient_search_tokens` (C-41), transliteration v1, runtime lock-order enforcement (C-46), migration tooling diffs against migrated sections only |
+| PAT-002 registry services | PROVISIONAL (HOST-001/003) | `a9d2806`, `3b0e7a5` | unit 6, integration 10 | create/search/duplicate review, merge (C-47, repointer registry), consents, accounts (OTP auto-link), guardianships, care team, PatientContextResolver |
+| PAT-003 contracts + HTTP routes | PROVISIONAL (HOST-001/003) | `3c67674`, `99fcbba` | integration 3 (HTTP) | 50 operations; `@PatientContextRoute`, `@OptionalTenant`, `@TenantMembershipOptional` (D-24); `/me/patient-contexts` live |
+| PAT-004 patient context + auto-link on OTP verify | PROVISIONAL (HOST-001/003) | `99fcbba` | integration (in PAT-003 suite) | guard audits `AUTHZ_DENIED` with `patient_context` / `patient_scope:<scope>` |
+| PAT-005 seed dataset | DONE | `66a40a0` | `seed:verify` assertions | 65 patients (D-26), duplicate pair + OPEN merge case, guardian with two dependents, accounts ACTIVE/PENDING/SUSPENDED, care team, consents |
+| PAT-006 web staff screens | DONE | `621fe99`, `b5847e8` | e2e 4 | search, create with duplicate review, record, merge cases; tenant id persisted (D-22) |
+| PAT-007 mobile profile switcher | DONE | `379fb63`, `512ece9` | Flutter 2 (+1 hm_core) | regenerated Dart client; `ReadCache` staleness indicator (D-23) |
+
+Not started in Stage 5 yet: CHAM-*/SCHED-*, APPT-*, SERIAL-*/QUEUE-*, LOC-*. Out of scope: encounters, clinical, prescriptions, catalog, labs, documents, timeline, follow-ups, communications delivery, telemedicine, payments, AI.
 
 ## 3. Test summary (latest full run)
 
 | Suite | Count | Notes |
 |---|---|---|
-| unit | 259 | Vitest `unit` project (packages, apps, tooling, scripts) |
+| unit | 288 | Vitest `unit` project (packages, apps, tooling, scripts) |
 | architecture | 37 | depcruise + ESLint rule fixtures |
-| integration + security | 169 on mariadb:10.6 · 169 on mariadb:11.4 | Testcontainers, `node scripts/test/run-integration.mjs` |
-| e2e (Playwright) | 4 | built web app against a mocked API |
-| mobile (Flutter) | 13 | `dart run melos run test`; `flutter analyze --fatal-infos` clean |
+| integration + security | 189 on mariadb:10.6 · 189 on mariadb:11.4 | Testcontainers, `node scripts/test/run-integration.mjs` (seed test: 5-minute budget, the Stage 5 dataset takes ~85 s per run) |
+| e2e (Playwright) | 8 | built web app against a mocked API (smoke + patient flows) |
+| mobile (Flutter) | 15 | `dart run melos run test`; `flutter analyze --fatal-infos` clean |
 
 ## 4. Open HOST items
 
@@ -106,3 +122,8 @@ DB-dependent tasks stay PROVISIONAL until HOST-001, HOST-003 and HOST-005 pass. 
 | D-19 | Local Playwright may use an installed browser (`PW_CHANNEL=msedge`); CI installs the pinned bundled Chromium | no browser download on the dev machine | — |
 | D-20 | `/me/patient-contexts` returns `[]` until patients exist | Stage 5 | Stage 5 |
 | D-21 | `apps/web` re-implements the `VITE_*` secret-name check instead of importing `packages/config` | dependency rule `web-only-contracts-and-ui` | — |
+| D-22 | Web keeps the selected tenant id in `localStorage` (`hm.tenant`) | reloads and deep links lost the tenant; the id is a UI preference, not auth state (WEB §2) | — |
+| D-23 | Mobile patient context is selected per launch; reads are cached in memory only (`hm_core` `ReadCache`) | `hm_offline` (Drift) is MOB-002; no new dependency added | MOB-002 |
+| D-24 | `POST /patients/{id}/guardianships` is membership-optional (`@TenantMembershipOptional`) | a patient user has no membership and no context before the link exists (AUTHORIZATION-MATRIX §4) | — |
+| D-25 | Merge review UI is gated on `patient.merge` (held by nurse/receptionist per the role catalog), not on admin roles | AUTHORIZATION-MATRIX is the source of truth | — |
+| D-26 | Seed has 65 patients (prompt: ~60); generated namesakes are created with an acknowledged duplicate review | the duplicate scorer flags the generator's repeated names | — |
