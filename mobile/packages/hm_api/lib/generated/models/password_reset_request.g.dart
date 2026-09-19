@@ -17,4 +17,4 @@ PasswordResetRequest _$PasswordResetRequestFromJson(
 
 Map<String, dynamic> _$PasswordResetRequestToJson(
   PasswordResetRequest instance,
-) => <String, dynamic>{'email': instance.email, 'locale': instance.locale};
+) => <String, dynamic>{'email': instance.email, 'locale': ?instance.locale};

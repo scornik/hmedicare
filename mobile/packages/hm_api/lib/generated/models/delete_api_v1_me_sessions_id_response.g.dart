@@ -15,4 +15,4 @@ DeleteApiV1MeSessionsIdResponse _$DeleteApiV1MeSessionsIdResponseFromJson(
 
 Map<String, dynamic> _$DeleteApiV1MeSessionsIdResponseToJson(
   DeleteApiV1MeSessionsIdResponse instance,
-) => <String, dynamic>{'data': instance.data, 'meta': instance.meta};
+) => <String, dynamic>{'data': ?instance.data, 'meta': instance.meta};

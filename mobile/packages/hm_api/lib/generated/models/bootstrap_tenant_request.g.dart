@@ -23,5 +23,5 @@ Map<String, dynamic> _$BootstrapTenantRequestToJson(
   'name': instance.name,
   'owner': instance.owner,
   'practiceType': instance.practiceType,
-  'slug': instance.slug,
+  'slug': ?instance.slug,
 };

@@ -23,7 +23,7 @@ Map<String, dynamic> _$SessionSummaryToJson(SessionSummary instance) =>
       'clientType': instance.clientType,
       'createdAt': instance.createdAt.toIso8601String(),
       'current': instance.current,
-      'deviceLabel': instance.deviceLabel,
+      'deviceLabel': ?instance.deviceLabel,
       'id': instance.id,
       'lastSeenAt': instance.lastSeenAt.toIso8601String(),
     };

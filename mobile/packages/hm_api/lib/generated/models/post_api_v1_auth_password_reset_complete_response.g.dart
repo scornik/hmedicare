@@ -16,4 +16,4 @@ _$PostApiV1AuthPasswordResetCompleteResponseFromJson(
 
 Map<String, dynamic> _$PostApiV1AuthPasswordResetCompleteResponseToJson(
   PostApiV1AuthPasswordResetCompleteResponse instance,
-) => <String, dynamic>{'data': instance.data, 'meta': instance.meta};
+) => <String, dynamic>{'data': ?instance.data, 'meta': instance.meta};

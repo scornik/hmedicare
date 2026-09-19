@@ -1,0 +1,8 @@
+# json_serializable: never send JSON nulls for absent optional fields. The API schemas use optional
+# (absent) rather than nullable for request fields, so `"deviceLabel": null` would be a VALIDATION_FAILED.
+targets:
+  $default:
+    builders:
+      json_serializable:
+        options:
+          include_if_null: false

@@ -88,6 +88,9 @@ void main() {
     final verify = adapter.calls.last;
     expect(verify.headers['Idempotency-Key'], matches(RegExp(r'^[0-9a-f-]{36}$')));
     expect(jsonEncode(verify.data), contains('"client":"android"'));
+    // The API treats absent and null differently: optional request fields must be omitted, never null.
+    expect(jsonEncode(verify.data), isNot(contains('null')));
+    expect((verify.data as Map).containsKey('deviceLabel'), isFalse);
     expect(verify.headers.containsKey('cookie'), isFalse);
   });
 

@@ -52,7 +52,8 @@
     "mobile:analyze": "cd mobile && dart run melos run analyze",
     "mobile:test": "cd mobile && dart run melos run test",
     "license:scan": "node scripts/license-scan.mjs",
-    "ops:capture-sms-probe": "node scripts/ops/capture-sms-probe.mjs"
+    "ops:capture-sms-probe": "node scripts/ops/capture-sms-probe.mjs",
+    "dev:otp": "node scripts/dev/otp-inbox.mjs"
   },
   "devDependencies": {
     "@hmedic/api": "workspace:*",

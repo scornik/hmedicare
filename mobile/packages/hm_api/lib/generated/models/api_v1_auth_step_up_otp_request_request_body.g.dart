@@ -16,4 +16,4 @@ _$ApiV1AuthStepUpOtpRequestRequestBodyFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$ApiV1AuthStepUpOtpRequestRequestBodyToJson(
   ApiV1AuthStepUpOtpRequestRequestBody instance,
-) => <String, dynamic>{'locale': instance.locale};
+) => <String, dynamic>{'locale': ?instance.locale};

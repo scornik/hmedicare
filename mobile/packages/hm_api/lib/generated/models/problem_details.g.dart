@@ -21,9 +21,9 @@ ProblemDetails _$ProblemDetailsFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$ProblemDetailsToJson(ProblemDetails instance) =>
     <String, dynamic>{
       'code': instance.code,
-      'details': instance.details,
-      'fieldErrors': instance.fieldErrors,
+      'details': ?instance.details,
+      'fieldErrors': ?instance.fieldErrors,
       'message': instance.message,
       'requestId': instance.requestId,
-      'retryAfterSeconds': instance.retryAfterSeconds,
+      'retryAfterSeconds': ?instance.retryAfterSeconds,
     };

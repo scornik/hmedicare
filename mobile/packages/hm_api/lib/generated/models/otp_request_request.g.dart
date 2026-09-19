@@ -19,7 +19,7 @@ OtpRequestRequest _$OtpRequestRequestFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$OtpRequestRequestToJson(OtpRequestRequest instance) =>
     <String, dynamic>{
-      'locale': instance.locale,
+      'locale': ?instance.locale,
       'phone': instance.phone,
       'purpose': instance.purpose,
     };

@@ -14,6 +14,6 @@ Owner _$OwnerFromJson(Map<String, dynamic> json) => Owner(
 
 Map<String, dynamic> _$OwnerToJson(Owner instance) => <String, dynamic>{
   'displayName': instance.displayName,
-  'email': instance.email,
-  'phone': instance.phone,
+  'email': ?instance.email,
+  'phone': ?instance.phone,
 };

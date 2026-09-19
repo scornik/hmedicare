@@ -25,8 +25,8 @@ Map<String, dynamic> _$SessionResponseToJson(
 ) => <String, dynamic>{
   'accessToken': instance.accessToken,
   'accessTokenExpiresAt': instance.accessTokenExpiresAt.toIso8601String(),
-  'csrfToken': instance.csrfToken,
-  'refreshToken': instance.refreshToken,
-  'refreshTokenExpiresAt': instance.refreshTokenExpiresAt?.toIso8601String(),
+  'csrfToken': ?instance.csrfToken,
+  'refreshToken': ?instance.refreshToken,
+  'refreshTokenExpiresAt': ?instance.refreshTokenExpiresAt?.toIso8601String(),
   'user': instance.user,
 };

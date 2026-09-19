@@ -15,4 +15,4 @@ _$PostApiV1AuthSessionLogoutAllResponseFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$PostApiV1AuthSessionLogoutAllResponseToJson(
   PostApiV1AuthSessionLogoutAllResponse instance,
-) => <String, dynamic>{'data': instance.data, 'meta': instance.meta};
+) => <String, dynamic>{'data': ?instance.data, 'meta': instance.meta};

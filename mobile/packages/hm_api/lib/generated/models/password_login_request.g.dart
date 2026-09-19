@@ -20,8 +20,8 @@ PasswordLoginRequest _$PasswordLoginRequestFromJson(
 Map<String, dynamic> _$PasswordLoginRequestToJson(
   PasswordLoginRequest instance,
 ) => <String, dynamic>{
-  'client': instance.client,
-  'deviceLabel': instance.deviceLabel,
+  'client': ?instance.client,
+  'deviceLabel': ?instance.deviceLabel,
   'email': instance.email,
   'password': instance.password,
 };

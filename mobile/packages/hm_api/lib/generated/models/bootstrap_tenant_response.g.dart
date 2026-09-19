@@ -19,7 +19,7 @@ BootstrapTenantResponse _$BootstrapTenantResponseFromJson(
 Map<String, dynamic> _$BootstrapTenantResponseToJson(
   BootstrapTenantResponse instance,
 ) => <String, dynamic>{
-  'ownerDoctorProfileId': instance.ownerDoctorProfileId,
+  'ownerDoctorProfileId': ?instance.ownerDoctorProfileId,
   'ownerMembershipId': instance.ownerMembershipId,
   'ownerUserId': instance.ownerUserId,
   'slug': instance.slug,

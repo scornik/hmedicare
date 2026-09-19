@@ -29,11 +29,11 @@ CreateMembershipRequest _$CreateMembershipRequestFromJson(
 Map<String, dynamic> _$CreateMembershipRequestToJson(
   CreateMembershipRequest instance,
 ) => <String, dynamic>{
-  'chamberIds': instance.chamberIds,
-  'clinicIds': instance.clinicIds,
+  'chamberIds': ?instance.chamberIds,
+  'clinicIds': ?instance.clinicIds,
   'displayName': instance.displayName,
-  'email': instance.email,
-  'permissions': instance.permissions,
-  'phone': instance.phone,
+  'email': ?instance.email,
+  'permissions': ?instance.permissions,
+  'phone': ?instance.phone,
   'role': instance.role,
 };

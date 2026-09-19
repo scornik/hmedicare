@@ -32,10 +32,10 @@ UpdateMembershipRequest _$UpdateMembershipRequestFromJson(
 Map<String, dynamic> _$UpdateMembershipRequestToJson(
   UpdateMembershipRequest instance,
 ) => <String, dynamic>{
-  'chamberIds': instance.chamberIds,
-  'clinicIds': instance.clinicIds,
+  'chamberIds': ?instance.chamberIds,
+  'clinicIds': ?instance.clinicIds,
   'expectedRowVersion': instance.expectedRowVersion,
-  'permissions': instance.permissions,
-  'role': instance.role,
-  'status': instance.status,
+  'permissions': ?instance.permissions,
+  'role': ?instance.role,
+  'status': ?instance.status,
 };

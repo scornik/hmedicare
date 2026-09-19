@@ -13,6 +13,6 @@ ResponseMeta _$ResponseMetaFromJson(Map<String, dynamic> json) => ResponseMeta(
 
 Map<String, dynamic> _$ResponseMetaToJson(ResponseMeta instance) =>
     <String, dynamic>{
-      'replayed': instance.replayed,
+      'replayed': ?instance.replayed,
       'requestId': instance.requestId,
     };
