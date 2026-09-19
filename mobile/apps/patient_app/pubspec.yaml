@@ -1,5 +1,5 @@
 name: patient_app
-description: HMedic patient app (Stage 4 login shell).
+description: HMedic patient app (login, profile switcher, own record).
 publish_to: none
 resolution: workspace
 version: 0.1.0+1
