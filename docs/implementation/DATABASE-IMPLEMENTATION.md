@@ -79,7 +79,7 @@
 | 0001 | `platform_jobs` | `singleton_locks`, `jobs`, `dead_letters`, `job_concurrency_leases`, `rate_limit_counters` |
 | 0002 | `identity_tenants` | `tenants`, `users`, `tenant_memberships`, `clinics`, `doctor_profiles`, `staff_profiles`, `doctor_coverages`, `audit_logs`, `outbox_events`, `idempotency_records` |
 | 0003 | `auth_sessions` | `sessions`, `refresh_tokens`, `otp_challenges`, `password_reset_tokens`, `email_verification_tokens`, `push_devices` |
-| 0004 | `patient_identity` | `patients`, `patient_contacts`, `patient_identifiers`, `patient_consents`, `patient_merge_cases`, `patient_accounts`, `patient_guardianships`, `care_team_members` |
+| 0004 | `patient_identity` | `patients`, `patient_search_tokens` (Stage 5, C-41), `patient_contacts`, `patient_identifiers`, `patient_consents`, `patient_merge_cases`, `patient_accounts`, `patient_guardianships`, `care_team_members` |
 | 0005 | `scheduling` | `chambers` (+ payment modes, Stage 3.2), `doctor_schedule_rules`, `chamber_days`, `appointment_slots`, `appointments` (+ `PENDING_PAYMENT`, hold and waiver columns, Stage 3.2) |
 | 0006 | `queue` | `serials`, `check_ins`, `queue_events` |
 | 0007 | `encounters` | `encounters`, `encounter_participants`, `encounter_notes`, `encounter_note_versions` |
@@ -247,6 +247,11 @@ Notation: `FK→t(tenant_id,id)` means a composite tenant FK `(tenant_id, <col>)
 - `address json:Address NULL`, `preferred_locale key(20) NULL`
 - `status code(16)` CHECK `ACTIVE|MERGED|INACTIVE`, `merged_into_patient_id id36 NULL` FK→patients(tenant_id,id)
 - UNIQUE `(tenant_id, medical_record_number)`; index `(tenant_id, legal_name)`
+
+**`patient_search_tokens`** (derived; Stage 5, audit C-41):
+- `id id36 PK`, `tenant_id`, `patient_id FK→patients(tenant_id,id)`, `token_kind code(16)` CHECK `NAME|SKELETON`, `token key(64)`, `translit_version SMALLINT`, `created_at ts`
+- UNIQUE `uq_patient_search_tokens (tenant_id, patient_id, token_kind, token)`; index `ix_patient_search_tokens_token (tenant_id, token, patient_id)`
+- Rebuilt from `patients` names in the same transaction as every name change (delete + insert). Never a source of truth; a version bump of the normalization triggers a rebuild job.
 
 **`patient_contacts`** (std):
 - `patient_id FK→patients(tenant_id,id)`, `type code(16)` CHECK `PHONE|EMAIL|WHATSAPP`
@@ -831,7 +836,7 @@ Enforcement (no triggers):
 
 ### 4.4 Other invariants
 
-- One encounter per serial (generated unique). Serial `COMPLETED` requires `encounter_id` (application, tested).
+- One encounter per serial (generated unique). Serial `COMPLETED` through `CompleteEncounter` requires `encounter_id` (application, tested). Serials completed through the pre-clinical ADR-021 commands (Stage 5, until Stage 6) keep `encounter_id` NULL.
 - One approved and one open-draft prescription per encounter (generated uniques). A correction voids the approved revision and approves the new revision **in one transaction** (void first, then approve).
 - Only `APPROVED` prescriptions render patient-facing PDFs (CHECK plus use case).
 - `diagnoses.source='ai_approved'` ⇒ `ai_approval_id` set (CHECK) and an `ai_approvals` row exists (FK).
