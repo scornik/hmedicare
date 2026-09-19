@@ -18,6 +18,7 @@
 - **Single-flight refresh** before expiry (at 80% of access-token TTL) and on 401. On refresh failure the app redirects to `/login`.
 - **Other API calls** use `Authorization: Bearer` and `credentials: 'omit'`, so cookies are never sent on ordinary calls and CSRF exposure is limited to the auth endpoints.
 - **Logout** calls `DELETE /auth/session` (credentials + CSRF), clears the TanStack Query cache and in-memory tokens, and broadcasts over `BroadcastChannel('hm-auth')` to other tabs.
+- **Selected tenant** (`X-Tenant-ID`) is a UI preference kept in `localStorage` (`hm.tenant`) so reloads and deep links keep working (Stage 5). It is never authorization: the API validates the membership on every request. Cleared on logout.
 
 ## 3. Hosting specifics
 

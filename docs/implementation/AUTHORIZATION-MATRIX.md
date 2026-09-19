@@ -94,6 +94,7 @@ The rule is implemented once, in `AssignmentPolicy.isAssignedToPatient(actor, pa
   
   Failures return `FORBIDDEN` (never `RESOURCE_NOT_FOUND` leaks of other patients' existence beyond what the context already reveals).
 - **On-behalf auditing.** Every action records `actor_user_id`, `acting_as='GUARDIAN'|'SELF'` and `patient_id`.
+- **Guardianship self-request (Stage 5).** `POST /patients/{id}/guardianships` is the one route a patient user calls with `X-Tenant-ID` but neither a membership nor a patient context (no link exists yet). The route is marked membership-optional (`@TenantMembershipOptional`): the guard resolves a membership when one exists, otherwise records only the tenant id (no TenantContext, no permissions) and the use case creates a PENDING request for the caller alone (`guardianUserId` other than the caller → `FORBIDDEN`). Staff with `guardianship.manage` use the same route for any guardian user.
 - **Consent for dependents** requires `GIVE_CONSENT`. Consent rows record `given_by_user_id` and `relationship`.
 - **What guardians and dependents see.** A guardian sees only the dependent's records within scope, never records of other dependents unless separately granted. Dependents' accounts never see guardian records.
 
