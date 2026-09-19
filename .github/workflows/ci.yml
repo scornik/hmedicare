@@ -1,12 +1,16 @@
 # CI (CI-CD.md §3). Every action is pinned by full commit SHA (tag in the comment). No deploy steps here:
 # Hostinger builds from protected branches, and nothing in CI ever pushes to `production`.
 # No provider credentials exist in GitHub secrets; SMS runs with the mock (the live smoke aborts on CI=true).
+# Runner: repository variable CI_RUNS_ON (JSON), e.g. ["self-hosted","hmedic"] for the Windows self-hosted
+# runner (Stage 5 task zero); it defaults to GitHub-hosted ubuntu-24.04. Every step is portable bash (Git Bash
+# on Windows) and fails on the first error (`set -euo pipefail` where a step has several commands).
 name: ci
 
 on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,6 +18,10 @@ permissions:
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 env:
   CI: 'true'
@@ -24,32 +32,32 @@ env:
 
 jobs:
   install:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
       - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
+      - id: pnpm-store
+        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.local/share/pnpm/store
+          path: ${{ steps.pnpm-store.outputs.path }}
           key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - run: pnpm install --frozen-lockfile
 
   static:
     needs: install
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
       - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/pnpm/store
-          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - run: pnpm install --frozen-lockfile
       - name: format
         run: pnpm format:check
@@ -63,29 +71,26 @@ jobs:
         run: pnpm test:architecture
       - name: migration lint + applied-migration immutability
         run: |
+          set -euo pipefail
           pnpm --filter @hmedic/database run db:migration:lint
           BASE_REF=origin/main node scripts/ci/check-applied-migrations.mjs
 
   unit:
     needs: install
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
       - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/pnpm/store
-          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - run: pnpm install --frozen-lockfile
       - name: unit (incl. authorization-matrix doc parity, SMS adapter contract vs mock-providers)
         run: pnpm test:unit
 
   integration:
     needs: install
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     strategy:
       fail-fast: false
       matrix:
@@ -99,10 +104,6 @@ jobs:
         with:
           node-version-file: .nvmrc
       - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/pnpm/store
-          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - run: pnpm install --frozen-lockfile
       - name: integration + security (migrations from clean, engine contract, jobs, auth, tenant isolation, secrets)
         env:
@@ -111,7 +112,7 @@ jobs:
 
   contracts:
     needs: install
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -131,7 +132,7 @@ jobs:
 
   security-static:
     needs: install
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -148,12 +149,25 @@ jobs:
           GITLEAKS_VERSION: 8.30.1
         run: |
           set -euo pipefail
+          tmp="$RUNNER_TEMP/gitleaks"
+          mkdir -p "$tmp"
           base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
-          curl -fsSLO "${base}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          curl -fsSLO "${base}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
-          grep " gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\$" "gitleaks_${GITLEAKS_VERSION}_checksums.txt" | sha256sum -c -
-          tar -xzf "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" gitleaks
-          ./gitleaks git --redact --no-banner --exit-code 1 .
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            asset="gitleaks_${GITLEAKS_VERSION}_windows_x64.zip"
+          else
+            asset="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          fi
+          curl -fsSL -o "$tmp/$asset" "${base}/${asset}"
+          curl -fsSL -o "$tmp/checksums.txt" "${base}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          (cd "$tmp" && grep " ${asset}\$" checksums.txt | sha256sum -c -)
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            unzip -o -q "$tmp/$asset" gitleaks.exe -d "$tmp"
+            bin="$tmp/gitleaks.exe"
+          else
+            tar -xzf "$tmp/$asset" -C "$tmp" gitleaks
+            bin="$tmp/gitleaks"
+          fi
+          "$bin" git --redact --no-banner --exit-code 1 .
       - name: license allow-list
         run: pnpm license:scan
       - name: dependency audit (production, high+)
@@ -167,19 +181,31 @@ jobs:
           retention-days: 90
 
   osv:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
-        with:
-          scan-args: |-
-            --lockfile=pnpm-lock.yaml
+      # The same scanner as google/osv-scanner-action v2.6.0, as the pinned release binary (checksum verified):
+      # container actions cannot run on the Windows self-hosted runner.
+      - name: osv-scanner (pinned release, checksum verified)
+        env:
+          OSV_VERSION: 2.6.0
+        run: |
+          set -euo pipefail
+          tmp="$RUNNER_TEMP/osv"
+          mkdir -p "$tmp"
+          base="https://github.com/google/osv-scanner/releases/download/v${OSV_VERSION}"
+          if [ "$RUNNER_OS" = "Windows" ]; then asset="osv-scanner_windows_amd64.exe"; else asset="osv-scanner_linux_amd64"; fi
+          curl -fsSL -o "$tmp/$asset" "${base}/${asset}"
+          curl -fsSL -o "$tmp/SHA256SUMS" "${base}/osv-scanner_SHA256SUMS"
+          (cd "$tmp" && grep " ${asset}\$" SHA256SUMS | sha256sum -c -)
+          chmod +x "$tmp/$asset"
+          "$tmp/$asset" scan source --lockfile=pnpm-lock.yaml
 
   web:
     needs: install
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -189,11 +215,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: web build (VITE_* secret-name check) + component tests
         run: |
+          set -euo pipefail
           pnpm --filter @hmedic/web build
           pnpm --filter @hmedic/web test
       - name: Playwright smoke (built app against a mocked API)
         run: |
-          pnpm --filter @hmedic/web exec playwright install --with-deps chromium
+          set -euo pipefail
+          if [ "$RUNNER_OS" = "Linux" ]; then deps="--with-deps"; else deps=""; fi
+          pnpm --filter @hmedic/web exec playwright install $deps chromium
           pnpm test:e2e
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
@@ -203,12 +232,16 @@ jobs:
           retention-days: 14
 
   mobile:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     defaults:
       run:
+        shell: bash
         working-directory: mobile
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version-file: mobile/.fvmrc
@@ -217,6 +250,7 @@ jobs:
       - run: flutter pub get --enforce-lockfile
       - name: generated Dart API client is up to date (incl. deleted/added files)
         run: |
+          set -euo pipefail
           dart run melos run generate:api
           test -z "$(git status --porcelain -- packages/hm_api/lib/generated)"
       - run: dart run melos run format:check
@@ -228,7 +262,7 @@ jobs:
 
   build:
     needs: [static, unit, integration, contracts]
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
