@@ -87,6 +87,33 @@ Not started in Stage 5 yet: the CP5 queue lifecycle (check-in, mark-waiting, cal
 | e2e (Playwright) | 8 | built web app against a mocked API (smoke + patient flows) |
 | mobile (Flutter) | 15 | `dart run melos run test`; `flutter analyze --fatal-infos` clean |
 
+## 3a. Stage 5 load measurements (prompt §4.13)
+
+Recorded on the development machine (Docker Desktop, MariaDB 10.6 testcontainer), one chamber day:
+
+| Measurement | Result |
+|---|---|
+| Walk-in issuance, 1 concurrent desk | 1353 ms/serial |
+| Walk-in issuance, 2 concurrent desks | 1266 ms/serial |
+| Walk-in issuance, 4 concurrent desks | 1253 ms/serial |
+| Queue snapshot, 24 concurrent pollers, 72-serial queue | 355 ms total, 15 ms/poll |
+| Baseline: raw 15-statement transaction on the same host | 35 ms |
+
+**Open performance risk (R-01).** A single *uncontended* walk-in transaction costs ~1.3 s, while a raw
+15-statement transaction against the same container costs ~35 ms — roughly 38× overhead — and added
+concurrency buys nothing (1 → 4 desks is flat), so queue writes are effectively fully serialised. The
+snapshot read path is healthy (15 ms/poll). This is not the test environment: the baseline above was
+measured on the same Docker host. Candidates not yet separated: Prisma interactive-transaction overhead per
+statement, the ~30 statements a walk-in performs, and the two hash chains each write touches (the queue
+chain per chamber day, and the audit chain **per tenant**, which serialises queue writes across every
+chamber day of a tenant).
+
+Consequence today: with the documented 5 s transaction budget, eight concurrent desks on one chamber day
+exhaust their retries and shed load as `QUEUE_BUSY` (the documented retryable 503). That is correct
+behaviour, but the ceiling is far lower than the load target in QUEUE-CONCURRENCY §7 (200 walk-ins across
+two processes). Profile before the first busy clinic goes live, and re-measure on the Hostinger plan as
+part of HOST-004 — the shared-plan numbers are the ones that decide whether this needs redesign.
+
 ## 4. Open HOST items
 
 All HOST-001…013 are pending the human run of `docs/implementation/runbooks/HOST-VERIFICATION-RUNBOOK.md` (H-2).
@@ -139,3 +166,5 @@ DB-dependent tasks stay PROVISIONAL until HOST-001, HOST-003 and HOST-005 pass. 
 | D-29 | `queue_events.idempotency_key` is scoped by chamber day (`<requestId>:<eventType>:<chamberDayId>`) | one request may touch two chamber days (reschedule), and the request id alone collided on `uq_queue_events_idempotency` | — |
 | D-30 | Scheduling and queue are composed together by `composeSchedulingAndQueue` behind a `SerialPortRef` | the two contexts are mutually dependent (a day settles serials, a serial reschedules through an appointment); the ref keeps the cycle explicit and bound exactly once | — |
 | D-31 | The CP4 seed reaches BOOKED, CONFIRMED, CANCELLED, NO_SHOW and RESCHEDULED serials only | the queue-active states need the CP5 commands (check-in, call, skip, complete) | CP5 extends the same dataset |
+| D-32 | Serial numbers are allocated with an atomic counter statement (LAST_INSERT_ID) rather than a read-then-write under the day lock | the concurrency suite produced duplicate serial numbers: the second statement carried its own snapshot | — |
+| D-33 | Prisma P2028 (interactive-transaction timeout) is treated as a retryable lock error | it is what fires when a transaction spends its budget queued behind a hot row lock; without it a busy chamber day returned a raw Prisma error instead of QUEUE_BUSY | — |
