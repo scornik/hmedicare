@@ -1,6 +1,6 @@
 import { type Clock, newId } from '@hmedic/kernel';
-import type { PrismaClient, Tx } from '@hmedic/database';
-import { ChainAppender, type ChainSource } from '@hmedic/audit';
+import { type PrismaClient, type Tx, advanceChainHead, lockChainHead } from '@hmedic/database';
+import { ChainAppender, type ChainSource, computeRowHash } from '@hmedic/audit';
 import type { QueueActorRef } from '../application/ports';
 
 /**
@@ -136,6 +136,56 @@ export class QueueEventWriter {
         }),
     );
     return { id, seq: Number(slot.seq) };
+  }
+
+  /**
+   * Appends several events to the same chamber-day chain in one pass: the chain head is locked once, the
+   * hashes are computed in sequence in memory, the rows go in as one insert, and the head advances once.
+   *
+   * A walk-in emits three events (SERIAL_ISSUED, CHECKED_IN, WAITING). Appending them one at a time costs
+   * nine statements and takes the chain lock three times; this costs three and takes it once. Statement
+   * count is what dominates the transaction (profiling R-01: ~7.4 ms per statement round trip).
+   */
+  async appendMany(tx: Tx, events: readonly QueueEventInput[]): Promise<Array<{ id: string; seq: number }>> {
+    if (events.length === 0) return [];
+    if (events.length === 1) return [await this.append(tx, events[0]!)];
+    const chainKey = queueChainKey(events[0]!.chamberDayId);
+    if (events.some((e) => queueChainKey(e.chamberDayId) !== chainKey)) {
+      throw new Error('appendMany: every event must belong to one chamber day chain');
+    }
+    const now = this.clock.now();
+    const head = await lockChainHead(tx, chainKey, now);
+    let prevRowHash = head.lastSeq === 0n ? null : head.lastRowHash;
+    const rows: Array<Record<string, unknown>> = [];
+    const result: Array<{ id: string; seq: number }> = [];
+    for (const [i, e] of events.entries()) {
+      const seq = Number(head.lastSeq) + i + 1;
+      const base = {
+        id: newId(),
+        tenantId: e.tenantId,
+        chamberDayId: e.chamberDayId,
+        serialId: e.serialId ?? null,
+        eventType: e.eventType,
+        fromStatus: e.fromStatus ?? null,
+        toStatus: e.toStatus ?? null,
+        positionBefore: e.positionBefore ?? null,
+        positionAfter: e.positionAfter ?? null,
+        details: e.details ?? {},
+        reason: e.reason ?? null,
+        actorUserId: e.actor.userId,
+        actorType: e.actor.actorType,
+        idempotencyKey: e.idempotencyKey ?? null,
+        occurredAt: now,
+        seq,
+      };
+      const rowHash = computeRowHash(prevRowHash, queueHashInput(base));
+      rows.push({ ...base, prevRowHash, rowHash });
+      result.push({ id: base.id, seq });
+      prevRowHash = rowHash;
+    }
+    await tx.queueEvent.createMany({ data: rows as never });
+    await advanceChainHead(tx, head, BigInt(Number(head.lastSeq) + events.length), prevRowHash!, now);
+    return result;
   }
 }
 
