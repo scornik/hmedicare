@@ -5,6 +5,7 @@ import {
   type Tx,
   isUniqueViolation,
   lockRow,
+  allocateCounter,
   lockRows,
   withTransaction,
 } from '@hmedic/database';
@@ -184,8 +185,9 @@ export class QueueService {
           throw new AppError('CAPACITY_EXCEEDED', undefined, { details: { reason: 'max_walk_ins' } });
 
         const rows = await this.dayRows(tx, tenantId, day.id);
-        const n = dayRow.nextSerialNumber;
-        await tx.chamberDay.update({ where: { id: day.id }, data: { nextSerialNumber: n + 1 } });
+        // Atomic: the increment and the read are one statement, so no two transactions can consume the
+        // same number even when one of them is later rolled back (uq_serials_number).
+        const n = await allocateCounter(tx, 'chamber_days', 'next_serial_number', day.id, tenantId);
         // A walk-in is by definition on time: it joins the back of the queue.
         const placement = placementFor({
           rows,
