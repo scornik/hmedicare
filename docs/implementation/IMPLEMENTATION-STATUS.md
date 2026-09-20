@@ -14,7 +14,7 @@ Legend:
 | CP1 Foundation | FOUND-*, JOB-*, HOST harness, CI, api/worker shells, SEC suite, seed | PASS (local gates; CI evidence pending H-1, HOST evidence pending H-2) | `stage4-cp1-foundation` |
 | CP2 Tenant/Identity | ID-001…ID-007, SMS-001…005/008, web + mobile shells | PASS (local gates; SMS-002 capture and SMS-008 live send are human-run) | `stage4-cp2-identity` |
 | CP3 Patient registry (Stage 5) | CI-000, PAT-001…PAT-007: migration 0004, search normalization, lock ranking, patient/merge/consent/access services, HTTP routes + patient context, seed, web staff screens, mobile profile switcher | PASS (local gates on both MariaDB versions; GitHub CI on the self-hosted runner) | `stage5-cp3-patient` (set on `main` by `scripts/checkpoint-verify.mjs` after the PR merge) |
-| CP4 Chamber & scheduling (Stage 5) | CHAM-*, SCHED-*, APPT-* | NOT STARTED | `stage5-cp4-scheduling` |
+| CP4 Chamber & scheduling (Stage 5) | CHAM-000…004, SCHED-001, APPT-001/002: migrations 0005/0006, clinics, chambers, schedule rules, chamber days, appointments, the serial lifecycle they reach and the no-show job | PASS (local gates on both MariaDB versions) | `stage5-cp4-scheduling` |
 | CP5 Serial/queue engine (Stage 5) | SERIAL-*, QUEUE-*, LOC-* | NOT STARTED (gated on HOST-001/003/004/005 evidence, Stage 5 §0.3) | `stage5-cp5-queue` |
 
 ## 2. Tasks
@@ -67,8 +67,15 @@ Legend:
 | PAT-005 seed dataset | DONE | `66a40a0` | `seed:verify` assertions | 65 patients (D-26), duplicate pair + OPEN merge case, guardian with two dependents, accounts ACTIVE/PENDING/SUSPENDED, care team, consents |
 | PAT-006 web staff screens | DONE | `621fe99`, `b5847e8` | e2e 4 | search, create with duplicate review, record, merge cases; tenant id persisted (D-22) |
 | PAT-007 mobile profile switcher | DONE | `379fb63`, `512ece9` | Flutter 2 (+1 hm_core) | regenerated Dart client; `ReadCache` staleness indicator (D-23) |
+| CHAM-000 clinic service | DONE | `05b0aa0` | covered by the scheduling suite | clinics become a managed resource (`clinic.manage`) |
+| CHAM-001 migrations 0005/0006 | PROVISIONAL (HOST-001/003) | `64a739d` | integration engine-contract 2 | chambers, schedule rules, chamber days, slots, appointments; serials, check-ins, hash-chained queue events; both generated unique keys |
+| CHAM-001 SCHED-001 APPT-001 scheduling services | PROVISIONAL (HOST-001/003) | `79ee67a`, `fa6702c` | unit 9, integration 15 | QueuePolicy defaults (C-44), day-window resolution, materialization, day transitions, booking rules (C-45) |
+| SERIAL-001 serial engine (CP4 subset) | PROVISIONAL (HOST-001/003) | `a6948b5`, `fa6702c` | integration 11 | allocation, confirm/cancel/no-show, reschedule, close settlement, ApplyNoShowPolicy; the queue-active lifecycle (check-in → call → complete) is CP5 |
+| CHAM-002 contracts | DONE | `456e689` | `openapi:check` | 25 operations (75 total) |
+| CHAM-003 APPT-002 routes + composition | PROVISIONAL (HOST-001/003) | `688f904`, `c7b048b` | integration 7 (HTTP) | clinics, chambers, rules, chamber days, appointments, `/me/appointments`; ApplyNoShowPolicy registered in the api (embedded/cron) and the worker |
+| CHAM-004 seed dataset | DONE | (CP4) | `seed:verify` assertions | 4 chambers incl. walk-in-only, booking-only and a slotted chamber, weekly rules + both exception kinds, yesterday closed, today open with a delay and a booking mix, a reschedule chain onto tomorrow |
 
-Not started in Stage 5 yet: CHAM-*/SCHED-*, APPT-*, SERIAL-*/QUEUE-*, LOC-*. Out of scope: encounters, clinical, prescriptions, catalog, labs, documents, timeline, follow-ups, communications delivery, telemedicine, payments, AI.
+Not started in Stage 5 yet: the CP5 queue lifecycle (check-in, mark-waiting, call, skip, recall, remote-ready, reorder, the live queue snapshot reads and the 13 concurrency tests) and the web/mobile chamber, booking and queue screens — the checkpoint definition attaches those screens to CP5. Out of scope: encounters, clinical, prescriptions, catalog, labs, documents, timeline, follow-ups, communications delivery, telemedicine, payments, AI.
 
 ## 3. Test summary (latest full run)
 
@@ -127,3 +134,8 @@ DB-dependent tasks stay PROVISIONAL until HOST-001, HOST-003 and HOST-005 pass. 
 | D-24 | `POST /patients/{id}/guardianships` is membership-optional (`@TenantMembershipOptional`) | a patient user has no membership and no context before the link exists (AUTHORIZATION-MATRIX §4) | — |
 | D-25 | Merge review UI is gated on `patient.merge` (held by nurse/receptionist per the role catalog), not on admin roles | AUTHORIZATION-MATRIX is the source of truth | — |
 | D-26 | Seed has 65 patients (prompt: ~60); generated namesakes are created with an acknowledged duplicate review | the duplicate scorer flags the generator's repeated names | — |
+| D-27 | The seed books yesterday's chamber day through a second service instance whose clock sits at 18:00 local yesterday | booking a past date is refused by the booking rules, and the seed uses only real use cases | — |
+| D-28 | The demo chambers that accept remote patients use `telemedicinePaymentMode: OPTIONAL_ONLINE` | the documented default `PREPAID_REQUIRED` answers `FEATURE_DISABLED` while payments are absent (C-45), so a remote demo booking would be impossible | revisit when payments land |
+| D-29 | `queue_events.idempotency_key` is scoped by chamber day (`<requestId>:<eventType>:<chamberDayId>`) | one request may touch two chamber days (reschedule), and the request id alone collided on `uq_queue_events_idempotency` | — |
+| D-30 | Scheduling and queue are composed together by `composeSchedulingAndQueue` behind a `SerialPortRef` | the two contexts are mutually dependent (a day settles serials, a serial reschedules through an appointment); the ref keeps the cycle explicit and bound exactly once | — |
+| D-31 | The CP4 seed reaches BOOKED, CONFIRMED, CANCELLED, NO_SHOW and RESCHEDULED serials only | the queue-active states need the CP5 commands (check-in, call, skip, complete) | CP5 extends the same dataset |
