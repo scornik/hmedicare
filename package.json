@@ -57,6 +57,7 @@
   },
   "devDependencies": {
     "@hmedic/api": "workspace:*",
+    "@hmedic/audit": "workspace:*",
     "@hmedic/communication": "workspace:*",
     "@hmedic/communication-adapters-zamanit": "workspace:*",
     "@hmedic/config": "workspace:*",
@@ -65,7 +66,10 @@
     "@hmedic/jobs": "workspace:*",
     "@hmedic/kernel": "workspace:*",
     "@hmedic/observability": "workspace:*",
+    "@hmedic/patient": "workspace:*",
     "@hmedic/provider-credentials": "workspace:*",
+    "@hmedic/queue": "workspace:*",
+    "@hmedic/scheduling": "workspace:*",
     "@hmedic/tenant-org": "workspace:*",
     "@hmedic/worker": "workspace:*",
     "@testcontainers/mariadb": "12.1.0",

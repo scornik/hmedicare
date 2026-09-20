@@ -175,6 +175,9 @@ importers:
       '@hmedic/api':
         specifier: workspace:*
         version: link:apps/api
+      '@hmedic/audit':
+        specifier: workspace:*
+        version: link:packages/audit
       '@hmedic/communication':
         specifier: workspace:*
         version: link:packages/communication
@@ -199,9 +202,18 @@ importers:
       '@hmedic/observability':
         specifier: workspace:*
         version: link:packages/observability
+      '@hmedic/patient':
+        specifier: workspace:*
+        version: link:packages/patient
       '@hmedic/provider-credentials':
         specifier: workspace:*
         version: link:packages/provider-credentials
+      '@hmedic/queue':
+        specifier: workspace:*
+        version: link:packages/queue
+      '@hmedic/scheduling':
+        specifier: workspace:*
+        version: link:packages/scheduling
       '@hmedic/tenant-org':
         specifier: workspace:*
         version: link:packages/tenant-org
@@ -752,9 +764,70 @@ importers:
         specifier: workspace:*
         version: link:../config
 
-  packages/queue: {}
+  packages/queue:
+    dependencies:
+      '@hmedic/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@hmedic/database':
+        specifier: workspace:*
+        version: link:../database
+      '@hmedic/jobs':
+        specifier: workspace:*
+        version: link:../jobs
+      '@hmedic/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@hmedic/localization':
+        specifier: workspace:*
+        version: link:../localization
+      '@hmedic/patient':
+        specifier: workspace:*
+        version: link:../patient
+      '@hmedic/scheduling':
+        specifier: workspace:*
+        version: link:../scheduling
+      '@nestjs/common':
+        specifier: 11.2.5
+        version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2)
+    devDependencies:
+      '@hmedic/config':
+        specifier: workspace:*
+        version: link:../config
+      '@hmedic/identity-access':
+        specifier: workspace:*
+        version: link:../identity-access
 
-  packages/scheduling: {}
+  packages/scheduling:
+    dependencies:
+      '@hmedic/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@hmedic/database':
+        specifier: workspace:*
+        version: link:../database
+      '@hmedic/jobs':
+        specifier: workspace:*
+        version: link:../jobs
+      '@hmedic/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@hmedic/localization':
+        specifier: workspace:*
+        version: link:../localization
+      '@hmedic/patient':
+        specifier: workspace:*
+        version: link:../patient
+      '@nestjs/common':
+        specifier: 11.2.5
+        version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2)
+    devDependencies:
+      '@hmedic/config':
+        specifier: workspace:*
+        version: link:../config
+      '@hmedic/identity-access':
+        specifier: workspace:*
+        version: link:../identity-access
 
   packages/secrets:
     dependencies:
