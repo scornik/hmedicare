@@ -22,7 +22,7 @@ import '../models/post_api_v1_patients_id_consents_response.dart';
 import '../models/post_api_v1_patients_id_merge_cases_response.dart';
 import '../models/post_api_v1_patients_response.dart';
 import '../models/review_merge_case_request.dart';
-import '../models/status2.dart';
+import '../models/status4.dart';
 import '../models/update_patient_request.dart';
 import '../models/withdraw_consent_request.dart';
 
@@ -44,7 +44,7 @@ abstract class PatientsClient {
   @GET('/api/v1/merge-cases')
   Future<GetApiV1MergeCasesResponse> listMergeCases({
     @Header('X-Tenant-ID') required String xTenantId,
-    @Query('status') Status2? status,
+    @Query('status') Status4? status,
     @Query('cursor') String? cursor,
     @Query('limit') int? limit,
   });

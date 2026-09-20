@@ -4,8 +4,12 @@
 
 import 'package:dio/dio.dart';
 
+import 'clients/appointments_client.dart';
 import 'clients/auth_client.dart';
 import 'clients/care_team_client.dart';
+import 'clients/chamber_days_client.dart';
+import 'clients/chambers_client.dart';
+import 'clients/clinics_client.dart';
 import 'clients/patients_client.dart';
 import 'clients/tenant_client.dart';
 import 'clients/guardianships_client.dart';
@@ -29,8 +33,12 @@ class HmApiClient {
 
   static String get version => '1.0.0';
 
+  AppointmentsClient? _appointments;
   AuthClient? _auth;
   CareTeamClient? _careTeam;
+  ChamberDaysClient? _chamberDays;
+  ChambersClient? _chambers;
+  ClinicsClient? _clinics;
   PatientsClient? _patients;
   TenantClient? _tenant;
   GuardianshipsClient? _guardianships;
@@ -39,9 +47,17 @@ class HmApiClient {
   PlatformClient? _platform;
   HealthClient? _health;
 
+  AppointmentsClient get appointments => _appointments ??= AppointmentsClient(_dio, baseUrl: _baseUrl);
+
   AuthClient get auth => _auth ??= AuthClient(_dio, baseUrl: _baseUrl);
 
   CareTeamClient get careTeam => _careTeam ??= CareTeamClient(_dio, baseUrl: _baseUrl);
+
+  ChamberDaysClient get chamberDays => _chamberDays ??= ChamberDaysClient(_dio, baseUrl: _baseUrl);
+
+  ChambersClient get chambers => _chambers ??= ChambersClient(_dio, baseUrl: _baseUrl);
+
+  ClinicsClient get clinics => _clinics ??= ClinicsClient(_dio, baseUrl: _baseUrl);
 
   PatientsClient get patients => _patients ??= PatientsClient(_dio, baseUrl: _baseUrl);
 

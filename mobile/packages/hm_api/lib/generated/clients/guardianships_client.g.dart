@@ -22,7 +22,7 @@ class _GuardianshipsClient implements GuardianshipsClient {
   @override
   Future<GetApiV1GuardianshipsResponse> listGuardianships({
     required String xTenantId,
-    Status? status,
+    Status3? status,
     String? cursor,
     int? limit,
   }) async {

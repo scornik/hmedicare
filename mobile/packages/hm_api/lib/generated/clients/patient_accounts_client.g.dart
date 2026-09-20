@@ -22,7 +22,7 @@ class _PatientAccountsClient implements PatientAccountsClient {
   @override
   Future<GetApiV1PatientAccountsResponse> listPatientAccounts({
     required String xTenantId,
-    Status3? status,
+    Status5? status,
     String? cursor,
     int? limit,
   }) async {

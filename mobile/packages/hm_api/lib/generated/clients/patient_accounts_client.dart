@@ -11,7 +11,7 @@ import '../models/patient_account_link_request.dart';
 import '../models/post_api_v1_patient_accounts_id_revoke_response.dart';
 import '../models/post_api_v1_patient_accounts_id_verify_response.dart';
 import '../models/post_api_v1_patient_accounts_link_requests_response.dart';
-import '../models/status3.dart';
+import '../models/status5.dart';
 import '../models/verify_patient_account_request.dart';
 
 part 'patient_accounts_client.g.dart';
@@ -23,7 +23,7 @@ abstract class PatientAccountsClient {
   @GET('/api/v1/patient-accounts')
   Future<GetApiV1PatientAccountsResponse> listPatientAccounts({
     @Header('X-Tenant-ID') required String xTenantId,
-    @Query('status') Status3? status,
+    @Query('status') Status5? status,
     @Query('cursor') String? cursor,
     @Query('limit') int? limit,
   });
