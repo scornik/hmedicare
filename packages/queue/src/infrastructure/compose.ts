@@ -13,6 +13,7 @@ import {
   SerialPortRef,
 } from '@hmedic/scheduling';
 import { QueueOutbox } from './events';
+import { QueueService } from './queue-service';
 import { SerialService } from './serial-service';
 
 export interface QueueCompositionDeps {
@@ -29,6 +30,7 @@ export interface SchedulingAndQueue {
   days: ChamberDayService;
   appointments: AppointmentService;
   serials: SerialService;
+  queue: QueueService;
 }
 
 /**
@@ -63,5 +65,13 @@ export function composeSchedulingAndQueue(deps: QueueCompositionDeps): Schedulin
     clock,
   );
   serialRef.bind(serials as never);
-  return { chambers, schedules, days, appointments, serials };
+  const queue = new QueueService(
+    prisma,
+    audit,
+    new QueueOutbox(new OutboxPort(clock), clock),
+    serials,
+    patients,
+    clock,
+  );
+  return { chambers, schedules, days, appointments, serials, queue };
 }

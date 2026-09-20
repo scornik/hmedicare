@@ -345,7 +345,12 @@ export class SerialService implements SerialPort<Tx> {
 
   // ---------------------------------------------------------------- single-serial transitions (QUEUE §5.4)
 
-  private async applyTransition(
+  /**
+   * Applies one transition to an already locked serial: status, timestamps, the queue event, the audit row,
+   * the outbox event and the appointment follow-up, all inside the caller's transaction. Shared with
+   * `QueueService` (the queue-active lifecycle); not part of the context's public API.
+   */
+  async applyTransition(
     tx: Tx,
     day: ChamberDayFacts,
     s: SerialRow,
@@ -358,6 +363,8 @@ export class SerialService implements SerialPort<Tx> {
       data?: Record<string, unknown>;
       details?: Record<string, string | number | boolean | null>;
       force?: SerialStatus;
+      /** The caller's Idempotency-Key, which is what a retry repeats (the request id changes each attempt). */
+      idempotencyKey?: string | null;
     },
   ): Promise<SerialRow> {
     const from = s.status as SerialStatus;
@@ -389,7 +396,7 @@ export class SerialService implements SerialPort<Tx> {
       details: o.details ?? {},
       reason: o.reason,
       actor: o.actor,
-      idempotencyKey: o.requestId ? `${o.requestId}:${eventType}:${s.id}` : null,
+      idempotencyKey: o.idempotencyKey ? `${o.idempotencyKey}:${eventType}:${s.id}` : null,
     });
     await this.audit.append(tx, {
       tenantId: day.tenantId,
@@ -447,8 +454,11 @@ export class SerialService implements SerialPort<Tx> {
     return updated;
   }
 
-  /** Locks day then serial, checks the expected row version, applies one command. */
-  private async transitionSerial(
+  /**
+   * Locks the chamber day then the serial (ranks 40 → 44), checks `expectedRowVersion` and the day status,
+   * runs an optional guard and applies one command. Shared with `QueueService`.
+   */
+  async transitionSerial(
     actor: SerialActor,
     serialId: string,
     expectedRowVersion: number,
@@ -456,7 +466,16 @@ export class SerialService implements SerialPort<Tx> {
     o: {
       reason?: string | null;
       data?: Record<string, unknown>;
+      /** Synchronous precondition on the locked rows. */
       guard?: (s: SerialRow, day: ChamberDayFacts) => void;
+      /** Precondition that needs its own reads (remote readiness, the chamber's doctor). */
+      guardAsync?: (tx: Tx, s: SerialRow, day: ChamberDayFacts) => Promise<void>;
+      /** Column updates derived from the day's policy (recall deadlines, recall counts). */
+      dataFromDay?: (day: ChamberDayFacts) => Record<string, unknown>;
+      /** Runs after the transition, still inside the transaction (queue placement, check-in rows). */
+      after?: (tx: Tx, day: ChamberDayFacts, before: SerialRow) => Promise<void>;
+      /** The caller's Idempotency-Key; scopes the queue event so a retry cannot write it twice. */
+      idempotencyKey?: string | null;
     },
   ): Promise<SerialView> {
     const tenantId = actor.kind === 'staff' ? actor.actor.tenant.tenantId : actor.context.tenantId;
@@ -481,13 +500,18 @@ export class SerialService implements SerialPort<Tx> {
         if (day.status === 'CLOSED' || day.status === 'CANCELLED')
           throw new AppError('QUEUE_STATE_CONFLICT', undefined, { details: { dayStatus: day.status } });
         o.guard?.(s, day);
-        return this.applyTransition(tx, day, s, command, {
+        if (o.guardAsync) await o.guardAsync(tx, s, day);
+        const updated = await this.applyTransition(tx, day, s, command, {
           actor: actorRef(actor),
           reason: o.reason ?? null,
           correlationId,
           requestId,
-          data: o.data,
+          data: { ...(o.data ?? {}), ...(o.dataFromDay?.(day) ?? {}) },
+          idempotencyKey: o.idempotencyKey ?? null,
         });
+        if (o.after) await o.after(tx, day, s);
+        // `after` may move the row (queue placement), so the caller gets the committed state.
+        return o.after ? tx.serial.findFirstOrThrow({ where: { tenantId, id: serialId } }) : updated;
       },
       { ...TX_OPTS, context: `serial:${command}` },
     );
