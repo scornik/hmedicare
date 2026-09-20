@@ -49,6 +49,25 @@ describe('lock ranking', () => {
     expect(() => recordLock(b, 'patients')).not.toThrow();
   });
 
+  it('exempts a row the transaction already holds, but not a different row of that table', () => {
+    const tx = {};
+    recordLock(tx, 'chamber_days', 'day-1');
+    recordLock(tx, 'serials', 'serial-1');
+    // Allocating day-1’s serial counter after locking the serial: the day row is already ours.
+    expect(() => recordLock(tx, 'chamber_days', 'day-1')).not.toThrow();
+    // A day we have not locked yet is a genuine out-of-order acquisition.
+    expect(() => recordLock(tx, 'chamber_days', 'day-2')).toThrow(/lock order violation/);
+    // The exemption does not lower the watermark.
+    expect(lockOrderStateOf(tx)).toEqual({ highestRank: 44, highestTable: 'serials' });
+  });
+
+  it('keys the exemption by table as well as row', () => {
+    const tx = {};
+    recordLock(tx, 'chamber_days', 'shared-id');
+    recordLock(tx, 'integrity_chain_checkpoints', 'chain_key=queue:chamber_day:x');
+    expect(() => recordLock(tx, 'appointments', 'shared-id')).toThrow(/lock order violation/);
+  });
+
   it('refuses unranked tables', () => {
     expect(() => recordLock({}, 'not_a_table')).toThrow(/not ranked/);
   });

@@ -15,7 +15,7 @@ function assertTable(table: string): void {
 /** Locks one row by id (and tenant when tenant-scoped). Returns false when the row does not exist. */
 export async function lockRow(tx: Tx, table: string, id: string, tenantId?: string): Promise<boolean> {
   assertTable(table);
-  recordLock(tx, table);
+  recordLock(tx, table, id);
   const rows =
     tenantId === undefined
       ? await tx.$queryRawUnsafe<Array<{ id: string }>>(
@@ -42,7 +42,7 @@ export async function lockRowAndRead<T extends Record<string, unknown>>(
   tenantId: string,
 ): Promise<T | null> {
   assertTable(table);
-  recordLock(tx, table);
+  recordLock(tx, table, id);
   const rows = await tx.$queryRawUnsafe<T[]>(
     `SELECT * FROM \`${table}\` WHERE id = ? AND tenant_id = ? FOR UPDATE`,
     id,
@@ -67,7 +67,7 @@ export async function allocateCounter(
 ): Promise<number> {
   assertTable(table);
   if (!/^[a-z_]+$/.test(column)) throw new Error(`allocateCounter: invalid column ${column}`);
-  recordLock(tx, table);
+  recordLock(tx, table, id);
   const updated = await tx.$executeRawUnsafe(
     `UPDATE \`${table}\` SET \`${column}\` = LAST_INSERT_ID(\`${column}\`) + 1 WHERE id = ? AND tenant_id = ?`,
     id,
@@ -100,7 +100,7 @@ export async function lockRowBy<T extends Record<string, unknown>>(
   value: string,
 ): Promise<T | null> {
   assertTable(table);
-  recordLock(tx, table);
+  recordLock(tx, table, `${column}=${value}`);
   const rows = await tx.$queryRawUnsafe<T[]>(
     `SELECT * FROM \`${table}\` WHERE \`${column}\` = ? FOR UPDATE`,
     value,
