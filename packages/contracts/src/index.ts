@@ -5,4 +5,5 @@ export * from './auth';
 export * from './tenant-org';
 export * from './patient';
 export * from './patient-access';
+export * from './scheduling';
 export * from './openapi';
