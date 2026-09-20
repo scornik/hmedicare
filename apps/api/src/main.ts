@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { ConfigError, type ServerConfig, loadConfig } from '@hmedic/config';
-import { applyBuildInfo, recordAppliedMigrations } from '@hmedic/http-kit';
+import { applyBuildInfo, recordAppliedMigrations, runGuardedMigrationsSync } from '@hmedic/http-kit';
 import { buildApi } from './compose';
 
 /** Entry point (Hostinger Node app `api.<domain>`): fail fast on configuration, then listen on PORT. */
@@ -16,6 +16,12 @@ async function main(): Promise<void> {
     }
     throw error;
   }
+  // Fallback only when the build step cannot reach the database or cannot run the migrate command — a host
+  // whose build command is a fixed dropdown, for one (DEPLOYMENT §4.3; mirrors the worker). The guard takes
+  // the same GET_LOCK, proven exclusive on the plan by HOST-004, so two instances starting together cannot
+  // both migrate. A failed or locked migration stops startup and the previous deployment keeps serving.
+  if (config.MIGRATE_ON_STARTUP) runGuardedMigrationsSync();
+
   const api = await buildApi(config);
   await api.app.listen({ port: config.PORT, host: '0.0.0.0' });
   api.runtime.logger.info({ port: config.PORT, jobRunnerMode: config.JOB_RUNNER_MODE }, 'api listening');
