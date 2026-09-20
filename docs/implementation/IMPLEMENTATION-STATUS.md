@@ -146,8 +146,31 @@ the shared-plan numbers decide whether the remaining levers are enough or the wr
 
 ## 4. Open HOST items
 
-All HOST-001…013 are pending the human run of `docs/implementation/runbooks/HOST-VERIFICATION-RUNBOOK.md` (H-2).
-DB-dependent tasks stay PROVISIONAL until HOST-001, HOST-003 and HOST-005 pass. Record results with `pnpm host:record-results`.
+**HOST-001, HOST-003 and HOST-004 are PASS on the real plan** (2026-09-20, recorded in
+`HOSTING-VERIFICATION.md` §5.1). They were run as SQL against the plan's MariaDB over SSH rather than
+through the deployed probe app, because the probe deploy was blocked on an unrelated build failure; the
+checks are the same ones `apps/host-probe/src/probes.ts` performs, and the scratch tables were dropped.
+
+Two results change assumptions elsewhere:
+
+- **The plan runs MariaDB 11.8.9**, not the 10.6 the design assumed (§5 row 2 said to re-pin to the real
+  series once known). The CI matrix now tests `mariadb:10.6` (the documented floor) and `mariadb:11.8` (the
+  deployed series); `mariadb:11.4` is dropped, because it is neither the floor nor production and testing
+  three series costs CI time for no coverage the other two do not give.
+- **The server's `sql_mode` is not strict** (`NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION`). The per-connection
+  session init (ADR-014) sets `STRICT_TRANS_TABLES` and `+00:00`, and both were accepted — so the guarantee
+  holds, but it rests entirely on that session init rather than on a server default.
+
+`GET_LOCK` is exclusive across connections, so the singleton runner and migration lock work as designed and
+the `singleton_locks` lease fallback is not needed.
+
+**HOST-005 remains open** and cannot be shortened: it needs 24 h of observation under a 1-minute cron ping,
+then 2 h with the cron off to measure the idle stop. Until it is recorded, `JOB_RUNNER_MODE` for a deployed
+worker is a guess between `worker` and `cron`.
+
+HOST-002 and HOST-006…013 are still pending the human run of
+`docs/implementation/runbooks/HOST-VERIFICATION-RUNBOOK.md` (H-2). Record results with
+`pnpm host:record-results`.
 
 ## 5. Human action queue
 
