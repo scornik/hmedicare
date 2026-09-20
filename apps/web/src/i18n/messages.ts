@@ -127,6 +127,9 @@ export const MESSAGES = {
     'queue.status.CANCELLED': 'বাতিল',
     'queue.status.RESCHEDULED': 'তারিখ বদলানো',
     'nav.queue': 'সিরিয়াল',
+    'queue.noneToday': 'আজ কোনো চেম্বার চালু নেই।',
+    'queue.day.OPEN': 'চালু',
+    'queue.day.PAUSED': 'বিরতি',
   },
   'en-BD': {
     appName: 'HMedic',
@@ -255,6 +258,9 @@ export const MESSAGES = {
     'queue.status.CANCELLED': 'Cancelled',
     'queue.status.RESCHEDULED': 'Rescheduled',
     'nav.queue': 'Queue',
+    'queue.noneToday': 'No chamber is open today.',
+    'queue.day.OPEN': 'Open',
+    'queue.day.PAUSED': 'Paused',
   },
 } as const;
 

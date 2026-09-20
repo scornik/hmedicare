@@ -17,6 +17,7 @@ import { SecretEnvelope, gateChainSource, kekFromBase64 } from '@hmedic/secrets'
 import { dhakaDate } from '@hmedic/localization';
 import { seedChambers, verifyChamberSeed } from './chambers';
 import { seedPatients, verifyPatientSeed } from './patients';
+import { seedQueue, verifyQueueSeed } from './queue';
 
 /**
  * Synthetic seed (SEED-DATA.md, Stage 4 subset): tenants, clinics, every staff role, coverages, a platform
@@ -306,6 +307,15 @@ export class Seeder {
       staffUserIds: ids,
       report: this.report,
     });
+    // Stage 5 CP5: the queue-active states, which only the queue commands can reach.
+    await seedQueue({
+      prisma: this.prisma,
+      audit: this.audit,
+      clock: this.clock,
+      tenantA: { tenantId: tenantA, ownerCtx },
+      staffUserIds: ids,
+      report: this.report,
+    });
     return this.report;
   }
 
@@ -378,6 +388,7 @@ export async function verifySeed(prisma: PrismaClient): Promise<string[]> {
   const a = await prisma.tenant.findUnique({ where: { slug: TENANT_A.slug } });
   if (a) problems.push(...(await verifyPatientSeed(prisma, a.id, PHONE)));
   if (a) problems.push(...(await verifyChamberSeed(prisma, a.id, dhakaDate(new Date()))));
+  if (a) problems.push(...(await verifyQueueSeed(prisma, a.id)));
   const b = await prisma.tenant.findUnique({ where: { slug: TENANT_B.slug } });
   if (!a || !b) return ['demo tenants missing (run pnpm db:seed)'];
   if (b.practiceType !== 'SOLO' || !b.ownerDoctorProfileId)
