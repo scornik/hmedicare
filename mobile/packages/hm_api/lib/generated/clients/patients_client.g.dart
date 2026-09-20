@@ -62,7 +62,7 @@ class _PatientsClient implements PatientsClient {
   @override
   Future<GetApiV1MergeCasesResponse> listMergeCases({
     required String xTenantId,
-    Status2? status,
+    Status4? status,
     String? cursor,
     int? limit,
   }) async {

@@ -10,8 +10,8 @@ enum Status3 {
   pending('PENDING'),
   @JsonValue('ACTIVE')
   active('ACTIVE'),
-  @JsonValue('SUSPENDED')
-  suspended('SUSPENDED'),
+  @JsonValue('ENDED')
+  ended('ENDED'),
   @JsonValue('REVOKED')
   revoked('REVOKED'),
   /// Default value for all unparsed values, allows backward compatibility when adding new values on the backend.

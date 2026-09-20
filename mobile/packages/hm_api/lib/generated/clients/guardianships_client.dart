@@ -14,7 +14,7 @@ import '../models/post_api_v1_guardianships_id_end_response.dart';
 import '../models/post_api_v1_guardianships_id_revoke_response.dart';
 import '../models/post_api_v1_patients_id_guardianships_response.dart';
 import '../models/request_guardianship_request.dart';
-import '../models/status.dart';
+import '../models/status3.dart';
 
 part 'guardianships_client.g.dart';
 
@@ -25,7 +25,7 @@ abstract class GuardianshipsClient {
   @GET('/api/v1/guardianships')
   Future<GetApiV1GuardianshipsResponse> listGuardianships({
     @Header('X-Tenant-ID') required String xTenantId,
-    @Query('status') Status? status,
+    @Query('status') Status3? status,
     @Query('cursor') String? cursor,
     @Query('limit') int? limit,
   });
