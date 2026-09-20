@@ -12,7 +12,12 @@ import { DevInboxController } from './identity/dev-inbox.controller';
 import { MeController } from './identity/me.controller';
 import { CoverageController, MembershipController } from './tenant-org/tenant-org.controllers';
 import { PlatformTenantController } from './tenant-org/platform-tenants.controller';
-import { CoverageService, MembershipService, TenantBootstrapService } from '@hmedic/tenant-org';
+import {
+  ClinicService,
+  CoverageService,
+  MembershipService,
+  TenantBootstrapService,
+} from '@hmedic/tenant-org';
 import { TenantOrgWriteModule, type TenantOrgServices } from '@hmedic/tenant-org/nest';
 import {
   ConsentService,
@@ -24,7 +29,20 @@ import {
   PatientService,
 } from '@hmedic/patient';
 import { PatientWriteModule, type PatientServices } from '@hmedic/patient/nest';
+import { SchedulingWriteModule, type SchedulingServices } from '@hmedic/scheduling/nest';
+import { composeSchedulingAndQueue, registerQueueJobs } from '@hmedic/queue';
+import { QueueWriteModule, type QueueServices } from '@hmedic/queue/nest';
 import { OutboxPort } from '@hmedic/jobs';
+import {
+  AppointmentController,
+  ChamberDayController,
+  MyAppointmentsController,
+} from './scheduling/chamber-day.controllers';
+import {
+  ChamberController,
+  ClinicController,
+  ScheduleRuleController,
+} from './scheduling/scheduling.controllers';
 import { ConsentController, MergeCaseController, PatientController } from './patient/patient.controllers';
 import {
   CareTeamController,
@@ -52,6 +70,8 @@ export class ApiModule {
     identity: IdentityServices,
     tenantOrg: TenantOrgServices,
     patient: PatientServices,
+    scheduling: SchedulingServices,
+    queue: QueueServices,
   ): DynamicModule {
     const mode = runtime.config.JOB_RUNNER_MODE;
     const devInbox = identity.mockOtp !== null || identity.mockReset !== null;
@@ -62,6 +82,8 @@ export class ApiModule {
         IdentityWriteModule.forRoot(identity),
         TenantOrgWriteModule.forRoot(tenantOrg),
         PatientWriteModule.forRoot(patient),
+        SchedulingWriteModule.forRoot(scheduling),
+        QueueWriteModule.forRoot(queue),
       ],
       controllers: [
         AuthController,
@@ -76,6 +98,12 @@ export class ApiModule {
         PatientAccountController,
         GuardianshipController,
         CareTeamController,
+        ClinicController,
+        ChamberController,
+        ScheduleRuleController,
+        ChamberDayController,
+        AppointmentController,
+        MyAppointmentsController,
         ...(devInbox ? [DevInboxController] : []),
       ],
     };
@@ -102,6 +130,8 @@ export interface ApiInstance {
   runtime: HttpRuntime;
   identity: IdentityServices;
   patient: PatientServices;
+  scheduling: SchedulingServices;
+  queue: QueueServices;
   jobs: JobComposition | null;
   close(): Promise<void>;
 }
@@ -114,13 +144,28 @@ export async function buildApi(
   // In `worker` mode the worker app owns the loop; the api only enqueues.
   const { runtime, database } = createRuntime('api', config, overrides);
   const sms = createSmsServices(runtime);
+  const context = composeSchedulingAndQueue({
+    prisma: runtime.prisma,
+    audit: runtime.audit,
+    clock: runtime.clock,
+  });
+  const scheduling: SchedulingServices = {
+    chambers: context.chambers,
+    schedules: context.schedules,
+    days: context.days,
+    appointments: context.appointments,
+  };
+  const queue: QueueServices = { serials: context.serials };
   const jobs =
     config.JOB_RUNNER_MODE === 'embedded' || config.JOB_RUNNER_MODE === 'cron'
-      ? composePlatformJobs(runtime, sms)
+      ? composePlatformJobs(runtime, sms, ({ registry, runner }) =>
+          registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger }),
+        )
       : null;
   runtime.runnerLoop = jobs?.loop ?? null;
   const identity = createIdentityServices(runtime, sms.otpDelivery ? { otpDelivery: sms.otpDelivery } : {});
   const tenantOrg: TenantOrgServices = {
+    clinics: new ClinicService(runtime.prisma, runtime.audit, runtime.clock),
     memberships: new MembershipService(runtime.prisma, runtime.audit, runtime.clock),
     coverages: new CoverageService(runtime.prisma, runtime.audit, config.COVERAGE_MAX_DAYS, runtime.clock),
     bootstrap: new TenantBootstrapService(runtime.prisma, runtime.audit, runtime.clock),
@@ -130,9 +175,11 @@ export async function buildApi(
   identity.onOtpVerified = async (userId, phoneE164) => {
     await patient.access.autoLinkOnOtpVerify(userId, phoneE164);
   };
-  const app = await createHttpApp(ApiModule.forRoot(runtime, identity, tenantOrg, patient), runtime, {
-    cors: true,
-  });
+  const app = await createHttpApp(
+    ApiModule.forRoot(runtime, identity, tenantOrg, patient, scheduling, queue),
+    runtime,
+    { cors: true },
+  );
   if (config.JOB_RUNNER_MODE === 'embedded') jobs?.loop.start();
   let closed = false;
   return {
@@ -140,6 +187,8 @@ export async function buildApi(
     runtime,
     identity,
     patient,
+    scheduling,
+    queue,
     jobs,
     async close() {
       if (closed) return;

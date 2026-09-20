@@ -6416,28 +6416,6 @@
           }
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ChamberDay"
-                    },
-                    "meta": {
-                      "$ref": "#/components/schemas/ResponseMeta"
-                    }
-                  },
-                  "required": [
-                    "data",
-                    "meta"
-                  ],
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Already existed (idempotent)"
-          },
           "201": {
             "content": {
               "application/json": {
@@ -6458,7 +6436,7 @@
                 }
               }
             },
-            "description": "Materialized from the schedule rules (schedule.manage)"
+            "description": "Materialized from the schedule rules, or the existing day when it was already materialized (idempotent create, schedule.manage)"
           },
           "400": {
             "content": {

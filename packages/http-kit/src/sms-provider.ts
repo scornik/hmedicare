@@ -7,6 +7,7 @@ import {
   createProviderCredentialVault,
   registerProviderCredentialJobs,
 } from '@hmedic/provider-credentials/worker';
+import type { JobRegistry, JobRunner, PeriodicJob } from '@hmedic/jobs';
 import { type JobComposition, composeJobs } from './job-composition';
 import type { HttpRuntime } from './runtime';
 
@@ -72,7 +73,12 @@ export function createSmsDiagnostics(runtime: HttpRuntime, sms: SmsRuntime): () 
  * The platform job set shared by the worker and the api in embedded/cron mode: maintenance, chain
  * verification (composeJobs), CheckSmsBalance and ReencryptProviderCredentials.
  */
-export function composePlatformJobs(runtime: HttpRuntime, sms: SmsRuntime): JobComposition | null {
+export function composePlatformJobs(
+  runtime: HttpRuntime,
+  sms: SmsRuntime,
+  /** Context job types registered by the app (queue, scheduling, …); http-kit never imports a context. */
+  extend: (c: { registry: JobRegistry; runner: JobRunner | null }) => PeriodicJob[] = () => [],
+): JobComposition | null {
   const vault = createProviderCredentialVault(runtime.config, runtime.prisma, runtime.audit, runtime.clock);
   return composeJobs(runtime, ({ registry, runner }) => [
     ...registerCommunicationJobs(registry, runner, {
@@ -86,5 +92,6 @@ export function composePlatformJobs(runtime: HttpRuntime, sms: SmsRuntime): JobC
       vault,
     }),
     ...registerProviderCredentialJobs(registry, runner, vault),
+    ...extend({ registry, runner }),
   ]);
 }
