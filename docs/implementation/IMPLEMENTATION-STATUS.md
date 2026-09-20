@@ -89,30 +89,60 @@ Not started in Stage 5 yet: the CP5 queue lifecycle (check-in, mark-waiting, cal
 
 ## 3a. Stage 5 load measurements (prompt §4.13)
 
-Recorded on the development machine (Docker Desktop, MariaDB 10.6 testcontainer), one chamber day:
+Recorded on the development machine (Docker Desktop, MariaDB 10.6 testcontainer), one chamber day, after
+the R-01 batching fix below:
 
 | Measurement | Result |
 |---|---|
-| Walk-in issuance, 1 concurrent desk | 1353 ms/serial |
-| Walk-in issuance, 2 concurrent desks | 1266 ms/serial |
-| Walk-in issuance, 4 concurrent desks | 1253 ms/serial |
-| Queue snapshot, 24 concurrent pollers, 72-serial queue | 355 ms total, 15 ms/poll |
+| Walk-in issuance, 1 concurrent desk | 1027 ms/serial |
+| Walk-in issuance, 2 concurrent desks | 873 ms/serial |
+| Walk-in issuance, 4 concurrent desks | 934 ms/serial |
+| Queue snapshot, 24 concurrent pollers, 72-serial queue | 423 ms total, 18 ms/poll |
 | Baseline: raw 15-statement transaction on the same host | 35 ms |
 
-**Open performance risk (R-01).** A single *uncontended* walk-in transaction costs ~1.3 s, while a raw
-15-statement transaction against the same container costs ~35 ms — roughly 38× overhead — and added
-concurrency buys nothing (1 → 4 desks is flat), so queue writes are effectively fully serialised. The
-snapshot read path is healthy (15 ms/poll). This is not the test environment: the baseline above was
-measured on the same Docker host. Candidates not yet separated: Prisma interactive-transaction overhead per
-statement, the ~30 statements a walk-in performs, and the two hash chains each write touches (the queue
-chain per chamber day, and the audit chain **per tenant**, which serialises queue writes across every
-chamber day of a tenant).
+### R-01 — walk-in write cost: profiled, cause identified
+
+The first measurement showed an uncontended walk-in costing ~1353 ms against a 35 ms raw 15-statement
+baseline on the same host, with added concurrency buying nothing. The hypothesis was hash-chain contention,
+specifically the audit chain keyed **per tenant**, which would serialise queue writes across every chamber
+day of a tenant. **A direct profile of the write path disproved that.**
+
+| Profile measurement (dev MariaDB, same Docker host) | Result |
+|---|---|
+| Prisma interactive transaction, begin + commit only | 26.0 ms |
+| Prisma marginal cost per statement inside a transaction | 7.44 ms |
+| One audit chain append (lock head, insert, advance head) | 27.4 ms |
+| Chain head lock alone | 18.7 ms |
+| Full `issueWalkIn` | 219.6 ms |
+| Statements issued per walk-in | 30 (18 select, 7 insert, 5 update) |
+| Raw driver, the same 30 statements in one transaction | 325.6 ms |
+
+26 ms of fixed transaction overhead plus 30 × 7.44 ms accounts for ~249 ms — essentially the entire
+transaction. **The cost is statement count × round-trip latency, not lock contention.** The two chains are
+three of the thirty statements, and the raw mariadb driver issuing the same thirty is no faster than Prisma,
+so neither the ORM nor the chains are the story. Concurrency was flat because each desk's transaction is
+latency-bound end to end, not because desks queue behind one another.
+
+Note the environment spread: the same walk-in costs 219 ms against the dev container and 1353 ms against a
+testcontainer — 6×. Absolute numbers for capacity planning must come from HOST-004 on the Hostinger plan;
+the statement-count finding is environment-independent.
+
+**Acted on.** `QueueEventWriter.appendMany` appends a walk-in's three-to-four queue events in a single
+chain pass: nine statements and three head locks become three statements and one lock. Measured effect on
+the testcontainer load run: 1353 → 1027 ms/serial at one desk (−24%).
+
+**Remaining levers, not applied.** A redundant `findFirst` re-read of the chamber day after `lockRow`, a
+final `findFirstOrThrow` re-read of the serial just written, and `countsForDay` + `dayRows` issuing two
+queries where one would serve. Together these would take a walk-in from ~24 statements to ~16. They are
+deferred because the useful target is the Hostinger round-trip latency, which is not yet measured (HOST-004);
+optimising against a 6×-off local number risks tuning for the wrong constant.
 
 Consequence today: with the documented 5 s transaction budget, eight concurrent desks on one chamber day
 exhaust their retries and shed load as `QUEUE_BUSY` (the documented retryable 503). That is correct
-behaviour, but the ceiling is far lower than the load target in QUEUE-CONCURRENCY §7 (200 walk-ins across
-two processes). Profile before the first busy clinic goes live, and re-measure on the Hostinger plan as
-part of HOST-004 — the shared-plan numbers are the ones that decide whether this needs redesign.
+behaviour, but the ceiling remains below the load target in QUEUE-CONCURRENCY §7 (200 walk-ins across two
+processes). Re-measure on the Hostinger plan as part of HOST-004 before the first busy clinic goes live —
+the shared-plan numbers decide whether the remaining levers are enough or the write path needs redesign.
+
 
 ## 4. Open HOST items
 

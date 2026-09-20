@@ -248,54 +248,49 @@ export class QueueService {
           },
         });
         const key = opts.idempotencyKey;
-        const details = { serialNumber: n, source: 'WALK_IN', careMode: input.careMode };
-        await this.queueEvents.append(tx, {
-          tenantId,
-          chamberDayId: day.id,
-          serialId: id,
-          eventType: 'SERIAL_ISSUED',
-          toStatus: 'CHECKED_IN',
-          positionAfter: placement.position,
-          details,
-          actor: actorRef,
-          idempotencyKey: key ? `${key}:SERIAL_ISSUED` : null,
-        });
-        if (input.duplicateOverride) {
-          await this.queueEvents.append(tx, {
-            tenantId,
-            chamberDayId: day.id,
-            serialId: id,
-            eventType: 'DUPLICATE_OVERRIDE',
-            reason: input.duplicateOverride.reason,
-            actor: actorRef,
-            idempotencyKey: key ? `${key}:DUPLICATE_OVERRIDE` : null,
-          });
-        }
-        await this.queueEvents.append(tx, {
-          tenantId,
-          chamberDayId: day.id,
-          serialId: id,
-          eventType: 'CHECKED_IN',
-          fromStatus: 'CHECKED_IN',
-          toStatus: 'CHECKED_IN',
-          positionAfter: placement.position,
-          details: { method: 'STAFF_DESK' },
-          actor: actorRef,
-          idempotencyKey: key ? `${key}:CHECKED_IN` : null,
-        });
-        if (waiting) {
-          await this.queueEvents.append(tx, {
-            tenantId,
-            chamberDayId: day.id,
-            serialId: id,
-            eventType: 'WAITING',
-            fromStatus: 'CHECKED_IN',
-            toStatus: 'WAITING',
+        const common = { tenantId, chamberDayId: day.id, serialId: id, actor: actorRef };
+        // One pass over the day's chain: the head is locked once instead of three or four times (R-01).
+        await this.queueEvents.appendMany(tx, [
+          {
+            ...common,
+            eventType: 'SERIAL_ISSUED',
+            toStatus: 'CHECKED_IN',
             positionAfter: placement.position,
-            actor: actorRef,
-            idempotencyKey: key ? `${key}:WAITING` : null,
-          });
-        }
+            details: { serialNumber: n, source: 'WALK_IN', careMode: input.careMode },
+            idempotencyKey: key ? `${key}:SERIAL_ISSUED` : null,
+          },
+          ...(input.duplicateOverride
+            ? [
+                {
+                  ...common,
+                  eventType: 'DUPLICATE_OVERRIDE' as const,
+                  reason: input.duplicateOverride.reason,
+                  idempotencyKey: key ? `${key}:DUPLICATE_OVERRIDE` : null,
+                },
+              ]
+            : []),
+          {
+            ...common,
+            eventType: 'CHECKED_IN',
+            fromStatus: 'CHECKED_IN',
+            toStatus: 'CHECKED_IN',
+            positionAfter: placement.position,
+            details: { method: 'STAFF_DESK' },
+            idempotencyKey: key ? `${key}:CHECKED_IN` : null,
+          },
+          ...(waiting
+            ? [
+                {
+                  ...common,
+                  eventType: 'WAITING' as const,
+                  fromStatus: 'CHECKED_IN',
+                  toStatus: 'WAITING',
+                  positionAfter: placement.position,
+                  idempotencyKey: key ? `${key}:WAITING` : null,
+                },
+              ]
+            : []),
+        ]);
         await this.audit.append(tx, {
           tenantId,
           actorUserId: actor.userId,
