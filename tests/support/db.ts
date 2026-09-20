@@ -19,6 +19,16 @@ export async function rawConnection(root = false): Promise<mariadb.Connection> {
   return mariadb.createConnection({ ...parseDatabaseUrl(url), timezone: '+00:00' });
 }
 
+/**
+ * Tables with a self-referencing FK: the referencing rows go first, so a plain `DELETE FROM` cannot be used.
+ * `patients` additionally has a CHECK that MERGED rows keep their pointer, so the pointer cannot be nulled.
+ */
+const SELF_REFERENCING: Readonly<Record<string, string>> = {
+  serials: 'rescheduled_from_serial_id',
+  appointments: 'rescheduled_from_appointment_id',
+  patients: 'merged_into_patient_id',
+};
+
 /** Tables owned by Stage 4/5 migrations, in delete-safe order (children first). */
 const TABLES = [
   // 0006 queue, 0005 scheduling (children of chamber_days/chambers/clinics/patients)
@@ -68,10 +78,12 @@ const TABLES = [
 export async function truncateAll(): Promise<void> {
   const conn = await rawConnection();
   try {
-    for (const t of TABLES) await conn.query(`DELETE FROM \`${t}\``);
-    // patients has a self-referencing composite FK (merged_into_patient_id) and a CHECK that MERGED rows keep
-    // their pointer: delete the merged sources first, then everything else.
-    await conn.query('DELETE FROM patients WHERE merged_into_patient_id IS NOT NULL');
+    for (const t of TABLES) {
+      const column = SELF_REFERENCING[t];
+      if (column) await conn.query(`DELETE FROM \`${t}\` WHERE \`${column}\` IS NOT NULL`);
+      await conn.query(`DELETE FROM \`${t}\``);
+    }
+    await conn.query(`DELETE FROM patients WHERE \`${SELF_REFERENCING.patients}\` IS NOT NULL`);
     await conn.query('DELETE FROM patients');
     await conn.query("UPDATE tenants SET owner_doctor_profile_id = NULL, practice_type = 'GROUP'");
     await conn.query('DELETE FROM doctor_profiles');
