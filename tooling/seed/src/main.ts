@@ -78,8 +78,20 @@ main().then(
     process.exitCode = code;
   },
   (error: unknown) => {
+    // Field errors and details carry the reason an AppError was raised; without them the seed is undebuggable.
+    const extra =
+      error && typeof error === 'object'
+        ? [
+            'fieldErrors' in error ? JSON.stringify(error.fieldErrors) : '',
+            'details' in error ? JSON.stringify(error.details) : '',
+            'code' in error ? String(error.code) : '',
+            'meta' in error ? JSON.stringify(error.meta) : '',
+          ]
+            .filter(Boolean)
+            .join(' ')
+        : '';
     process.stderr.write(
-      `seed failed: ${error instanceof Error ? `${error.name}: ${error.message}` : 'error'}\n`,
+      `seed failed: ${error instanceof Error ? `${error.name}: ${error.message}` : 'error'}${extra ? ` ${extra}` : ''}\n`,
     );
     process.exitCode = 1;
   },
