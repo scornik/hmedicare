@@ -9,7 +9,7 @@ import type { SerialService } from './serial-service';
  * belongs to CP5 (the called/skipped lifecycle) and is registered there.
  */
 export const QUEUE_QUEUE = 'queue';
-export const APPLY_NO_SHOW_POLICY = 'queue.apply_no_show_policy';
+export const APPLY_NO_SHOW_POLICY = 'ApplyNoShowPolicy';
 
 export function registerQueueJobs(
   registry: JobRegistry,

@@ -49,6 +49,7 @@ describe('worker mode', () => {
     await waitFor(async () => (await a.runtime.prisma.job.count({ where: { status: 'SUCCEEDED' } })) === 4);
     const jobs = await a.runtime.prisma.job.findMany({ select: { type: true, lockedBy: true } });
     expect(jobs.map((j) => j.type).sort()).toEqual([
+      'ApplyNoShowPolicy',
       'CheckSmsBalance',
       'MaintenanceTtlCleanup',
       'ReencryptProviderCredentials',
