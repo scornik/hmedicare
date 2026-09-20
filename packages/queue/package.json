@@ -2,7 +2,7 @@
   "name": "@hmedic/queue",
   "version": "0.0.0",
   "private": true,
-  "description": "Stage 5+: serials, check-ins, queue events",
+  "description": "Serials, check-ins, queue transitions, reorder, delay, day close, queue snapshots, no-show job",
   "main": "./dist/public/index.js",
   "types": "./dist/public/index.d.ts",
   "exports": {
@@ -21,5 +21,18 @@
     "build": "tsc -b",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@hmedic/audit": "workspace:*",
+    "@hmedic/database": "workspace:*",
+    "@hmedic/jobs": "workspace:*",
+    "@hmedic/kernel": "workspace:*",
+    "@hmedic/localization": "workspace:*",
+    "@hmedic/patient": "workspace:*",
+    "@hmedic/scheduling": "workspace:*",
+    "@nestjs/common": "11.2.5"
+  },
+  "devDependencies": {
+    "@hmedic/config": "workspace:*",
+    "@hmedic/identity-access": "workspace:*"
+  }
 }
