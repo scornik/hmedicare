@@ -355,6 +355,7 @@ export class ChamberDayService {
     eventType: 'DAY_OPENED' | 'DAY_PAUSED' | 'DAY_CLOSED' | 'DAY_CANCELLED',
     eventName: 'ChamberDayOpened' | 'ChamberDayPaused' | 'ChamberDayClosed' | 'ChamberDayCancelled',
     action: string,
+    idempotencyKey: string | null,
     inTx?: (tx: Tx, day: ChamberDayFacts) => Promise<TransitionDetails>,
   ): Promise<ChamberDayView> {
     const tenantId = actor.tenant.tenantId;
@@ -392,8 +393,9 @@ export class ChamberDayService {
           toStatus: to,
           details: extra,
           actor: userActor(actor),
-          // Scoped by day: one request may touch several chamber days (uq_queue_events_idempotency).
-          idempotencyKey: actor.requestId ? `${actor.requestId}:${eventType}:${dayId}` : null,
+          // The client's Idempotency-Key scopes the event; a retry of the same command repeats it, while the
+          // request id changes per attempt. Also scoped by day: one request may touch several days.
+          idempotencyKey: idempotencyKey ? `${idempotencyKey}:${eventType}:${dayId}` : null,
         });
         await this.audit.append(tx, {
           tenantId,
@@ -437,7 +439,11 @@ export class ChamberDayService {
     return fn(tx, day);
   }
 
-  open(actor: SchedulingActor, dayId: string, input: { expectedRowVersion: number }) {
+  open(
+    actor: SchedulingActor,
+    dayId: string,
+    input: { expectedRowVersion: number; idempotencyKey?: string | null },
+  ) {
     return this.transition(
       actor,
       dayId,
@@ -447,10 +453,15 @@ export class ChamberDayService {
       'DAY_OPENED',
       'ChamberDayOpened',
       'CHAMBER_DAY_OPENED',
+      input.idempotencyKey ?? null,
     );
   }
 
-  pause(actor: SchedulingActor, dayId: string, input: { expectedRowVersion: number }) {
+  pause(
+    actor: SchedulingActor,
+    dayId: string,
+    input: { expectedRowVersion: number; idempotencyKey?: string | null },
+  ) {
     return this.transition(
       actor,
       dayId,
@@ -460,11 +471,16 @@ export class ChamberDayService {
       'DAY_PAUSED',
       'ChamberDayPaused',
       'CHAMBER_DAY_PAUSED',
+      input.idempotencyKey ?? null,
     );
   }
 
   /** CancelChamberDay (C-43, QUEUE §3.3): cancels every non-terminal serial and its appointment (DAY_CANCELLED). */
-  cancel(actor: SchedulingActor, dayId: string, input: { expectedRowVersion: number; reason?: string }) {
+  cancel(
+    actor: SchedulingActor,
+    dayId: string,
+    input: { expectedRowVersion: number; reason?: string; idempotencyKey?: string | null },
+  ) {
     return this.transition(
       actor,
       dayId,
@@ -474,6 +490,7 @@ export class ChamberDayService {
       'DAY_CANCELLED',
       'ChamberDayCancelled',
       'CHAMBER_DAY_CANCELLED',
+      input.idempotencyKey ?? null,
       async (tx, day) => {
         const settled = await this.serials.settleDay(tx, {
           day,
@@ -488,7 +505,11 @@ export class ChamberDayService {
   }
 
   /** CloseChamberDay (`chamber_day.close`): refused while a consultation is running; settles the rest. */
-  close(actor: SchedulingActor, dayId: string, input: { expectedRowVersion: number }) {
+  close(
+    actor: SchedulingActor,
+    dayId: string,
+    input: { expectedRowVersion: number; idempotencyKey?: string | null },
+  ) {
     return this.transition(
       actor,
       dayId,
@@ -498,6 +519,7 @@ export class ChamberDayService {
       'DAY_CLOSED',
       'ChamberDayClosed',
       'CHAMBER_DAY_CLOSED',
+      input.idempotencyKey ?? null,
       async (tx, day) => {
         if (await this.serials.hasActiveConsultation(tx, day.tenantId, day.id))
           throw new AppError('CHAMBER_DAY_HAS_ACTIVE_CONSULTATION');
@@ -556,7 +578,12 @@ export class ChamberDayService {
   async recordDelay(
     actor: SchedulingActor,
     dayId: string,
-    input: { expectedQueueOrderVersion: number; delayMinutes: number; reasonCode: string },
+    input: {
+      expectedQueueOrderVersion: number;
+      delayMinutes: number;
+      reasonCode: string;
+      idempotencyKey?: string | null;
+    },
   ): Promise<ChamberDayView> {
     if (!Number.isInteger(input.delayMinutes) || input.delayMinutes < 0 || input.delayMinutes > 720)
       throw validation([{ path: 'delayMinutes', code: 'out_of_range', message: 'validation.out_of_range' }]);
@@ -569,6 +596,7 @@ export class ChamberDayService {
       'CHAMBER_DELAY_RECORDED',
       { delayMinutes: input.delayMinutes, reasonCode: input.reasonCode },
       { expectedDelayMinutes: input.delayMinutes },
+      input.idempotencyKey ?? null,
     );
   }
 
@@ -576,7 +604,7 @@ export class ChamberDayService {
   async updatePolicy(
     actor: SchedulingActor,
     dayId: string,
-    input: { expectedQueueOrderVersion: number; policy: QueuePolicyPatch },
+    input: { expectedQueueOrderVersion: number; policy: QueuePolicyPatch; idempotencyKey?: string | null },
   ): Promise<ChamberDayView> {
     const current = await this.require(actor.tenant.tenantId, dayId);
     const merged = resolveQueuePolicy({ ...resolveQueuePolicy(current.queuePolicy), ...input.policy });
@@ -598,6 +626,7 @@ export class ChamberDayService {
       'CHAMBER_DAY_POLICY_CHANGED',
       { changed: Object.keys(input.policy) },
       { queuePolicy: merged as never, rowVersion: { increment: 1 } },
+      input.idempotencyKey ?? null,
     );
   }
 
@@ -610,6 +639,7 @@ export class ChamberDayService {
     action: string,
     details: TransitionDetails,
     data: Record<string, unknown>,
+    idempotencyKey: string | null,
   ): Promise<ChamberDayView> {
     const tenantId = actor.tenant.tenantId;
     const before = await this.require(tenantId, dayId);
@@ -641,8 +671,9 @@ export class ChamberDayService {
           eventType,
           details,
           actor: userActor(actor),
-          // Scoped by day: one request may touch several chamber days (uq_queue_events_idempotency).
-          idempotencyKey: actor.requestId ? `${actor.requestId}:${eventType}:${dayId}` : null,
+          // The client's Idempotency-Key scopes the event; a retry of the same command repeats it, while the
+          // request id changes per attempt. Also scoped by day: one request may touch several days.
+          idempotencyKey: idempotencyKey ? `${idempotencyKey}:${eventType}:${dayId}` : null,
         });
         await this.audit.append(tx, {
           tenantId,
