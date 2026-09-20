@@ -13,6 +13,7 @@ import {
   createRuntime,
   jobLagCheck,
 } from '@hmedic/http-kit';
+import { composeSchedulingAndQueue, registerQueueJobs } from '@hmedic/queue';
 
 /**
  * Worker composition root (API-IMPLEMENTATION §2): health, metrics and the cron kick only. Context job
@@ -53,7 +54,14 @@ export async function buildWorker(
 ): Promise<WorkerInstance> {
   const { runtime, database } = createRuntime('worker', config, overrides);
   const sms = createSmsServices(runtime);
-  const jobs = composePlatformJobs(runtime, sms);
+  const context = composeSchedulingAndQueue({
+    prisma: runtime.prisma,
+    audit: runtime.audit,
+    clock: runtime.clock,
+  });
+  const jobs = composePlatformJobs(runtime, sms, ({ registry, runner }) =>
+    registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger }),
+  );
   runtime.smsDiagnostics = config.DIAGNOSTICS_ENABLED ? createSmsDiagnostics(runtime, sms) : null;
   runtime.runnerLoop = jobs?.loop ?? null;
   runtime.readinessChecks.push(jobLagCheck(runtime));

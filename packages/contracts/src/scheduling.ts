@@ -497,8 +497,10 @@ registry.registerPath({
   security: secured,
   request: { headers: tenantIdemHeaders, body: { content: json(MaterializeChamberDayRequest) } },
   responses: {
-    201: ok(ChamberDay, 'Materialized from the schedule rules (schedule.manage)'),
-    200: ok(ChamberDay, 'Already existed (idempotent)'),
+    201: ok(
+      ChamberDay,
+      'Materialized from the schedule rules, or the existing day when it was already materialized (idempotent create, schedule.manage)',
+    ),
     ...errorResponses,
   },
 });

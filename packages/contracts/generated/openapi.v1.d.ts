@@ -4088,19 +4088,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Already existed (idempotent) */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["ChamberDay"];
-                        meta: components["schemas"]["ResponseMeta"];
-                    };
-                };
-            };
-            /** @description Materialized from the schedule rules (schedule.manage) */
+            /** @description Materialized from the schedule rules, or the existing day when it was already materialized (idempotent create, schedule.manage) */
             201: {
                 headers: {
                     [name: string]: unknown;
