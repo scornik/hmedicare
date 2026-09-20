@@ -298,6 +298,12 @@ importers:
       '@hmedic/patient':
         specifier: workspace:*
         version: link:../../packages/patient
+      '@hmedic/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
+      '@hmedic/scheduling':
+        specifier: workspace:*
+        version: link:../../packages/scheduling
       '@nestjs/common':
         specifier: 11.2.5
         version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0)
@@ -417,6 +423,9 @@ importers:
       '@hmedic/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@hmedic/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
       '@nestjs/common':
         specifier: 11.2.5
         version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0)
@@ -781,6 +790,9 @@ importers:
       '@hmedic/localization':
         specifier: workspace:*
         version: link:../localization
+      '@hmedic/observability':
+        specifier: workspace:*
+        version: link:../observability
       '@hmedic/patient':
         specifier: workspace:*
         version: link:../patient
@@ -790,6 +802,9 @@ importers:
       '@nestjs/common':
         specifier: 11.2.5
         version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2)
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
     devDependencies:
       '@hmedic/config':
         specifier: workspace:*

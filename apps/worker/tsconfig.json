@@ -28,6 +28,9 @@
     },
     {
       "path": "../../packages/observability"
+    },
+    {
+      "path": "../../packages/queue"
     }
   ]
 }

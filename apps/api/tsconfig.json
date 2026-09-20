@@ -45,6 +45,12 @@
       "path": "../../packages/patient"
     },
     {
+      "path": "../../packages/queue"
+    },
+    {
+      "path": "../../packages/scheduling"
+    },
+    {
       "path": "../../packages/tenant-org"
     }
   ]

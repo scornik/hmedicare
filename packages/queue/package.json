@@ -27,9 +27,11 @@
     "@hmedic/jobs": "workspace:*",
     "@hmedic/kernel": "workspace:*",
     "@hmedic/localization": "workspace:*",
+    "@hmedic/observability": "workspace:*",
     "@hmedic/patient": "workspace:*",
     "@hmedic/scheduling": "workspace:*",
-    "@nestjs/common": "11.2.5"
+    "@nestjs/common": "11.2.5",
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "@hmedic/config": "workspace:*",

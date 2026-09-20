@@ -311,6 +311,25 @@ export class ChamberService {
     return this.view(await this.require(tenantId, chamberId));
   }
 
+  /** Public chamber list for a patient context: tenant-scoped, ACTIVE only, no membership scope. */
+  async listPublic(
+    tenantId: string,
+    filter: { clinicId?: string; doctorProfileId?: string } = {},
+  ): Promise<ChamberView[]> {
+    const rows = await this.prisma.chamber.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        status: 'ACTIVE',
+        ...(filter.clinicId ? { clinicId: filter.clinicId } : {}),
+        ...(filter.doctorProfileId ? { doctorProfileId: filter.doctorProfileId } : {}),
+      },
+      orderBy: [{ clinicId: 'asc' }, { name: 'asc' }],
+      take: 200,
+    });
+    return Promise.all(rows.map((r) => this.view(r)));
+  }
+
   async list(
     actor: SchedulingActor,
     filter: { clinicId?: string; doctorProfileId?: string; status?: 'ACTIVE' | 'INACTIVE' },
