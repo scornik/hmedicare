@@ -75,7 +75,14 @@ Legend:
 | CHAM-003 APPT-002 routes + composition | PROVISIONAL (HOST-001/003) | `688f904`, `c7b048b` | integration 7 (HTTP) | clinics, chambers, rules, chamber days, appointments, `/me/appointments`; ApplyNoShowPolicy registered in the api (embedded/cron) and the worker |
 | CHAM-004 seed dataset | DONE | (CP4) | `seed:verify` assertions | 4 chambers incl. walk-in-only, booking-only and a slotted chamber, weekly rules + both exception kinds, yesterday closed, today open with a delay and a booking mix, a reschedule chain onto tomorrow |
 
-Not started in Stage 5 yet: the CP5 queue lifecycle (check-in, mark-waiting, call, skip, recall, remote-ready, reorder, the live queue snapshot reads and the 13 concurrency tests) and the web/mobile chamber, booking and queue screens — the checkpoint definition attaches those screens to CP5. Out of scope: encounters, clinical, prescriptions, catalog, labs, documents, timeline, follow-ups, communications delivery, telemedicine, payments, AI.
+| SERIAL-002 QUEUE-001 QUEUE-002 queue-active lifecycle | PROVISIONAL (HOST-005) | `404928c`, `eb4056b`, `bbf1d58`, `2a4ee0f`, `15179a4` | integration 25 (lifecycle 14, engine 11) | check-in with late-arrival placement, mark-waiting, call/skip/recall, remote-ready, the interim consultation transitions (ADR-021), reorder, the ETagged snapshot and the patient view. Serial numbers allocate through `LAST_INSERT_ID(col)+1` after duplicates appeared under load; the lock ranking exempts rows the transaction already holds |
+| QUEUE-CONCURRENCY §4 suite | PROVISIONAL (flake runs pending) | `913af0b` | integration 16 | the mandatory races and invariants, with real parallel connections on both MariaDB series |
+| QUEUE-003 contracts + routes | PROVISIONAL (HOST-001/003) | `3e971ce` | — | 18 operations (93 total): the snapshot, walk-ins, reorder and the twelve serial transitions. `GET /serials/{id}` is staff-only and `/me/serials/{id}` is the patient view — API §3.5 describes one route for both, and the deviation is recorded there |
+| QUEUE-004 seed queue mix | DONE | `bc33b6e` | `seed:verify` assertions | walk-ins and desk arrivals carried through CHECKED_IN, WAITING, CALLED, SKIPPED, IN_CONSULTATION and COMPLETED; the verifier asserts no two serials on a day share a queue position |
+| QUEUE-005 web queue board | DONE | `3e971ce`, `bc33b6e` | e2e 3 | five-second polling with optimistic reconcile, drag reorder carrying `queueOrderVersion`, and the conflict path when another desk wins the race |
+| QUEUE-006 mobile queue screens | DONE | `3e971ce` | Flutter analyze | doctor board (call / start / complete) and the patient's own serial with people-ahead, estimates and remote-ready; both read through the session cache |
+
+Still open in Stage 5: the queue HTTP integration suite, ten flake-free concurrency runs on each MariaDB series, and HOST-005. Out of scope: encounters, clinical, prescriptions, catalog, labs, documents, timeline, follow-ups, communications delivery, telemedicine, payments, AI.
 
 ## 3. Test summary (latest full run)
 
