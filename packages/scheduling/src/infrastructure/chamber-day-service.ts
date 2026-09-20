@@ -392,7 +392,8 @@ export class ChamberDayService {
           toStatus: to,
           details: extra,
           actor: userActor(actor),
-          idempotencyKey: actor.requestId ? `${actor.requestId}:${eventType}` : null,
+          // Scoped by day: one request may touch several chamber days (uq_queue_events_idempotency).
+          idempotencyKey: actor.requestId ? `${actor.requestId}:${eventType}:${dayId}` : null,
         });
         await this.audit.append(tx, {
           tenantId,
@@ -640,7 +641,8 @@ export class ChamberDayService {
           eventType,
           details,
           actor: userActor(actor),
-          idempotencyKey: actor.requestId ? `${actor.requestId}:${eventType}` : null,
+          // Scoped by day: one request may touch several chamber days (uq_queue_events_idempotency).
+          idempotencyKey: actor.requestId ? `${actor.requestId}:${eventType}:${dayId}` : null,
         });
         await this.audit.append(tx, {
           tenantId,
