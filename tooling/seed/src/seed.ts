@@ -14,6 +14,8 @@ import { Argon2idHasher, PlatformOperatorService, PolicyEngine } from '@hmedic/i
 import { CoverageService, MembershipService, TenantBootstrapService } from '@hmedic/tenant-org';
 import { ProviderCredentialVault } from '@hmedic/provider-credentials';
 import { SecretEnvelope, gateChainSource, kekFromBase64 } from '@hmedic/secrets';
+import { dhakaDate } from '@hmedic/localization';
+import { seedChambers, verifyChamberSeed } from './chambers';
 import { seedPatients, verifyPatientSeed } from './patients';
 
 /**
@@ -294,6 +296,16 @@ export class Seeder {
       phone: PHONE,
       report: this.report,
     });
+    // Stage 5 CP4: chambers, weekly schedules with a holiday, chamber days and today's booking mix.
+    await seedChambers({
+      prisma: this.prisma,
+      audit: this.audit,
+      clock: this.clock,
+      tenantA: { tenantId: tenantA, ownerCtx },
+      tenantB: { tenantId: tenantB, ownerCtx: await this.tenantContext(tenantB, ownerB.id) },
+      staffUserIds: ids,
+      report: this.report,
+    });
     return this.report;
   }
 
@@ -365,6 +377,7 @@ export async function verifySeed(prisma: PrismaClient): Promise<string[]> {
   const problems: string[] = [];
   const a = await prisma.tenant.findUnique({ where: { slug: TENANT_A.slug } });
   if (a) problems.push(...(await verifyPatientSeed(prisma, a.id, PHONE)));
+  if (a) problems.push(...(await verifyChamberSeed(prisma, a.id, dhakaDate(new Date()))));
   const b = await prisma.tenant.findUnique({ where: { slug: TENANT_B.slug } });
   if (!a || !b) return ['demo tenants missing (run pnpm db:seed)'];
   if (b.practiceType !== 'SOLO' || !b.ownerDoctorProfileId)

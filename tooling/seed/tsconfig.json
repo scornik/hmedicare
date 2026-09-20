@@ -26,10 +26,19 @@
       "path": "../../packages/kernel"
     },
     {
+      "path": "../../packages/localization"
+    },
+    {
       "path": "../../packages/patient"
     },
     {
       "path": "../../packages/provider-credentials"
+    },
+    {
+      "path": "../../packages/queue"
+    },
+    {
+      "path": "../../packages/scheduling"
     },
     {
       "path": "../../packages/secrets"
