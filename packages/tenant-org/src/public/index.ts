@@ -3,3 +3,4 @@ export * from '../domain/rules';
 export * from '../infrastructure/membership-service';
 export * from '../infrastructure/coverage-service';
 export * from '../infrastructure/tenant-bootstrap';
+export * from '../infrastructure/clinic-service';
