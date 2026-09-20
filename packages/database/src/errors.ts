@@ -103,7 +103,23 @@ export function isUniqueViolation(error: unknown, constraint?: string): boolean 
   return info.kind === 'UNIQUE_VIOLATION' && (constraint === undefined || info.constraint === constraint);
 }
 
+/**
+ * Prisma kills an interactive transaction that outlives its own `timeout` (P2028), which is what happens
+ * when a transaction spends its budget queued behind a hot row lock. It is the same contention as a 1205
+ * lock-wait timeout — the engine simply ran out of patience first — so it retries and exhausts the same way
+ * (QUEUE-CONCURRENCY-DESIGN §1). Without this, a busy chamber day surfaces a raw Prisma error instead of the
+ * documented retryable 503.
+ */
+export function isTransactionTimeout(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'P2028'
+  );
+}
+
 export function isRetryableLockError(error: unknown): boolean {
   const { kind } = dbErrorInfo(error);
-  return kind === 'LOCK_WAIT_TIMEOUT' || kind === 'DEADLOCK';
+  return kind === 'LOCK_WAIT_TIMEOUT' || kind === 'DEADLOCK' || isTransactionTimeout(error);
 }
