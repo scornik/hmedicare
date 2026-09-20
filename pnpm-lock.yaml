@@ -920,12 +920,21 @@ importers:
       '@hmedic/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
+      '@hmedic/localization':
+        specifier: workspace:*
+        version: link:../../packages/localization
       '@hmedic/patient':
         specifier: workspace:*
         version: link:../../packages/patient
       '@hmedic/provider-credentials':
         specifier: workspace:*
         version: link:../../packages/provider-credentials
+      '@hmedic/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
+      '@hmedic/scheduling':
+        specifier: workspace:*
+        version: link:../../packages/scheduling
       '@hmedic/secrets':
         specifier: workspace:*
         version: link:../../packages/secrets
