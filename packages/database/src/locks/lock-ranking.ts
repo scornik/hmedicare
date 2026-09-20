@@ -55,6 +55,8 @@ export const LOCK_RANKING: Readonly<Record<string, number>> = {
 interface LockOrderState {
   highestRank: number;
   highestTable: string;
+  /** `table:key` of every row this transaction already holds an X lock on. */
+  held: Set<string>;
 }
 
 /**
@@ -64,11 +66,22 @@ interface LockOrderState {
  */
 const states = new WeakMap<object, LockOrderState>();
 
-/** Records a lock on `table` for the transaction object and throws when the order is violated. */
-export function recordLock(tx: object, table: string): void {
+/**
+ * Records a lock on `table` for the transaction object and throws when the order is violated.
+ *
+ * `key` identifies the row (its id, or `column=value` for a unique-key lock). Re-locking a row this
+ * transaction already holds is exempt from the ranking: the X lock is already ours, so the statement
+ * cannot wait and cannot add an edge to the wait-for graph. That is what lets a transaction which locked
+ * a chamber day up front allocate that day’s serial counter after it has locked the serial. The case the
+ * ranking exists to order is a *new* lock on a lower-ranked table, not a second touch of a held row.
+ * Callers that cannot name the row omit `key` and stay under the strict check.
+ */
+export function recordLock(tx: object, table: string, key?: string): void {
   const rank = LOCK_RANKING[table];
   if (rank === undefined) throw new Error(`lock ranking: table ${table} is not ranked`);
   const state = states.get(tx);
+  const heldKey = key === undefined ? undefined : `${table}:${key}`;
+  if (state && heldKey !== undefined && state.held.has(heldKey)) return;
   if (state && rank < state.highestRank) {
     throw new AppError('INTERNAL_ERROR', 'lock order violation', {
       cause: new Error(
@@ -76,10 +89,19 @@ export function recordLock(tx: object, table: string): void {
       ),
     });
   }
-  if (!state || rank > state.highestRank) states.set(tx, { highestRank: rank, highestTable: table });
+  if (!state) {
+    states.set(tx, { highestRank: rank, highestTable: table, held: new Set(heldKey ? [heldKey] : []) });
+    return;
+  }
+  if (rank > state.highestRank) {
+    state.highestRank = rank;
+    state.highestTable = table;
+  }
+  if (heldKey !== undefined) state.held.add(heldKey);
 }
 
-/** Test/inspection helper. */
-export function lockOrderStateOf(tx: object): LockOrderState | undefined {
-  return states.get(tx);
+/** Test/inspection helper: the highest-ranked table locked so far in this transaction. */
+export function lockOrderStateOf(tx: object): { highestRank: number; highestTable: string } | undefined {
+  const state = states.get(tx);
+  return state ? { highestRank: state.highestRank, highestTable: state.highestTable } : undefined;
 }
