@@ -6,8 +6,10 @@ import 'package:hm_auth/hm_auth.dart';
 import 'package:hm_design/hm_design.dart';
 import 'package:hm_localization/hm_localization.dart';
 
+import 'days_screen.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
+import 'queue_screen.dart';
 
 /// Bridges auth state to GoRouter redirects (UX only; the API authorizes every call).
 class _AuthListenable extends ChangeNotifier {
@@ -37,6 +39,11 @@ class _DoctorAppState extends ConsumerState<DoctorApp> {
     routes: [
       GoRoute(path: '/login', builder: (_, _) => const DoctorLoginScreen()),
       GoRoute(path: '/home', builder: (_, _) => const DoctorHomeScreen()),
+      GoRoute(path: '/days', builder: (_, _) => const DoctorDaysScreen()),
+      GoRoute(
+        path: '/queue/:chamberDayId',
+        builder: (_, state) => DoctorQueueScreen(chamberDayId: state.pathParameters['chamberDayId']!),
+      ),
     ],
   );
 

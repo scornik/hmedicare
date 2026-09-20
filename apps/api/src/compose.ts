@@ -43,6 +43,7 @@ import {
   ClinicController,
   ScheduleRuleController,
 } from './scheduling/scheduling.controllers';
+import { MySerialsController, QueueBoardController, SerialController } from './scheduling/queue.controllers';
 import { ConsentController, MergeCaseController, PatientController } from './patient/patient.controllers';
 import {
   CareTeamController,
@@ -104,6 +105,9 @@ export class ApiModule {
         ChamberDayController,
         AppointmentController,
         MyAppointmentsController,
+        QueueBoardController,
+        SerialController,
+        MySerialsController,
         ...(devInbox ? [DevInboxController] : []),
       ],
     };
@@ -155,7 +159,7 @@ export async function buildApi(
     days: context.days,
     appointments: context.appointments,
   };
-  const queue: QueueServices = { serials: context.serials };
+  const queue: QueueServices = { serials: context.serials, queue: context.queue };
   const jobs =
     config.JOB_RUNNER_MODE === 'embedded' || config.JOB_RUNNER_MODE === 'cron'
       ? composePlatformJobs(runtime, sms, ({ registry, runner }) =>

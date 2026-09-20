@@ -157,8 +157,13 @@ describe('check-in and placement (QUEUE §4.1)', () => {
     const { chamber, dayId } = await openDay();
     const a = await book(chamber.id, 'Farhana Begum');
     await walkIn(dayId, 'Shakib Islam'); // takes position 1
+    // Pin the clock one minute into the window. On the wall clock the fixture opens at 17:00 local, so a
+    // suite that happens to run after 17:15 would see this arrival as late and the assertion would flip.
+    const day = await h.days.get(t.actor, dayId);
+    const justOpened = new Date(localInstant(day.localDate, day.localStartTime).getTime() + 60_000);
+    const onTime = wire(() => justOpened);
     const serial = await serials.get({ kind: 'staff', actor: t.actor }, a.serial!.id);
-    const checked = await queue.checkIn({ kind: 'staff', actor: t.actor }, serial.id, {
+    const checked = await onTime.queue.checkIn({ kind: 'staff', actor: t.actor }, serial.id, {
       expectedRowVersion: serial.rowVersion,
     });
     expect(checked).toMatchObject({ status: 'WAITING', queuePosition: 2, lateArrival: false });
@@ -359,7 +364,7 @@ describe('live reads (QUEUE §3.5, §4.2)', () => {
     const a = await walkIn(dayId, 'Snapshot One');
     const first = await queue.snapshot(t.tenantId, dayId);
     expect(first).toMatchObject({ chamberDayId: dayId, status: 'OPEN', queueOrderVersion: 1 });
-    expect(first.counts).toMatchObject({ waiting: 1, called: 0, total: 1 });
+    expect(first.counts).toMatchObject({ waiting: 1, called: 0, totalSerials: 1 });
     expect(first.entries[0]).toMatchObject({
       serialId: a.id,
       queuePosition: 1,

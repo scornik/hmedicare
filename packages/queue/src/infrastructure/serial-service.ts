@@ -520,8 +520,15 @@ export class SerialService implements SerialPort<Tx> {
   }
 
   /** ConfirmSerial (staff `serial.manage` or the patient context). */
-  confirm(actor: SerialActor, serialId: string, input: { expectedRowVersion: number }): Promise<SerialView> {
-    return this.transitionSerial(actor, serialId, input.expectedRowVersion, 'confirm', {});
+  confirm(
+    actor: SerialActor,
+    serialId: string,
+    input: { expectedRowVersion: number },
+    opts: { idempotencyKey?: string | null } = {},
+  ): Promise<SerialView> {
+    return this.transitionSerial(actor, serialId, input.expectedRowVersion, 'confirm', {
+      idempotencyKey: opts.idempotencyKey ?? null,
+    });
   }
 
   /** CancelSerial: staff any non-terminal state; patients only BOOKED/CONFIRMED (QUEUE §1). */
@@ -529,8 +536,10 @@ export class SerialService implements SerialPort<Tx> {
     actor: SerialActor,
     serialId: string,
     input: { expectedRowVersion: number; reason: string },
+    opts: { idempotencyKey?: string | null } = {},
   ): Promise<SerialView> {
     return this.transitionSerial(actor, serialId, input.expectedRowVersion, 'cancel', {
+      idempotencyKey: opts.idempotencyKey ?? null,
       reason: input.reason,
       data: { cancelReason: input.reason },
       guard: (s) => {
@@ -547,9 +556,11 @@ export class SerialService implements SerialPort<Tx> {
     actor: SerialActor,
     serialId: string,
     input: { expectedRowVersion: number; reason?: string | null },
+    opts: { idempotencyKey?: string | null } = {},
   ): Promise<SerialView> {
     if (actor.kind !== 'staff') throw new AppError('FORBIDDEN');
     return this.transitionSerial(actor, serialId, input.expectedRowVersion, 'no_show', {
+      idempotencyKey: opts.idempotencyKey ?? null,
       reason: input.reason ?? null,
       guard: (_s, day) => {
         if (this.clock.now() < localInstant(day.localDate, day.localStartTime))

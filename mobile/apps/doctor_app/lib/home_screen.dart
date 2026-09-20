@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hm_api/hm_api.dart' show MembershipSummary;
 import 'package:hm_auth/hm_auth.dart';
 import 'package:hm_localization/hm_localization.dart';
+import 'package:go_router/go_router.dart';
+
+import 'active_tenant.dart';
 
 /// Memberships from `GET /me` (tenant picker shell for Stage 5 screens).
 final membershipsProvider = FutureProvider.autoDispose<List<MembershipSummary>>((ref) async {
@@ -39,7 +42,16 @@ class DoctorHomeScreen extends ConsumerWidget {
                 children: [
                   ListTile(title: Text(s.t('organizations'))),
                   for (final m in list)
-                    ListTile(title: Text(m.tenantName), subtitle: Text(m.role.json ?? '')),
+                    ListTile(
+                      key: Key('tenant-${m.tenantId}'),
+                      title: Text(m.tenantName),
+                      subtitle: Text(m.role.json ?? ''),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        ref.read(activeTenantProvider.notifier).select(m.tenantId);
+                        context.go('/days');
+                      },
+                    ),
                 ],
               ),
       ),

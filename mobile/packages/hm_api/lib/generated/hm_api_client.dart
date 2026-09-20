@@ -8,12 +8,14 @@ import 'clients/appointments_client.dart';
 import 'clients/auth_client.dart';
 import 'clients/care_team_client.dart';
 import 'clients/chamber_days_client.dart';
+import 'clients/queue_client.dart';
 import 'clients/chambers_client.dart';
 import 'clients/clinics_client.dart';
 import 'clients/patients_client.dart';
 import 'clients/tenant_client.dart';
 import 'clients/guardianships_client.dart';
 import 'clients/me_client.dart';
+import 'clients/serials_client.dart';
 import 'clients/patient_accounts_client.dart';
 import 'clients/platform_client.dart';
 import 'clients/health_client.dart';
@@ -37,12 +39,14 @@ class HmApiClient {
   AuthClient? _auth;
   CareTeamClient? _careTeam;
   ChamberDaysClient? _chamberDays;
+  QueueClient? _queue;
   ChambersClient? _chambers;
   ClinicsClient? _clinics;
   PatientsClient? _patients;
   TenantClient? _tenant;
   GuardianshipsClient? _guardianships;
   MeClient? _me;
+  SerialsClient? _serials;
   PatientAccountsClient? _patientAccounts;
   PlatformClient? _platform;
   HealthClient? _health;
@@ -55,6 +59,8 @@ class HmApiClient {
 
   ChamberDaysClient get chamberDays => _chamberDays ??= ChamberDaysClient(_dio, baseUrl: _baseUrl);
 
+  QueueClient get queue => _queue ??= QueueClient(_dio, baseUrl: _baseUrl);
+
   ChambersClient get chambers => _chambers ??= ChambersClient(_dio, baseUrl: _baseUrl);
 
   ClinicsClient get clinics => _clinics ??= ClinicsClient(_dio, baseUrl: _baseUrl);
@@ -66,6 +72,8 @@ class HmApiClient {
   GuardianshipsClient get guardianships => _guardianships ??= GuardianshipsClient(_dio, baseUrl: _baseUrl);
 
   MeClient get me => _me ??= MeClient(_dio, baseUrl: _baseUrl);
+
+  SerialsClient get serials => _serials ??= SerialsClient(_dio, baseUrl: _baseUrl);
 
   PatientAccountsClient get patientAccounts => _patientAccounts ??= PatientAccountsClient(_dio, baseUrl: _baseUrl);
 

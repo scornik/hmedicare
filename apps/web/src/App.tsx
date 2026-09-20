@@ -13,6 +13,7 @@ import { MergeCasesPage } from './pages/MergeCasesPage';
 import { PatientCreatePage } from './pages/PatientCreatePage';
 import { PatientDetailPage } from './pages/PatientDetailPage';
 import { PatientSearchPage } from './pages/PatientSearchPage';
+import { QueueBoardPage } from './pages/QueueBoardPage';
 import { TenantPickerPage } from './pages/TenantPickerPage';
 
 function subscribeOnline(cb: () => void) {
@@ -53,6 +54,7 @@ const router = createBrowserRouter([
           { path: '/patients/new', element: <PatientCreatePage /> },
           { path: '/patients/merge-cases', element: <MergeCasesPage /> },
           { path: '/patients/:patientId', element: <PatientDetailPage /> },
+          { path: '/queue/:chamberDayId', element: <QueueBoardPage /> },
         ],
       },
       { path: '*', element: <NotFoundPage /> },

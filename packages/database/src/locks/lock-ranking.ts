@@ -5,6 +5,7 @@ import { AppError } from '@hmedic/kernel';
  * non-decreasing rank order, so two transactions can never wait on each other in opposite orders. The
  * ranking is enforced at runtime by `lockRow`: locking a lower-ranked table after a higher-ranked one in the
  * same transaction throws `LOCK_ORDER_VIOLATION` (an internal error that fails the request, never a retry).
+ * Re-locking a row this transaction already holds is exempt — see `recordLock`.
  *
  * Ranks are sparse so a context can add tables between existing ones. Tables in the same group may be
  * locked in any order among themselves, provided the rows are locked in ascending id order (`lockRows`).
@@ -75,6 +76,9 @@ const states = new WeakMap<object, LockOrderState>();
  * a chamber day up front allocate that day’s serial counter after it has locked the serial. The case the
  * ranking exists to order is a *new* lock on a lower-ranked table, not a second touch of a held row.
  * Callers that cannot name the row omit `key` and stay under the strict check.
+ *
+ * A row counts as held only once `markHeld` confirms the lock was taken, so a `FOR UPDATE` that matched
+ * nothing never buys an exemption for a row another transaction may insert a moment later.
  */
 export function recordLock(tx: object, table: string, key?: string): void {
   const rank = LOCK_RANKING[table];
@@ -97,7 +101,14 @@ export function recordLock(tx: object, table: string, key?: string): void {
     state.highestRank = rank;
     state.highestTable = table;
   }
-  if (heldKey !== undefined) state.held.add(heldKey);
+}
+
+/**
+ * Marks `table`/`key` as held by this transaction, exempting later locks on that same row from the
+ * ranking. Called by the lock helpers only after the `FOR UPDATE` actually matched a row.
+ */
+export function markHeld(tx: object, table: string, key: string): void {
+  states.get(tx)?.held.add(`${table}:${key}`);
 }
 
 /** Test/inspection helper: the highest-ranked table locked so far in this transaction. */
