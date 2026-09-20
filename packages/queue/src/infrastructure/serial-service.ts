@@ -4,6 +4,7 @@ import {
   type Tx,
   isUniqueViolation,
   lockRow,
+  allocateCounter,
   lockRows,
   withTransaction,
 } from '@hmedic/database';
@@ -161,9 +162,9 @@ export class SerialService implements SerialPort<Tx> {
 
   async issueForAppointment(tx: Tx, input: IssueSerialForAppointmentInput): Promise<IssuedSerial> {
     const { day } = input;
-    const row = await tx.chamberDay.findFirstOrThrow({ where: { tenantId: day.tenantId, id: day.id } });
-    const n = row.nextSerialNumber;
-    await tx.chamberDay.update({ where: { id: day.id }, data: { nextSerialNumber: n + 1 } });
+    // Atomic allocation: the caller already holds the day lock, and the counter is consumed by a single
+    // statement so two bookings can never be handed the same serial number.
+    const n = await allocateCounter(tx, 'chamber_days', 'next_serial_number', day.id, day.tenantId);
     const now = this.clock.now();
     const id = newId();
     try {
