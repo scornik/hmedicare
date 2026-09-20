@@ -10,6 +10,7 @@ import 'active_context.dart';
 import 'contexts_screen.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
+import 'serial_screen.dart';
 
 /// Bridges auth state to GoRouter redirects (UX only; the API authorizes every call).
 class _AuthListenable extends ChangeNotifier {
@@ -34,13 +35,17 @@ class _PatientAppState extends ConsumerState<PatientApp> {
       if (status == AuthStatus.unknown) return null;
       if (status == AuthStatus.signedOut && !atLogin) return '/login';
       if (status == AuthStatus.signedIn && atLogin) return '/contexts';
-      if (state.matchedLocation == '/profile' && ref.read(activeContextProvider) == null) return '/contexts';
+      const needsContext = {'/profile', '/serials'};
+      if (needsContext.contains(state.matchedLocation) && ref.read(activeContextProvider) == null) {
+        return '/contexts';
+      }
       return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (_, _) => const PatientLoginScreen()),
       GoRoute(path: '/contexts', builder: (_, _) => const PatientContextsScreen()),
       GoRoute(path: '/profile', builder: (_, _) => const PatientProfileScreen()),
+      GoRoute(path: '/serials', builder: (_, _) => const PatientSerialScreen()),
     ],
   );
 

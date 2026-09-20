@@ -64,7 +64,13 @@ export interface QueueSnapshot {
   queueOrderVersion: number;
   expectedDelayMinutes: number | null;
   avgConsultationMinutes: number;
-  counts: { waiting: number; called: number; inConsultation: number; completed: number; total: number };
+  counts: {
+    waiting: number;
+    called: number;
+    inConsultation: number;
+    completed: number;
+    totalSerials: number;
+  };
   entries: QueueEntry[];
   asOf: string;
   /** Strong ETag over the snapshot body (QUEUE §3.5 polling). */
@@ -89,6 +95,8 @@ export interface PatientSerialView {
   recallDeadlineAt: string | null;
   recallsRemaining: number | null;
   asOf: string;
+  /** The version to send back with a command (confirm, check-in, cancel, remote-ready). */
+  rowVersion: number;
 }
 
 export interface IssueWalkInInput {
@@ -524,8 +532,10 @@ export class QueueService {
     actor: SerialActor,
     serialId: string,
     input: { expectedRowVersion: number },
+    opts: { idempotencyKey?: string | null } = {},
   ): Promise<SerialView> {
     return this.serials.transitionSerial(actor, serialId, input.expectedRowVersion, 'mark_waiting', {
+      idempotencyKey: opts.idempotencyKey ?? null,
       guard: (_s, day) => {
         if (!day.policy.waitingRequiresConfirmation) {
           throw new AppError('INVALID_TRANSITION', undefined, {
@@ -541,6 +551,7 @@ export class QueueService {
     actor: SerialActor,
     serialId: string,
     input: { expectedRowVersion: number },
+    opts: { idempotencyKey?: string | null } = {},
   ): Promise<SerialView> {
     const tenantId = actor.kind === 'staff' ? actor.actor.tenant.tenantId : actor.context.tenantId;
     if (
@@ -610,6 +621,7 @@ export class QueueService {
           fromStatus: s.status,
           toStatus: s.status,
           actor: ref,
+          idempotencyKey: opts.idempotencyKey ? `${opts.idempotencyKey}:REMOTE_READY` : null,
         });
         await this.audit.append(tx, {
           tenantId,
@@ -643,8 +655,10 @@ export class QueueService {
     actor: SerialActor,
     serialId: string,
     input: { expectedRowVersion: number; overrideReason?: string | null },
+    opts: { idempotencyKey?: string | null } = {},
   ): Promise<SerialView> {
     return this.serials.transitionSerial(actor, serialId, input.expectedRowVersion, 'call', {
+      idempotencyKey: opts.idempotencyKey ?? null,
       reason: input.overrideReason ?? null,
       guardAsync: async (tx, s, day) => {
         if (s.status === 'CHECKED_IN' && !day.policy.waitingRequiresConfirmation) {
@@ -673,16 +687,24 @@ export class QueueService {
     actor: SerialActor,
     serialId: string,
     input: { expectedRowVersion: number; reason: string },
+    opts: { idempotencyKey?: string | null } = {},
   ): Promise<SerialView> {
     return this.serials.transitionSerial(actor, serialId, input.expectedRowVersion, 'skip', {
+      idempotencyKey: opts.idempotencyKey ?? null,
       reason: input.reason,
       data: { recallDeadlineAt: null },
     });
   }
 
   /** RecallSerial: bounded by `recallLimit`; the recall count and a fresh deadline are written. */
-  recall(actor: SerialActor, serialId: string, input: { expectedRowVersion: number }): Promise<SerialView> {
+  recall(
+    actor: SerialActor,
+    serialId: string,
+    input: { expectedRowVersion: number },
+    opts: { idempotencyKey?: string | null } = {},
+  ): Promise<SerialView> {
     return this.serials.transitionSerial(actor, serialId, input.expectedRowVersion, 'recall', {
+      idempotencyKey: opts.idempotencyKey ?? null,
       guard: (s, day) => {
         if (s.recallCount >= day.policy.recallLimit) {
           throw new AppError('RECALL_LIMIT_REACHED', undefined, {
@@ -705,8 +727,10 @@ export class QueueService {
     actor: SerialActor,
     serialId: string,
     input: { expectedRowVersion: number },
+    opts: { idempotencyKey?: string | null } = {},
   ): Promise<SerialView> {
     return this.serials.transitionSerial(actor, serialId, input.expectedRowVersion, 'start_consultation', {
+      idempotencyKey: opts.idempotencyKey ?? null,
       guardAsync: (tx, _s, day) => this.assertChamberDoctor(tx, actor, day),
     });
   }
@@ -715,8 +739,10 @@ export class QueueService {
     actor: SerialActor,
     serialId: string,
     input: { expectedRowVersion: number },
+    opts: { idempotencyKey?: string | null } = {},
   ): Promise<SerialView> {
     return this.serials.transitionSerial(actor, serialId, input.expectedRowVersion, 'complete', {
+      idempotencyKey: opts.idempotencyKey ?? null,
       guardAsync: (tx, _s, day) => this.assertChamberDoctor(tx, actor, day),
     });
   }
@@ -740,6 +766,7 @@ export class QueueService {
     actor: SchedulingActor,
     chamberDayId: string,
     input: { expectedQueueOrderVersion: number; orderedSerialIds: string[] },
+    opts: { idempotencyKey?: string | null } = {},
   ): Promise<QueueSnapshot> {
     const tenantId = actor.tenant.tenantId;
     if (
@@ -800,7 +827,7 @@ export class QueueService {
             after: moves.map((m) => `${m.id}:${m.to}`),
           },
           actor: { userId: actor.userId, actorType: 'USER' },
-          idempotencyKey: actor.requestId ? `${actor.requestId}:QUEUE_REORDERED:${chamberDayId}` : null,
+          idempotencyKey: opts.idempotencyKey ? `${opts.idempotencyKey}:QUEUE_REORDERED` : null,
         });
         await this.audit.append(tx, {
           tenantId,
@@ -888,7 +915,7 @@ export class QueueService {
         called: count((s) => s === 'CALLED'),
         inConsultation: count((s) => s === 'IN_CONSULTATION'),
         completed: count((s) => s === 'COMPLETED'),
-        total: entries.length,
+        totalSerials: entries.length,
       },
       entries,
     };
@@ -952,6 +979,7 @@ export class QueueService {
       recallDeadlineAt: status === 'CALLED' ? (s.recallDeadlineAt?.toISOString() ?? null) : null,
       recallsRemaining: status === 'SKIPPED' ? Math.max(0, day.policy.recallLimit - s.recallCount) : null,
       asOf: this.clock.now().toISOString(),
+      rowVersion: s.rowVersion,
     };
   }
 

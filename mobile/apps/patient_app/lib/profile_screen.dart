@@ -57,6 +57,12 @@ class PatientProfileScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
+            key: const Key('mySerial'),
+            tooltip: s.t('mySerial'),
+            icon: const Icon(Icons.confirmation_number_outlined),
+            onPressed: () => context.go('/serials'),
+          ),
+          IconButton(
             key: const Key('refresh'),
             tooltip: s.t('refresh'),
             icon: const Icon(Icons.refresh),

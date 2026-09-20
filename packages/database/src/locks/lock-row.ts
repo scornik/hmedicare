@@ -1,5 +1,5 @@
 import type { Tx } from '../tx';
-import { LOCK_RANKING, recordLock } from './lock-ranking';
+import { LOCK_RANKING, markHeld, recordLock } from './lock-ranking';
 
 /**
  * Row locks (DATABASE-IMPLEMENTATION.md §1.4). The only place `FOR UPDATE` appears outside claims.
@@ -27,6 +27,7 @@ export async function lockRow(tx: Tx, table: string, id: string, tenantId?: stri
           id,
           tenantId,
         );
+  if (rows.length === 1) markHeld(tx, table, id);
   return rows.length === 1;
 }
 
@@ -48,6 +49,7 @@ export async function lockRowAndRead<T extends Record<string, unknown>>(
     id,
     tenantId,
   );
+  if (rows[0]) markHeld(tx, table, id);
   return rows[0] ?? null;
 }
 
@@ -74,6 +76,7 @@ export async function allocateCounter(
     tenantId,
   );
   if (updated !== 1) throw new Error(`allocateCounter: ${table} row not found`);
+  markHeld(tx, table, id);
   const rows = await tx.$queryRawUnsafe<Array<{ value: bigint | number }>>(
     'SELECT LAST_INSERT_ID() AS value',
   );
@@ -105,5 +108,6 @@ export async function lockRowBy<T extends Record<string, unknown>>(
     `SELECT * FROM \`${table}\` WHERE \`${column}\` = ? FOR UPDATE`,
     value,
   );
+  if (rows[0]) markHeld(tx, table, `${column}=${value}`);
   return rows[0] ?? null;
 }
