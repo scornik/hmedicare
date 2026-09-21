@@ -32,7 +32,7 @@
     "@hmedic/observability": "workspace:*",
     "@nestjs/common": "11.2.5",
     "@nestjs/core": "11.2.5",
-    "argon2": "0.45.1",
+    "argon2": "0.41.1",
     "fastify": "5.11.3",
     "jose": "6.2.12",
     "reflect-metadata": "0.2.2",

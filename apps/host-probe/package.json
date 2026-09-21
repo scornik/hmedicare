@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@hmedic/observability": "workspace:*",
-    "argon2": "0.45.1",
+    "argon2": "0.41.1",
     "mariadb": "3.5.4"
   }
 }

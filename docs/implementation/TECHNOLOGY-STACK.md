@@ -30,7 +30,7 @@
 | Rate limits, OTP, idempotency | **Database tables** (ADR-015) | — | |
 | Object storage | `ObjectStoragePort` + `S3CompatibleAdapter` (`@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` `3.1134.0`) + `PrivateDiskAdapter` | — | ADR-016. **MinIO local/CI only** (`minio/minio` image digest pinned at FOUND-005) |
 | Malware scanning | `MalwareScanPort`: `MockMalwareScanner`, `BaselineContentPolicyScanner` (`file-type@22.1.1`, `sharp@0.35.4`, `pdf-lib@1.17.1`) | — | ADR-016 |
-| Password hashing | **Argon2id** via `argon2@0.45.1` (prebuilt binaries) | — | HOST-002 verifies native load. Fallback `@node-rs/argon2@2.2.1` behind `PasswordHasherPort` |
+| Password hashing | **Argon2id** via `argon2@0.41.1` (prebuilt binaries) | — | **Pinned to 0.41.x by the host's glibc, not by preference.** 0.43.0 onward ships a linux-x64 prebuild linked against GLIBC_2.34; the Hostinger plan is CloudLinux EL8 with glibc 2.28, so that binary cannot load, and the source fallback cannot run either because the plan has no `make` and no `gcc`. 0.41.1's prebuild needs only GLIBC_2.25 and loads there (verified on the plan, 2026-09-21). The PHC output is byte-identical, so stored hashes are unaffected. Do not bump this without checking the prebuild's glibc floor against the deployment target. Fallback `@node-rs/argon2@2.2.1` behind `PasswordHasherPort` |
 | JWT | `jose@6.2.12` (EdDSA Ed25519 access tokens, `kid` rotation) | — | |
 | UUID | **UUIDv7**, application-generated | `uuidv7@1.2.1` in `packages/kernel` | ADR-014 |
 | Time | UTC `DATETIME(3)`; chamber local logic with `@js-temporal/polyfill@0.5.1` | — | |
