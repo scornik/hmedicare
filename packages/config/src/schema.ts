@@ -40,6 +40,19 @@ const int = (def: number, min = 0, max = Number.MAX_SAFE_INTEGER) =>
   z.coerce.number().int().min(min).max(max).default(def);
 const secret32 = z.string().min(32, 'must be at least 32 characters (≥ 32 random bytes, base64)');
 const url = z.string().url();
+
+/**
+ * Normalises a PEM that has travelled through a single-line environment editor: strips one layer of
+ * matching surrounding quotes and turns literal backslash-n escapes into real newlines. A well-formed PEM
+ * is returned unchanged.
+ */
+function unquotePem(value: string): string {
+  let v = value.trim();
+  const quoted =
+    v.length >= 2 && ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'")));
+  if (quoted) v = v.slice(1, -1);
+  return v.includes('\\n') ? v.replaceAll('\\n', '\n') : v;
+}
 const decimalBdt = z.string().regex(/^\d{1,10}(\.\d{1,2})?$/, 'must be a BDT decimal string');
 
 export const runtimeSection = {
@@ -104,9 +117,16 @@ export const authSection = {
   JWT_AUDIENCE: z.string().min(1).default('hmedic-api'),
   JWT_ACCESS_TTL_SECONDS: int(600, 60, 3600),
   JWT_SIGNING_KEY_ID: z.string().min(1),
+  /**
+   * PKCS#8 PEM. Accepted either with real newlines or with `\n` escapes, because a hosting panel whose
+   * environment editor is a single-line field stores the escapes verbatim — and the failure that produces
+   * is `InvalidCharacterError` thrown from inside `jose`, nowhere near the variable that caused it.
+   * A genuine PEM never contains a literal backslash-n, nor leading or trailing quotes.
+   */
   JWT_SIGNING_PRIVATE_KEY: z
     .string()
-    .includes('PRIVATE KEY', { message: 'must be a PKCS#8 PEM private key' }),
+    .transform(unquotePem)
+    .refine((v) => v.includes('PRIVATE KEY'), { message: 'must be a PKCS#8 PEM private key' }),
   JWT_VERIFICATION_KEYS: z.string().refine(
     (v) => {
       try {
