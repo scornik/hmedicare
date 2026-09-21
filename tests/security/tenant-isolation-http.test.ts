@@ -36,7 +36,7 @@ async function ownerTenant(label: string) {
       email,
       emailNormalized: email,
       status: 'ACTIVE',
-      passwordHash: await new Argon2idHasher({ memoryKiB: 8192, timeCost: 1, parallelism: 1 }).hash(PASSWORD),
+      passwordHash: await new Argon2idHasher({ memoryKiB: 8192, timeCost: 2, parallelism: 1 }).hash(PASSWORD),
       createdAt: now,
       updatedAt: now,
     },

@@ -9,7 +9,7 @@ import { openTestDatabase, truncateAll } from '../../../../tests/support/db';
 let db: Database;
 const cfg = {
   appEnv: 'test',
-  argon2: { memoryKiB: 8192, timeCost: 1, parallelism: 1 },
+  argon2: { memoryKiB: 8192, timeCost: 2, parallelism: 1 },
   kek: { id: 'test-pc-1', base64: randomBytes(32).toString('base64') },
   fingerprintPepper: generateSecret(),
 };

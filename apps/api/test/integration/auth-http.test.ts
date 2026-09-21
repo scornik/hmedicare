@@ -46,7 +46,7 @@ async function seedStaff(role = 'doctor') {
   const userId = newId();
   const tenantId = newId();
   const email = `doc.${userId.slice(-8)}@example.invalid`;
-  const hash = await new Argon2idHasher({ memoryKiB: 8192, timeCost: 1, parallelism: 1 }).hash(PASSWORD);
+  const hash = await new Argon2idHasher({ memoryKiB: 8192, timeCost: 2, parallelism: 1 }).hash(PASSWORD);
   const p = api.runtime.prisma;
   await p.user.create({
     data: {

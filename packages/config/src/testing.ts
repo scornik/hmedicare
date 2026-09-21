@@ -45,7 +45,7 @@ export function testEnv(overrides: Record<string, string | undefined> = {}): Rec
     PROVIDER_CREDENTIAL_FINGERPRINT_PEPPER: generateSecret(),
     // Lower Argon2 cost keeps unit tests fast; production parameters are tuned at HOST-002.
     ARGON2_MEMORY_KIB: '8192',
-    ARGON2_TIME_COST: '1',
+    ARGON2_TIME_COST: '2',
   };
   const merged: Record<string, string> = { ...base };
   for (const [k, v] of Object.entries(overrides)) {

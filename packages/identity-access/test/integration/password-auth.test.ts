@@ -14,7 +14,7 @@ import { openTestDatabase, truncateAll } from '../../../../tests/support/db';
 // ID-002 password login, lockout/backoff, password reset; ID-004 CSRF token binding.
 let db: Database;
 const clock = new FixedClock(new Date('2026-09-18T06:00:00.000Z'));
-const hasher = new Argon2idHasher({ memoryKiB: 8192, timeCost: 1, parallelism: 1 });
+const hasher = new Argon2idHasher({ memoryKiB: 8192, timeCost: 2, parallelism: 1 });
 const notifier = new MockPasswordResetNotifier();
 let sessions: SessionService;
 let auth: PasswordAuthService;
@@ -139,7 +139,7 @@ describe('password login', () => {
     const before = (await db.prisma.user.findUniqueOrThrow({ where: { id: u.id } })).passwordHash!;
     const stronger = new PasswordAuthService(
       db.prisma,
-      new Argon2idHasher({ memoryKiB: 9216, timeCost: 1, parallelism: 1 }),
+      new Argon2idHasher({ memoryKiB: 9216, timeCost: 2, parallelism: 1 }),
       sessions,
       new RateLimiter(db.prisma, generateSecret(), clock),
       new PrismaAuditPort(clock),
