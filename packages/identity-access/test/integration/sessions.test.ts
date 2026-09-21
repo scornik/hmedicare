@@ -74,14 +74,14 @@ async function login(userId: string, clientType: 'WEB' | 'ANDROID' = 'WEB') {
 
 describe('Argon2idHasher', () => {
   it('hashes with argon2id, verifies, and flags parameter changes for rehash', async () => {
-    const hasher = new Argon2idHasher({ memoryKiB: 8192, timeCost: 1, parallelism: 1 });
+    const hasher = new Argon2idHasher({ memoryKiB: 8192, timeCost: 2, parallelism: 1 });
     const hash = await hasher.hash('correct horse battery');
     expect(hash.startsWith('$argon2id$')).toBe(true);
     expect(await hasher.verify(hash, 'correct horse battery')).toBe(true);
     expect(await hasher.verify(hash, 'wrong password!')).toBe(false);
     expect(await hasher.verify('not-a-hash', 'x')).toBe(false);
     expect(hasher.needsRehash(hash)).toBe(false);
-    expect(new Argon2idHasher({ memoryKiB: 9216, timeCost: 1, parallelism: 1 }).needsRehash(hash)).toBe(true);
+    expect(new Argon2idHasher({ memoryKiB: 9216, timeCost: 2, parallelism: 1 }).needsRehash(hash)).toBe(true);
   });
 });
 

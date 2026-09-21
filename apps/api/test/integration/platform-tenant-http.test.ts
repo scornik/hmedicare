@@ -16,7 +16,7 @@ let api: ApiInstance;
 let server: Parameters<typeof request>[0];
 let seq = 0;
 const idem = () => `pt-key-${Date.now()}-${++seq}`;
-const hasher = new Argon2idHasher({ memoryKiB: 8192, timeCost: 1, parallelism: 1 });
+const hasher = new Argon2idHasher({ memoryKiB: 8192, timeCost: 2, parallelism: 1 });
 
 beforeAll(async () => {
   api = await buildApi(loadConfig<ServerConfig>('api', testEnv({ DATABASE_URL: testDatabaseUrl() })));

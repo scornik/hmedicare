@@ -127,7 +127,12 @@ export const authSection = {
   SESSION_ABSOLUTE_TIMEOUT_DAYS_WEB: int(7, 1),
   SESSION_ABSOLUTE_TIMEOUT_DAYS_MOBILE: int(90, 1),
   ARGON2_MEMORY_KIB: int(19_456, 8_192),
-  ARGON2_TIME_COST: int(2, 1, 10),
+  /**
+   * Floor of 2, not 1: `argon2` itself refuses a time cost below 2, and it does so when the first password
+   * is hashed rather than at load. A 1 here used to boot cleanly and then fail every login. It is also the
+   * OWASP floor for Argon2id at this memory size, so the bound is worth having on its own merits.
+   */
+  ARGON2_TIME_COST: int(2, 2, 10),
   ARGON2_PARALLELISM: int(1, 1, 8),
   OTP_PROVIDER: z.enum(['mock', 'sms']).default('mock'),
   OTP_TTL_SECONDS: int(180, 60, 300),
