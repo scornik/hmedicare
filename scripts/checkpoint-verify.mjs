@@ -41,7 +41,10 @@ function run(cmd, args, opts = {}) {
     cwd: opts.cwd ?? root,
     env: { ...process.env, ...(opts.env ?? {}) },
     encoding: 'utf8',
-    shell: win && /\.cmd$/.test(cmd),
+    // `.bat` as well as `.cmd`: the mobile gates spawn `dart.bat`, and since Node's CVE-2024-27980 fix
+    // a batch file cannot be spawned without a shell (EINVAL). Without this the three mobile gates
+    // never ran and reported an empty-log failure, which no checkpoint could ever get past on Windows.
+    shell: win && /\.(cmd|bat)$/.test(cmd),
     maxBuffer: 256 * 1024 * 1024,
   });
 }
