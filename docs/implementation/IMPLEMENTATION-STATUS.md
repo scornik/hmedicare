@@ -76,13 +76,13 @@ Legend:
 | CHAM-004 seed dataset | DONE | (CP4) | `seed:verify` assertions | 4 chambers incl. walk-in-only, booking-only and a slotted chamber, weekly rules + both exception kinds, yesterday closed, today open with a delay and a booking mix, a reschedule chain onto tomorrow |
 
 | SERIAL-002 QUEUE-001 QUEUE-002 queue-active lifecycle | PROVISIONAL (HOST-005) | `404928c`, `eb4056b`, `bbf1d58`, `2a4ee0f`, `15179a4` | integration 25 (lifecycle 14, engine 11) | check-in with late-arrival placement, mark-waiting, call/skip/recall, remote-ready, the interim consultation transitions (ADR-021), reorder, the ETagged snapshot and the patient view. Serial numbers allocate through `LAST_INSERT_ID(col)+1` after duplicates appeared under load; the lock ranking exempts rows the transaction already holds |
-| QUEUE-CONCURRENCY §4 suite | PROVISIONAL (flake runs pending) | `913af0b` | integration 16 | the mandatory races and invariants, with real parallel connections on both MariaDB series |
+| QUEUE-CONCURRENCY §4 suite | DONE | `913af0b` | integration 16 | the mandatory races and invariants, with real parallel connections. **10 runs on mariadb:10.6 and 10 on mariadb:11.8, zero failures, zero flakes** (§3a) |
 | QUEUE-003 contracts + routes | PROVISIONAL (HOST-001/003) | `3e971ce` | — | 18 operations (93 total): the snapshot, walk-ins, reorder and the twelve serial transitions. `GET /serials/{id}` is staff-only and `/me/serials/{id}` is the patient view — API §3.5 describes one route for both, and the deviation is recorded there |
 | QUEUE-004 seed queue mix | DONE | `bc33b6e` | `seed:verify` assertions | walk-ins and desk arrivals carried through CHECKED_IN, WAITING, CALLED, SKIPPED, IN_CONSULTATION and COMPLETED; the verifier asserts no two serials on a day share a queue position |
 | QUEUE-005 web queue board | DONE | `3e971ce`, `bc33b6e` | e2e 3 | five-second polling with optimistic reconcile, drag reorder carrying `queueOrderVersion`, and the conflict path when another desk wins the race |
 | QUEUE-006 mobile queue screens | DONE | `3e971ce` | Flutter analyze | doctor board (call / start / complete) and the patient's own serial with people-ahead, estimates and remote-ready; both read through the session cache |
 
-Still open in Stage 5: the queue HTTP integration suite, ten flake-free concurrency runs on each MariaDB series, and HOST-005. Out of scope: encounters, clinical, prescriptions, catalog, labs, documents, timeline, follow-ups, communications delivery, telemedicine, payments, AI.
+Still open in Stage 5: the queue HTTP integration suite, and HOST-005. Out of scope: encounters, clinical, prescriptions, catalog, labs, documents, timeline, follow-ups, communications delivery, telemedicine, payments, AI.
 
 ## 3. Test summary (latest full run)
 
@@ -96,60 +96,55 @@ Still open in Stage 5: the queue HTTP integration suite, ten flake-free concurre
 
 ## 3a. Stage 5 load measurements (prompt §4.13)
 
-Recorded on the development machine (Docker Desktop, MariaDB 10.6 testcontainer), one chamber day, after
-the R-01 batching fix below:
+Recorded on the development machine (Docker Desktop testcontainer), one chamber day, on Prisma 6 with the
+Rust query engine (ADR-022):
 
 | Measurement | Result |
 |---|---|
-| Walk-in issuance, 1 concurrent desk | 1027 ms/serial |
-| Walk-in issuance, 2 concurrent desks | 873 ms/serial |
-| Walk-in issuance, 4 concurrent desks | 934 ms/serial |
-| Queue snapshot, 24 concurrent pollers, 72-serial queue | 423 ms total, 18 ms/poll |
+| Walk-in issuance, 1 concurrent desk | 65 ms/serial |
+| Walk-in issuance, 2 concurrent desks | 54 ms/serial |
+| Walk-in issuance, 4 concurrent desks | 50 ms/serial |
+| Queue snapshot, 24 concurrent pollers, 72-serial queue | 293 ms total, 12 ms/poll |
 | Baseline: raw 15-statement transaction on the same host | 35 ms |
 
-### R-01 — walk-in write cost: profiled, cause identified
+### Mandatory concurrency suite (prompt §4)
 
-The first measurement showed an uncontended walk-in costing ~1353 ms against a 35 ms raw 15-statement
-baseline on the same host, with added concurrency buying nothing. The hypothesis was hash-chain contention,
-specifically the audit chain keyed **per tenant**, which would serialise queue writes across every chamber
-day of a tenant. **A direct profile of the write path disproved that.**
+`packages/queue/test/integration/queue-concurrency.test.ts`, 16 tests, real parallel connections:
 
-| Profile measurement (dev MariaDB, same Docker host) | Result |
-|---|---|
-| Prisma interactive transaction, begin + commit only | 26.0 ms |
-| Prisma marginal cost per statement inside a transaction | 7.44 ms |
-| One audit chain append (lock head, insert, advance head) | 27.4 ms |
-| Chain head lock alone | 18.7 ms |
-| Full `issueWalkIn` | 219.6 ms |
-| Statements issued per walk-in | 30 (18 select, 7 insert, 5 update) |
-| Raw driver, the same 30 statements in one transaction | 325.6 ms |
+| Series | Runs | Failures | Flakes |
+|---|---|---|---|
+| mariadb:10.6 | 10 | 0 | 0 |
+| mariadb:11.8 | 10 | 0 | 0 |
 
-26 ms of fixed transaction overhead plus 30 × 7.44 ms accounts for ~249 ms — essentially the entire
-transaction. **The cost is statement count × round-trip latency, not lock contention.** The two chains are
-three of the thirty statements, and the raw mariadb driver issuing the same thirty is no faster than Prisma,
-so neither the ORM nor the chains are the story. Concurrency was flat because each desk's transaction is
-latency-bound end to end, not because desks queue behind one another.
+### R-01 — resolved by the engine change, not by the optimisation
 
-Note the environment spread: the same walk-in costs 219 ms against the dev container and 1353 ms against a
-testcontainer — 6×. Absolute numbers for capacity planning must come from HOST-004 on the Hostinger plan;
-the statement-count finding is environment-independent.
+R-01 recorded a walk-in costing ~1.3 s against a 35 ms raw baseline, with concurrency buying nothing.
+Profiling attributed it to statement count times round-trip latency: 26 ms of fixed transaction overhead
+plus ~30 statements at 7.44 ms each. That was right about the shape and wrong about the cause.
 
-**Acted on.** `QueueEventWriter.appendMany` appends a walk-in's three-to-four queue events in a single
-chain pass: nine statements and three head locks become three statements and one lock. Measured effect on
-the testcontainer load run: 1353 → 1027 ms/serial at one desk (−24%).
+**That 7.44 ms per statement was Prisma 7's WebAssembly query compiler.** Moving to Prisma 6's native Rust
+engine — forced by the deployment target, not chosen for speed (ADR-022) — took a walk-in from 1027 ms to
+65 ms at one desk, roughly fifteen times faster, with no change to the queue code. The raw-driver baseline
+is now 35 ms against our 65 ms, so the remaining overhead is about one extra round trip's worth rather than
+thirty.
 
-**Remaining levers, not applied.** A redundant `findFirst` re-read of the chamber day after `lockRow`, a
-final `findFirstOrThrow` re-read of the serial just written, and `countsForDay` + `dayRows` issuing two
-queries where one would serve. Together these would take a walk-in from ~24 statements to ~16. They are
-deferred because the useful target is the Hostinger round-trip latency, which is not yet measured (HOST-004);
-optimising against a 6×-off local number risks tuning for the wrong constant.
+What the earlier work contributed, and what it did not:
 
-Consequence today: with the documented 5 s transaction budget, eight concurrent desks on one chamber day
-exhaust their retries and shed load as `QUEUE_BUSY` (the documented retryable 503). That is correct
-behaviour, but the ceiling remains below the load target in QUEUE-CONCURRENCY §7 (200 walk-ins across two
-processes). Re-measure on the Hostinger plan as part of HOST-004 before the first busy clinic goes live —
-the shared-plan numbers decide whether the remaining levers are enough or the write path needs redesign.
+- `QueueEventWriter.appendMany` batches a walk-in's three-to-four queue events into one chain pass, taking
+  the chain lock once instead of three times. It is still the right shape and is kept, but it accounted for
+  a 24% improvement against a problem that was an order of magnitude larger.
+- The per-tenant audit chain was **disproved** as the bottleneck, and that conclusion still holds.
+- The remaining levers noted then (two redundant re-reads, one mergeable pair of queries, ~24 → 16
+  statements) are no longer worth taking on these numbers. Revisit only if HOST-004 on the Hostinger plan
+  shows per-statement latency far above the development host.
 
+One property of the speedup is worth recording: it immediately exposed a race in the worker singleton test,
+which had waited for *exactly* four succeeded jobs while asserting five. It passed for as long as runs were
+slow enough for a poll to land mid-flight. Faster code finds tests that were only ever passing by timing.
+
+Consequence today: the documented 5 s transaction budget is no longer close to binding at these latencies.
+Re-measure on the Hostinger plan as part of HOST-004 before the first busy clinic goes live — the numbers
+above are from a development container, and the plan has already shown a 6x spread against it.
 
 ## 4. Open HOST items
 
