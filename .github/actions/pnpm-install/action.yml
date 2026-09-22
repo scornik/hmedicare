@@ -1,0 +1,32 @@
+name: pnpm install
+description: Node, pnpm and a workspace install that restores the shared pnpm store cache.
+
+# Every job needs the same three steps, and for a long time only `install` cached the store: the other
+# jobs each downloaded every package again, which is where most of a CI run went. Keeping the steps in
+# one place means a job cannot silently go back to installing cold.
+#
+# The cache key is the lockfile, so it is shared by every job of every branch with the same dependencies.
+# `install` runs first and fills it; the jobs that fan out behind it restore it. The restore-key prefix
+# still gives a partial hit after a dependency change, when only the delta has to be fetched.
+#
+# The caller checks out first: a local action cannot be resolved until the repository is in the workspace,
+# and some jobs need `fetch-depth: 0` to diff against origin/main.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version-file: .nvmrc
+    - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
+      shell: bash
+    - id: pnpm-store
+      run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+      shell: bash
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: pnpm-${{ runner.os }}-
+    - run: pnpm install --frozen-lockfile
+      shell: bash

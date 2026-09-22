@@ -35,17 +35,7 @@ jobs:
     runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .nvmrc
-      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
-      - id: pnpm-store
-        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ steps.pnpm-store.outputs.path }}
-          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/pnpm-install
 
   static:
     needs: install
@@ -54,11 +44,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .nvmrc
-      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/pnpm-install
       - name: format
         run: pnpm format:check
       - name: lint
@@ -80,11 +66,7 @@ jobs:
     runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .nvmrc
-      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/pnpm-install
       - name: unit (incl. authorization-matrix doc parity, SMS adapter contract vs mock-providers)
         run: pnpm test:unit
 
@@ -101,11 +83,7 @@ jobs:
           - mariadb:11.8@sha256:79d59758afc91b89b120b0a8904d637f5a3b3e1c4900f29b740d6d46c72fef68
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .nvmrc
-      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/pnpm-install
       # The CLI tests spawn built entry points (dist/cli/*.js); building first keeps their in-test `tsc -b`
       # a no-op instead of a cold multi-package build inside a test timeout.
       - name: build packages used by CLI tests
@@ -120,11 +98,7 @@ jobs:
     runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .nvmrc
-      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/pnpm-install
       - name: OpenAPI 3.1 + 3.0 up to date, operationIds, money lint, TS client types
         run: pnpm openapi:check
       - name: TS client compiles
@@ -142,11 +116,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .nvmrc
-      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/pnpm-install
       - name: repository secrets scan (provider keys, sandbox values, real BD phones)
         run: pnpm secrets:scan
       - name: gitleaks (pinned version; checksum verified against the release manifest)
@@ -213,11 +183,7 @@ jobs:
     runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .nvmrc
-      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/pnpm-install
       - name: web build (VITE_* secret-name check) + component tests
         run: |
           set -euo pipefail
@@ -280,11 +246,7 @@ jobs:
     runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .nvmrc
-      - run: corepack enable && corepack prepare pnpm@12.4.2 --activate
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/pnpm-install
       - name: build api, worker, host-probe
         run: pnpm exec turbo run build --filter=@hmedic/api... --filter=@hmedic/worker... --filter=@hmedic/host-probe...
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
