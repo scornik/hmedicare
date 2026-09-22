@@ -1,7 +1,7 @@
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
-import { PrismaClient } from './generated/prisma/client';
+import { PrismaClient } from '@prisma/client';
 
-export { Prisma, PrismaClient } from './generated/prisma/client';
+export { Prisma, PrismaClient } from '@prisma/client';
 
 export interface DatabaseOptions {
   /** mariadb://user:pass@host:port/db (mysql:// accepted). */

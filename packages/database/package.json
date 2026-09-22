@@ -23,13 +23,13 @@
     "db:reset": "node scripts/reset.mjs"
   },
   "dependencies": {
-    "@prisma/client": "7.10.0",
-    "@prisma/adapter-mariadb": "7.10.0",
+    "@prisma/client": "6.19.3",
+    "@prisma/adapter-mariadb": "6.19.3",
     "mariadb": "3.5.4",
     "@hmedic/kernel": "workspace:*",
     "@hmedic/config": "workspace:*"
   },
   "devDependencies": {
-    "prisma": "7.10.0"
+    "prisma": "6.19.3"
   }
 }

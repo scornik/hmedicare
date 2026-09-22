@@ -1,0 +1,46 @@
+diff --git a/dist/index.js b/dist/index.js
+index 91c5ee9fe79828b5c4d59cec62bb433e3bce95f1..e73b725d19eaa1ea70c6868091a747f61bffc15b 100644
+--- a/dist/index.js
++++ b/dist/index.js	
+@@ -45,6 +45,9 @@ var name = "@prisma/adapter-mariadb";
+ var import_driver_adapter_utils = require("@prisma/driver-adapter-utils");
+ var UNSIGNED_FLAG = 1 << 5;
+ var BINARY_FLAG = 1 << 7;
++// Backport of the v7 fix: MariaDB sets BINARY_FLAG on any `_bin` collation, including ascii_bin,
++// so the flag alone misreads a VARCHAR id as Bytes. Only the binary charset (index 63) is Bytes.
++var BINARY_COLLATION_INDEX = 63;
+ function mapColumnType(field) {
+   switch (field.type) {
+     case "TINY" /* TINY */:
+@@ -87,7 +90,7 @@ function mapColumnType(field) {
+     case "LONG_BLOB" /* LONG_BLOB */:
+       if (field["dataTypeFormat"] === "json") {
+         return import_driver_adapter_utils.ColumnTypeEnum.Json;
+-      } else if (field.flags.valueOf() & BINARY_FLAG) {
++      } else if (field.collation?.index === BINARY_COLLATION_INDEX) {
+         return import_driver_adapter_utils.ColumnTypeEnum.Bytes;
+       } else {
+         return import_driver_adapter_utils.ColumnTypeEnum.Text;
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 0d516bb82cd9f0de62f6a31d02c2eade4d40f3aa..0ea4214bff2cd09449f122e47ced4bbad14f2ef7 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs	
+@@ -9,6 +9,9 @@ var name = "@prisma/adapter-mariadb";
+ import { ColumnTypeEnum } from "@prisma/driver-adapter-utils";
+ var UNSIGNED_FLAG = 1 << 5;
+ var BINARY_FLAG = 1 << 7;
++// Backport of the v7 fix: MariaDB sets BINARY_FLAG on any `_bin` collation, including ascii_bin,
++// so the flag alone misreads a VARCHAR id as Bytes. Only the binary charset (index 63) is Bytes.
++var BINARY_COLLATION_INDEX = 63;
+ function mapColumnType(field) {
+   switch (field.type) {
+     case "TINY" /* TINY */:
+@@ -51,7 +54,7 @@ function mapColumnType(field) {
+     case "LONG_BLOB" /* LONG_BLOB */:
+       if (field["dataTypeFormat"] === "json") {
+         return ColumnTypeEnum.Json;
+-      } else if (field.flags.valueOf() & BINARY_FLAG) {
++      } else if (field.collation?.index === BINARY_COLLATION_INDEX) {
+         return ColumnTypeEnum.Bytes;
+       } else {
+         return ColumnTypeEnum.Text;
