@@ -42,6 +42,24 @@
    curl -s -H "Authorization: Bearer <INTERNAL_METRICS_TOKEN>" https://worker-staging.<domain>/internal/metrics | grep job_lag_seconds
    ```
 6. **Seed** (synthetic, staging only, from a trusted shell with `DATABASE_URL` for staging): `pnpm db:seed`. The printed demo passwords go to your password manager, never into chat or tickets.
+   **Never run the seed against production.** A production database after migrations has schema and no
+   tenant, so nothing can sign in; create the first tenant and its owner with `pnpm ops:bootstrap-tenant`
+   instead (§2a). The seed writes synthetic patients, chambers and demo logins.
+
+### 2a. First tenant on a production database
+
+Run once, from a trusted shell with production `DATABASE_URL`. The owner password is read from the
+environment so it stays out of shell history and out of `ps`, and the command never prints it:
+
+```bash
+read -rs HMEDIC_BOOTSTRAP_OWNER_PASSWORD && export HMEDIC_BOOTSTRAP_OWNER_PASSWORD
+pnpm ops:bootstrap-tenant --name "<clinic name>" --slug "<slug>"   --owner-name "<person>" --owner-email "<email>" --practice-type SOLO
+unset HMEDIC_BOOTSTRAP_OWNER_PASSWORD
+```
+
+It prints a `TENANT_BOOTSTRAPPED` line with the ids, refuses to run when a tenant already exists, and is
+safe to repeat: the same `--slug` reports `TENANT_ALREADY_BOOTSTRAPPED` and changes nothing. Further tenants
+are created through `POST /tenants` as a platform operator, not with this command.
 7. **Chain check:** `DATABASE_URL=… pnpm verify-audit-chain --full` must print `"broken":0`.
 8. Remove `PRE_MIGRATION_DUMP_CONFIRMED` from the api app after the deploy.
 

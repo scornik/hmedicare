@@ -19,7 +19,8 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
+    "bootstrap-tenant": "node dist/cli/bootstrap-tenant.js"
   },
   "dependencies": {
     "@hmedic/audit": "workspace:*",
