@@ -11,6 +11,7 @@ import {
 import type { PrismaAuditPort } from '@hmedic/audit';
 import { dhakaDate } from '@hmedic/localization';
 import type { PatientContextActor } from '@hmedic/patient';
+import type { EncounterInterruptionPort } from './serial-lifecycle';
 import {
   type AppointmentService,
   type CancelReason,
@@ -153,6 +154,14 @@ const timestampFor: Partial<Record<SerialStatus, keyof SerialRow>> = {
  */
 export class SerialService implements SerialPort<Tx> {
   private readonly queueEvents: QueueEventWriter;
+  /**
+   * Supplied by the composition root when the clinical context is present (Stage 6). Attached rather than
+   * constructor-injected because clinical depends on queue: taking it as a parameter would make the
+   * dependency circular, and neither package may import the other (MODULE-BOUNDARIES §3).
+   *
+   * Absent, cancelling behaves exactly as it did in Stage 5.
+   */
+  private encounters: EncounterInterruptionPort | null = null;
 
   constructor(
     private readonly prisma: PrismaClient,
@@ -162,6 +171,11 @@ export class SerialService implements SerialPort<Tx> {
     private readonly clock: Clock = systemClock,
   ) {
     this.queueEvents = new QueueEventWriter(clock);
+  }
+
+  /** Called once by the composition root when the clinical context is part of this application. */
+  attachEncounterInterruption(port: EncounterInterruptionPort): void {
+    this.encounters = port;
   }
 
   // ---------------------------------------------------------------- SerialPort (called under the day lock)
@@ -481,6 +495,15 @@ export class SerialService implements SerialPort<Tx> {
       guard?: (s: SerialRow, day: ChamberDayFacts) => void;
       /** Precondition that needs its own reads (remote readiness, the chamber's doctor). */
       guardAsync?: (tx: Tx, s: SerialRow, day: ChamberDayFacts) => Promise<void>;
+      /**
+       * A write that must land *before* the transition does, with the serial already locked.
+       *
+       * The distinction from `after` is lock order, not taste. `applyTransition` ends by appending to the
+       * day's hash chain, which locks the chain head at rank 80 — last by design — so anything ranked
+       * below that has to be written first or the runtime ranking (C-46) refuses it. Interrupting an
+       * encounter (rank 50) as its serial is cancelled is exactly that case.
+       */
+      beforeApply?: (tx: Tx, s: SerialRow, day: ChamberDayFacts) => Promise<void>;
       /** Column updates derived from the day's policy (recall deadlines, recall counts). */
       dataFromDay?: (day: ChamberDayFacts) => Record<string, unknown>;
       /** Runs after the transition, still inside the transaction (queue placement, check-in rows). */
@@ -512,6 +535,7 @@ export class SerialService implements SerialPort<Tx> {
           throw new AppError('QUEUE_STATE_CONFLICT', undefined, { details: { dayStatus: day.status } });
         o.guard?.(s, day);
         if (o.guardAsync) await o.guardAsync(tx, s, day);
+        if (o.beforeApply) await o.beforeApply(tx, s, day);
         const updated = await this.applyTransition(tx, day, s, command, {
           actor: queueActorRef(actor),
           reason: o.reason ?? null,
@@ -557,6 +581,17 @@ export class SerialService implements SerialPort<Tx> {
           throw new AppError('INVALID_TRANSITION', undefined, {
             details: { from: s.status, command: 'cancel' },
           });
+      },
+      // A serial cancelled mid-consultation leaves an encounter that did not finish. Interrupting it
+      // here — before the transition, while the serial is locked — is what keeps a doctor from appearing
+      // to still be in the room with a patient who has gone.
+      beforeApply: async (tx, s) => {
+        if (!this.encounters) return;
+        await this.encounters.interruptForSerial(tx, s.tenantId, s.id, {
+          reason: input.reason,
+          actor: queueActorRef(actor),
+          correlationId: correlation(actor).correlationId,
+        });
       },
       // The appointment follows its serial. Without this the pair diverges: the appointment stays BOOKED
       // and holds its slot against a serial that no longer exists.

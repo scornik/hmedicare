@@ -36,6 +36,17 @@ export interface SerialLifecyclePort {
   markCompleted(tx: Tx, tenantId: string, serialId: string, who: SerialLifecycleActor): Promise<void>;
   /** Links the serial to the encounter that now owns it. */
   linkEncounter(tx: Tx, tenantId: string, serialId: string, encounterId: string | null): Promise<void>;
+  /**
+   * Takes the chamber-day and serial locks without transitioning anything, so a caller that must also
+   * lock a clinical row can do so in rank order.
+   *
+   * This exists because of where the chain head sits. Every queue transition ends by appending to the
+   * day's hash chain, which locks `integrity_chain_checkpoints` at rank 80 — last, by design. Anything
+   * ranked below that has to be locked *before* the transition runs, so a caller that will touch
+   * `encounters` (50) locks this path first, then the encounter, and only then asks for the transition.
+   * Re-locking rows already held is exempt from the ranking (C-46), so the second pass is free.
+   */
+  lockSerialPath(tx: Tx, tenantId: string, serialId: string): Promise<ChamberDayFacts>;
 }
 
 export class QueueSerialLifecycle implements SerialLifecyclePort {
@@ -53,6 +64,11 @@ export class QueueSerialLifecycle implements SerialLifecyclePort {
     await lockRow(tx, 'serials', serialId, tenantId);
     const serial = await tx.serial.findFirstOrThrow({ where: { tenantId, id: serialId } });
     return { serial, day: dayFacts(dayRow) };
+  }
+
+  async lockSerialPath(tx: Tx, tenantId: string, serialId: string): Promise<ChamberDayFacts> {
+    const { day } = await this.lockSerialAndDay(tx, tenantId, serialId);
+    return day;
   }
 
   async markInConsultation(
