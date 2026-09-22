@@ -107,6 +107,8 @@ describe('readiness', () => {
     expect(res.body).toEqual({
       status: 'degraded',
       checks: { db: 'ok', sessionMode: 'ok', jobs: 'degraded' },
+      // DEPLOY-004: the real-data gate is readable off the running system, not only from a dashboard.
+      data: { realPatientDataAllowed: false },
     });
     const metrics = await request(server)
       .get('/internal/metrics')

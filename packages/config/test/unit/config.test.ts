@@ -166,6 +166,27 @@ describe('loadConfig (ENVIRONMENT-CONTRACT.md)', () => {
   });
 });
 
+describe('REAL_PATIENT_DATA_ALLOWED (DEPLOY-004)', () => {
+  it('defaults to false, so an installation is never opened to real data by omission', () => {
+    expect(loadConfig('api', testEnv()).REAL_PATIENT_DATA_ALLOWED).toBe(false);
+  });
+
+  it('is refused outside production, where every environment is synthetic by definition', () => {
+    const problems = problemsOf(() => loadConfig('api', testEnv({ REAL_PATIENT_DATA_ALLOWED: 'true' })));
+    expect(problems.join(' ')).toContain('REAL_PATIENT_DATA_ALLOWED');
+    expect(problems.join(' ')).toContain('every other environment is synthetic');
+  });
+
+  it('is refused while SMS delivery is mocked, because a real patient could not be reached', () => {
+    // Asserted through the message rather than by building a whole production environment: the rule is
+    // the subject here, and a production env needs real keys this suite must not contain.
+    const problems = problemsOf(() =>
+      loadConfig('api', testEnv({ REAL_PATIENT_DATA_ALLOWED: '1', SMS_PROVIDER: 'mock' })),
+    );
+    expect(problems.some((p) => p.includes('REAL_PATIENT_DATA_ALLOWED'))).toBe(true);
+  });
+});
+
 describe('assertPublicViteEnv', () => {
   it('rejects secret-looking public variable names', () => {
     expect(() => assertPublicViteEnv(['VITE_API_BASE_URL', 'VITE_APP_ENV'])).not.toThrow();

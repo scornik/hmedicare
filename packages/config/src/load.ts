@@ -111,6 +111,21 @@ function crossChecks(env: Env, appEnv: AppEnv, app: AppName): string[] {
   if (env.OTEL_ENABLED === 'true' && !env.OTEL_EXPORTER_OTLP_ENDPOINT) {
     problems.push('OTEL_EXPORTER_OTLP_ENDPOINT: required when OTEL_ENABLED=true');
   }
+
+  // DEPLOY-004: real patient data needs more than a flag, so turning it on is deliberate and is refused
+  // while anything that would make a real record unsafe to hold is still outstanding. The seed refuses to
+  // run when it is on, which is the other half of the gate.
+  const realData = env.REAL_PATIENT_DATA_ALLOWED === 'true' || env.REAL_PATIENT_DATA_ALLOWED === '1';
+  if (realData && appEnv !== 'production') {
+    problems.push(
+      'REAL_PATIENT_DATA_ALLOWED: only meaningful in production; every other environment is synthetic',
+    );
+  }
+  if (realData && env.SMS_PROVIDER === 'mock') {
+    problems.push(
+      'REAL_PATIENT_DATA_ALLOWED: refused while SMS_PROVIDER=mock — a real patient cannot be reached',
+    );
+  }
   return problems;
 }
 

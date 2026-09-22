@@ -55,7 +55,13 @@ export class HealthController {
         ? 'degraded'
         : 'ready';
     if (status === 'unavailable') setResponseStatus(request, 503);
-    return { status, checks };
+    // DEPLOY-004: whether this installation may hold real patient data is an operational fact someone
+    // should be able to read off the running system, not infer from a dashboard. IDs and a boolean only.
+    return {
+      status,
+      checks,
+      data: { realPatientDataAllowed: this.runtime.config.REAL_PATIENT_DATA_ALLOWED === true },
+    };
   }
 }
 

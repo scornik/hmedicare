@@ -187,6 +187,25 @@ HOST-002 and HOST-006…013 are still pending the human run of
 `docs/implementation/runbooks/HOST-VERIFICATION-RUNBOOK.md` (H-2). Record results with
 `pnpm host:record-results`.
 
+## 4a. Real patient data gate (DEPLOY-004)
+
+`REAL_PATIENT_DATA_ALLOWED` is **false** in production, and `/health/ready` reports it. Until the owner
+turns it on, the installation holds synthetic records only. Stage 6 does not change this: it builds the
+clinical tables, it does not open them to real patients.
+
+Conditions outstanding before it can be turned on:
+
+| # | Condition | Why it blocks real data |
+|---|---|---|
+| G-1 | A password recovery path exists | D-18: the deployed reset notifier is a no-op, so the reset endpoint answers `202` and delivers nothing. A locked-out owner today cannot get back in, and a real record would be stranded with them |
+| G-2 | HOST-005 recorded | `JOB_RUNNER_MODE` for a deployed worker is still a guess between `worker` and `cron`; reminders and no-show processing depend on it |
+| G-3 | HOST-006…013 recorded | Backup, restore, storage and egress behaviour on the plan are unverified |
+| G-4 | A restore drill completed | A backup nobody has restored is not a backup. DEPLOY-002 automates the dump; the drill proves it can be read back |
+| G-5 | The single-app profile deployed and observed | DEPLOY-001 changes the process model; real data should not be the first traffic through it |
+
+The config refuses the flag outside production, and refuses it while `SMS_PROVIDER=mock`, because a
+patient who cannot be reached is not a patient who can be treated.
+
 ## 5. Human action queue
 
 | # | Action | Why | Blocking |

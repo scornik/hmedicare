@@ -107,6 +107,14 @@ export const jobsSection = {
   IDEMPOTENCY_TTL_HOURS: int(24, 1),
   INTERNAL_CRON_TOKEN: secret32.optional(),
   /** SMS-002/HOST diagnostics on the worker; staging only, off by default (ENVIRONMENT-CONTRACT). */
+  /**
+   * The real-patient-data gate (Stage 6 DEPLOY-004). False means this installation may hold synthetic
+   * records only. It stays false until the owner has what a real record deserves: a password recovery
+   * path (D-18 leaves production with none), the outstanding HOST items, and a backup *and restore*
+   * drill that someone has actually completed. Default false, so an installation is never opened to real
+   * data by forgetting to set something.
+   */
+  REAL_PATIENT_DATA_ALLOWED: bool(false),
   DIAGNOSTICS_ENABLED: bool(false),
   INTERNAL_DIAGNOSTICS_TOKEN: secret32.optional(),
   INTERNAL_METRICS_TOKEN: secret32,
