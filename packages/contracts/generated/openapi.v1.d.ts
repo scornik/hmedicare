@@ -5436,6 +5436,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
+                "If-None-Match"?: string;
                 "X-Tenant-ID": string;
             };
             path: {
@@ -5456,6 +5457,13 @@ export interface operations {
                         meta: components["schemas"]["ResponseMeta"];
                     };
                 };
+            };
+            /** @description The board is unchanged since that ETag; no body (ADR-013 polling) */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation failed */
             400: {

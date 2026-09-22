@@ -88,6 +88,13 @@ export function registerHttpHooks(fastify: FastifyInstance, runtime: HttpRuntime
     if (override !== undefined && reply.statusCode < 400) void reply.status(override);
     for (const [name, value] of Object.entries(headers)) void reply.header(name, value);
     if (!reply.hasHeader('cache-control')) void reply.header('cache-control', 'no-store');
+    // A 304 carries no body (RFC 9110 §15.4.5). The handler still returned an envelope, because Nest has
+    // no way to skip it, so the payload is dropped here rather than serialized and thrown away downstream.
+    if (reply.statusCode === 304) {
+      void reply.removeHeader('content-length');
+      done(null, null);
+      return;
+    }
     done(null, payload);
   });
 

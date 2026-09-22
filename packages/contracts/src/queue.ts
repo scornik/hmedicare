@@ -218,9 +218,18 @@ registry.registerPath({
   operationId: 'getQueue',
   tags: ['queue'],
   security: secured,
-  request: { headers: tenantHeaders, params: idParam },
+  request: {
+    headers: tenantHeaders.extend({
+      'If-None-Match': z
+        .string()
+        .optional()
+        .openapi({ param: { name: 'If-None-Match', in: 'header' }, example: '"a1b2c3"' }),
+    }),
+    params: idParam,
+  },
   responses: {
     200: ok(QueueSnapshot, 'The live queue board (`queue.read`). Poll with If-None-Match against `etag`'),
+    304: { description: 'The board is unchanged since that ETag; no body (ADR-013 polling)' },
     ...errorResponses,
   },
 });

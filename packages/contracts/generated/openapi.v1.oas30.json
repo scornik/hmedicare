@@ -8189,6 +8189,15 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "example": "\"a1b2c3\"",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -8213,6 +8222,9 @@
               }
             },
             "description": "The live queue board (`queue.read`). Poll with If-None-Match against `etag`"
+          },
+          "304": {
+            "description": "The board is unchanged since that ETag; no body (ADR-013 polling)"
           },
           "400": {
             "content": {
