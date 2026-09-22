@@ -12,5 +12,6 @@ export * from './engine/engine-info';
 export * from './raw/retention';
 export * from './enums';
 export * from './row-version';
+export * from './engine/session-mode';
 export * from './raw/rate-limit';
 export * from './raw/migrations';

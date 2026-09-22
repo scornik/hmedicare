@@ -12,6 +12,7 @@ import {
   createHttpApp,
   createRuntime,
   jobLagCheck,
+  sessionModeCheck,
 } from '@hmedic/http-kit';
 import { composeSchedulingAndQueue, registerQueueJobs } from '@hmedic/queue';
 
@@ -64,7 +65,7 @@ export async function buildWorker(
   );
   runtime.smsDiagnostics = config.DIAGNOSTICS_ENABLED ? createSmsDiagnostics(runtime, sms) : null;
   runtime.runnerLoop = jobs?.loop ?? null;
-  runtime.readinessChecks.push(jobLagCheck(runtime));
+  runtime.readinessChecks.push(sessionModeCheck(runtime), jobLagCheck(runtime));
   const app = await createHttpApp(WorkerModule.forRoot(runtime), runtime, { cors: false });
   if (config.JOB_RUNNER_MODE === 'worker') jobs?.loop.start();
   let closed = false;

@@ -58,6 +58,7 @@ import {
   createSmsServices,
   createHttpApp,
   createRuntime,
+  sessionModeCheck,
 } from '@hmedic/http-kit';
 
 /**
@@ -147,6 +148,9 @@ export async function buildApi(
 ): Promise<ApiInstance> {
   // In `worker` mode the worker app owns the loop; the api only enqueues.
   const { runtime, database } = createRuntime('api', config, overrides);
+  // DEPLOY-003: the deployed server's own sql_mode is not strict (HOST-001), so readiness proves on a
+  // real connection that ADR-014's per-connection init ran. From Stage 6 these tables hold clinical text.
+  runtime.readinessChecks.push(sessionModeCheck(runtime));
   const sms = createSmsServices(runtime);
   const context = composeSchedulingAndQueue({
     prisma: runtime.prisma,

@@ -1,4 +1,4 @@
-import { jobLagByQueue } from '@hmedic/database';
+import { jobLagByQueue, readSessionMode } from '@hmedic/database';
 import {
   JobRegistry,
   JobRunner,
@@ -81,6 +81,29 @@ export function composeJobs(
     },
   );
   return { registry, subscriptions, runner, loop };
+}
+
+/**
+ * Readiness check: this connection is in the session mode ADR-014 requires (Stage 6 DEPLOY-003).
+ *
+ * `fail`, not `degraded`, and therefore a 503: the deployed server's own `sql_mode` is not strict
+ * (HOST-001), so a connection that missed the init would accept silently truncated clinical text.
+ * Serving reads from such a process is worse than serving nothing.
+ */
+export function sessionModeCheck(runtime: HttpRuntime): ReadinessCheck {
+  return {
+    name: 'sessionMode',
+    async run() {
+      const report = await readSessionMode(runtime.prisma);
+      if (!report.ok) {
+        runtime.logger.error(
+          { missing: report.missing },
+          'connection is not in the session mode ADR-014 requires',
+        );
+      }
+      return { ok: report.ok };
+    },
+  };
 }
 
 /** Readiness check: job lag per queue (worker), also exported as `job_lag_seconds`. */

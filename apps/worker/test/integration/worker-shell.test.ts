@@ -102,7 +102,12 @@ describe('readiness', () => {
       },
     });
     const res = await request(server).get('/health/ready').expect(200);
-    expect(res.body).toEqual({ status: 'degraded', checks: { db: 'ok', jobs: 'degraded' } });
+    // `sessionMode` joined the checks in Stage 6 (DEPLOY-003): readiness proves on a real connection
+    // that ADR-014's session init ran, because the deployed server's own sql_mode is not strict.
+    expect(res.body).toEqual({
+      status: 'degraded',
+      checks: { db: 'ok', sessionMode: 'ok', jobs: 'degraded' },
+    });
     const metrics = await request(server)
       .get('/internal/metrics')
       .set('authorization', `Bearer ${w.runtime.config.INTERNAL_METRICS_TOKEN}`)
