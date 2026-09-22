@@ -7,5 +7,14 @@
   },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts"],
-  "references": []
+  "references": [
+    { "path": "../audit" },
+    { "path": "../database" },
+    { "path": "../jobs" },
+    { "path": "../kernel" },
+    { "path": "../localization" },
+    { "path": "../observability" },
+    { "path": "../queue" },
+    { "path": "../scheduling" }
+  ]
 }
