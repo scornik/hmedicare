@@ -119,7 +119,8 @@ gate('db:migration:lint', pnpm, ['--filter', '@hmedic/database', 'run', 'db:migr
 gate('test:unit', pnpm, ['test:unit']);
 gate('test:architecture', pnpm, ['test:architecture']);
 if (!values['skip-integration']) {
-  for (const image of ['mariadb:10.6', 'mariadb:11.4']) {
+  // 10.6 is the floor the design targets; 11.8 is the series the deployed plan runs (HOST-001).
+  for (const image of ['mariadb:10.6', 'mariadb:11.8']) {
     gate(`test:integration ${image}`, process.execPath, ['scripts/test/run-integration.mjs'], {
       env: { MARIADB_IMAGES: image },
     });

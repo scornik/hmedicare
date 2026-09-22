@@ -76,7 +76,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Supported MariaDB series (ADR-014: 10.6 floor; 11.4 also tested). Digests pinned.
+        # Supported MariaDB series (ADR-014: 10.6 floor; 11.8 is the deployed series). Digests pinned.
         image:
           - mariadb:10.6@sha256:40153feb479c0da88b5cfe3f50f44c91f7baf05a1b7bcc5beb7eb37a890a8f16
           # The deployed plan runs this series (HOST-001, 2026-09-20).
