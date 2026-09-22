@@ -32,7 +32,7 @@ Column **Apps** lists the Hostinger apps that need the variable (`api`, `worker`
 | `DEFAULT_LOCALE` | OPT | api, worker | `bn-BD` | |
 | `LOG_LEVEL` | OPT | api, worker | `info` (prod), `debug` (staging/local) | |
 | `LOG_HASH_PEPPER` | REQ-PROD | api, worker | 32 random bytes base64 | |
-| `WEB_DIST_DIR` | OPT | api | — | DEPLOY-001 / ADR-023. Directory of the built web client. When set, this app serves it at `/` and the client is same-origin, so no CORS applies to it. Unset it to run an API-only app with the client hosted elsewhere |
+| `WEB_DIST_DIR` | OPT | api | — | DEPLOY-001 / ADR-023. Directory of the built web client. When set, this app serves it at `/` and the client is same-origin, so no CORS applies to it. **Use an absolute path:** the deployed process starts in the home directory, not the application root, so a relative path resolves elsewhere. A path with no `index.html` is logged as an error and the API keeps serving without the client, rather than refusing to start. Unset it to run an API-only app with the client hosted elsewhere |
 | `PRE_MIGRATION_DUMP_DIR` | OPT | api, worker | `~/hmedic-db-dumps` | DEPLOY-002. Where the automatic pre-migration dump is written. Refused if it resolves inside the application directory, which the next deploy replaces |
 | `REAL_PATIENT_DATA_ALLOWED` | OPT | api, worker | `false` | DEPLOY-004 gate. `true` only in production, and only once password recovery exists (D-18), the open HOST items are closed and a restore drill has been completed. Refused with `SMS_PROVIDER=mock`. Reported at `/health/ready` |
 | `DIAGNOSTICS_ENABLED` | OPT | worker | `false` | `true` only during HOST tasks on staging |

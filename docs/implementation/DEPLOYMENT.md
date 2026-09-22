@@ -22,7 +22,11 @@ Region: **India** data center (HOST-009). DNS: `app.`, `api.`, `worker.`, plus t
 > client at `/`, the API under `/api/v1`, `/health/*` and `/internal/*`, and embeds the job runner
 > (`JOB_RUNNER_MODE=embedded`). Set `WEB_DIST_DIR=apps/web/dist` and leave `CORS_ALLOWED_ORIGINS` empty — the
 > client is same-origin and needs no grant, and a `localhost` entry is now refused in a deployed
-> environment. The build command is the root `build`, which produces `apps/web/dist` alongside the server
+> environment. `WEB_DIST_DIR` must be an **absolute** path — Passenger starts the process in the home
+> directory, not the application root — for example
+> `/home/<user>/domains/<domain>/hbuilds/current/nodejs/apps/web/dist`, where `current` is a stable
+> symlink that survives releases. Leave hPanel's *Output directory* empty and the *Entry file* at
+> `apps/api/dist/main.js`: the single app is the API process, which also serves the client. The build command is the root `build`, which produces `apps/web/dist` alongside the server
 > bundles. The three-app table below remains the reference for splitting them apart again, which is a
 > configuration change: unset `WEB_DIST_DIR`, set `CORS_ALLOWED_ORIGINS`, and build the client with
 > `VITE_API_BASE_URL`.

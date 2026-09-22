@@ -41,6 +41,16 @@ export interface StaticWebOptions {
   root: string;
 }
 
+/**
+ * True when `root` holds a built client. Checked before registering, because a misconfigured path must
+ * not stop the API from starting: the deployed process runs with a working directory that is *not* the
+ * application root (Passenger starts it in the home directory), so a relative `WEB_DIST_DIR` silently
+ * resolves somewhere else. Losing the web client is bad; losing the API with it would be worse.
+ */
+export function hasWebBuild(root: string): boolean {
+  return existsSync(path.join(path.resolve(root), 'index.html'));
+}
+
 export function registerStaticWeb(fastify: FastifyInstance, options: StaticWebOptions): void {
   const root = path.resolve(options.root);
   const indexPath = path.join(root, 'index.html');

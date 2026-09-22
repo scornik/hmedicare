@@ -125,3 +125,27 @@ describe('single-app profile: path classification', () => {
     expect(wantsHtml(undefined)).toBe(false);
   });
 });
+
+describe('single-app profile: a misconfigured WEB_DIST_DIR', () => {
+  it('keeps the API serving instead of failing to start', async () => {
+    // The deployed process starts in the home directory, not the application root, so a relative path
+    // resolves somewhere that does not exist. Refusing to boot would turn a missing web client into a
+    // total outage, so the app logs loudly and carries on serving the API.
+    const missing = await buildApi(
+      loadConfig<ServerConfig>(
+        'api',
+        testEnv({ DATABASE_URL: testDatabaseUrl(), WEB_DIST_DIR: path.join(os.tmpdir(), 'hm-not-built') }),
+      ),
+    );
+    try {
+      const srv = missing.app.getHttpServer();
+      await request(srv).get('/health/live').expect(200);
+      await request(srv).get('/api/v1/patients').expect(401);
+      // No client to serve, so `/` is a plain 404 rather than a shell.
+      const root = await request(srv).get('/').set('accept', 'text/html');
+      expect(root.status).toBe(404);
+    } finally {
+      await missing.close();
+    }
+  });
+});

@@ -10,7 +10,7 @@ import { PrismaAuditPort } from '@hmedic/audit';
 import { createLogger, createMetrics } from '@hmedic/observability';
 import { fastifyOptions, registerHttpHooks } from './fastify-hooks';
 import { PinoNestLogger } from './nest-components';
-import { registerStaticWeb } from './static-web';
+import { hasWebBuild, registerStaticWeb } from './static-web';
 import type { HttpRuntime } from './runtime';
 
 export const CORS_ALLOWED_HEADERS = [
@@ -97,9 +97,17 @@ export async function createHttpApp(
   // makes it same-origin. Registered after the global prefix so the API keeps `/api/v1`, and it installs
   // the not-found handler that returns the SPA shell for client-routed deep links.
   const webDist = runtime.config.WEB_DIST_DIR;
-  if (webDist) {
+  if (webDist && hasWebBuild(webDist)) {
     registerStaticWeb(adapter.getInstance(), { root: webDist });
     runtime.logger.info({ root: webDist }, 'serving the web client from this app (single-app profile)');
+  } else if (webDist) {
+    // Loud, but not fatal. The deployed process runs with a working directory that is not the application
+    // root, so a relative path here resolves somewhere unexpected; refusing to start would turn a missing
+    // web client into a total outage. The API keeps serving and the log says exactly what to fix.
+    runtime.logger.error(
+      { root: webDist, resolvedFrom: process.cwd() },
+      'WEB_DIST_DIR is set but no index.html was found there; continuing without the web client',
+    );
   }
 
   // A same-origin client needs no CORS at all, so none is granted for it. The header list stays for any
