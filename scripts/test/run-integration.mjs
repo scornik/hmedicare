@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// Runs the integration and security suites against every supported MariaDB series (ADR-014: 10.6 floor,
-// also tested on 11.8, the series the deployed plan runs per HOST-001). Override with
-// MARIADB_IMAGES="mariadb:10.6" to run one image.
+// Runs the integration and security suites against every supported MariaDB series. The series come from
+// config/mariadb-series.json, which every database gate reads, so a re-pin cannot be applied in one place
+// and forgotten in another. Override with MARIADB_IMAGES="mariadb:10.6" to run one image.
 import { spawnSync } from 'node:child_process';
+import { seriesFromEnvOrConfig } from './mariadb-series.mjs';
 
-const images = (process.env.MARIADB_IMAGES ?? 'mariadb:10.6,mariadb:11.8').split(',').map((s) => s.trim());
+const images = seriesFromEnvOrConfig();
 const extra = process.argv.slice(2);
 let failed = false;
 for (const image of images) {

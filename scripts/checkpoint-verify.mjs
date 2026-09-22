@@ -12,6 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { supportedSeries } from './test/mariadb-series.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { values } = parseArgs({
@@ -47,6 +48,18 @@ function run(cmd, args, opts = {}) {
     shell: win && /\.(cmd|bat)$/.test(cmd),
     maxBuffer: 256 * 1024 * 1024,
   });
+}
+
+/** The first `dart` launcher that answers `--version` here, so the gate fails on Dart, not on spawning. */
+function resolveDart() {
+  for (const candidate of win ? ['dart.bat', 'dart.exe', 'dart'] : ['dart']) {
+    const r = spawnSync(candidate, ['--version'], {
+      encoding: 'utf8',
+      shell: win && /\.(cmd|bat)$/.test(candidate),
+    });
+    if (!r.error && r.status === 0) return candidate;
+  }
+  return win ? 'dart.bat' : 'dart';
 }
 
 const results = [];
@@ -122,8 +135,8 @@ gate('db:migration:lint', pnpm, ['--filter', '@hmedic/database', 'run', 'db:migr
 gate('test:unit', pnpm, ['test:unit']);
 gate('test:architecture', pnpm, ['test:architecture']);
 if (!values['skip-integration']) {
-  // 10.6 is the floor the design targets; 11.8 is the series the deployed plan runs (HOST-001).
-  for (const image of ['mariadb:10.6', 'mariadb:11.8']) {
+  // The series come from config/mariadb-series.json, the one place they are pinned.
+  for (const image of supportedSeries()) {
     gate(`test:integration ${image}`, process.execPath, ['scripts/test/run-integration.mjs'], {
       env: { MARIADB_IMAGES: image },
     });
@@ -135,7 +148,10 @@ if (!values['skip-web']) {
 }
 if (!values['skip-mobile']) {
   const mobile = path.join(root, 'mobile');
-  const dart = win ? 'dart.bat' : 'dart';
+  // Flutter ships `dart.bat` on Windows and `dart` elsewhere, and a `.bat` needs a shell (see `run`).
+  // Resolve it rather than assuming: a machine with only `dart` on PATH under Git Bash would otherwise
+  // fail three gates with an empty log, which is how this went unnoticed through all of Stage 5.
+  const dart = resolveDart();
   gate('mobile: format', dart, ['run', 'melos', 'run', 'format:check'], { cwd: mobile });
   gate('mobile: analyze', dart, ['run', 'melos', 'run', 'analyze'], { cwd: mobile });
   gate('mobile: test', dart, ['run', 'melos', 'run', 'test'], { cwd: mobile });

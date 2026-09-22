@@ -1,0 +1,23 @@
+{
+  "$comment": [
+    "The MariaDB series every database gate runs against. One source of truth: scripts/test/run-integration.mjs,",
+    "scripts/checkpoint-verify.mjs and .github/workflows/ci.yml all read it, so a series can never be re-pinned",
+    "in one place and forgotten in another. That happened once already: HOST-001 found the plan on 11.8 and the",
+    "CI matrix moved, but checkpoint-verify.mjs kept testing 11.4 until Stage 6.",
+    "CI pins the digest as well (supply chain); the architecture suite asserts the workflow matrix matches this file."
+  ],
+  "series": [
+    {
+      "tag": "mariadb:10.6",
+      "role": "floor",
+      "why": "The feature set ADR-014 targets. Nothing deploys on it; it catches use of anything newer.",
+      "ciDigest": "sha256:40153feb479c0da88b5cfe3f50f44c91f7baf05a1b7bcc5beb7eb37a890a8f16"
+    },
+    {
+      "tag": "mariadb:11.8",
+      "role": "deployed",
+      "why": "The series the Hostinger plan runs (HOST-001, 2026-09-20: MariaDB 11.8.9).",
+      "ciDigest": "sha256:79d59758afc91b89b120b0a8904d637f5a3b3e1c4900f29b740d6d46c72fef68"
+    }
+  ]
+}
