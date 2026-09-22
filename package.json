@@ -13,7 +13,7 @@
     "node": ">=24.0.0 <25"
   },
   "scripts": {
-    "build": "node scripts/host/fix-native-exec-bits.mjs && turbo run build",
+    "build": "node scripts/host/fix-native-exec-bits.mjs && turbo run build && node scripts/host/write-build-info.mjs apps/api && node scripts/host/write-build-info.mjs apps/worker",
     "typecheck": "turbo run typecheck && tsc -p tests/tsconfig.json --noEmit",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
