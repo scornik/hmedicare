@@ -114,6 +114,12 @@ export const jobsSection = {
    * drill that someone has actually completed. Default false, so an installation is never opened to real
    * data by forgetting to set something.
    */
+  /**
+   * DEPLOY-001 / ADR-023. Directory holding the built web client. When set, this app serves it at `/` and
+   * the client is same-origin, so no CORS applies to it at all. Unset it to go back to an API-only app and
+   * host the client elsewhere — that is the whole of the later split to subdomains.
+   */
+  WEB_DIST_DIR: z.string().min(1).optional(),
   REAL_PATIENT_DATA_ALLOWED: bool(false),
   DIAGNOSTICS_ENABLED: bool(false),
   INTERNAL_DIAGNOSTICS_TOKEN: secret32.optional(),

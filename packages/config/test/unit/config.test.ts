@@ -166,6 +166,28 @@ describe('loadConfig (ENVIRONMENT-CONTRACT.md)', () => {
   });
 });
 
+describe('CORS in the single-app profile (DEPLOY-001)', () => {
+  it('refuses a development origin in a deployed environment', () => {
+    // The deployed client is served by this app and is same-origin, so it needs no grant. A localhost
+    // entry left behind grants a real browser nothing and hides which origins are genuinely allowed.
+    const problems = problemsOf(() =>
+      loadConfig('api', testEnv({ APP_ENV: 'staging', CORS_ALLOWED_ORIGINS: 'http://localhost:5173' })),
+    );
+    expect(problems.join(' ')).toContain('development origin');
+  });
+
+  it('still allows a real origin, for a client hosted somewhere else', () => {
+    const problems = problemsOf(() =>
+      loadConfig('api', testEnv({ APP_ENV: 'staging', CORS_ALLOWED_ORIGINS: 'https://app.example.com' })),
+    );
+    expect(problems.join(' ')).not.toContain('development origin');
+  });
+
+  it('keeps localhost usable outside deployed environments', () => {
+    expect(loadConfig('api', testEnv()).CORS_ALLOWED_ORIGINS).toContain('localhost');
+  });
+});
+
 describe('REAL_PATIENT_DATA_ALLOWED (DEPLOY-004)', () => {
   it('defaults to false, so an installation is never opened to real data by omission', () => {
     expect(loadConfig('api', testEnv()).REAL_PATIENT_DATA_ALLOWED).toBe(false);

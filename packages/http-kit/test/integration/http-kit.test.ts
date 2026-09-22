@@ -153,14 +153,20 @@ describe('health', () => {
   });
 
   it('ready reports the DB and fails with 503 when a check fails', async () => {
+    // `data` carries the real-patient-data gate (DEPLOY-004), so it is readable off the running system.
     expect((await request(server).get('/health/ready').expect(200)).body).toEqual({
       status: 'ready',
       checks: { db: 'ok' },
+      data: { realPatientDataAllowed: false },
     });
     runtime.readinessChecks.push({ name: 'probe', run: async () => ({ ok: false }) });
     try {
       const res = await request(server).get('/health/ready').expect(503);
-      expect(res.body).toEqual({ status: 'unavailable', checks: { db: 'ok', probe: 'fail' } });
+      expect(res.body).toEqual({
+        status: 'unavailable',
+        checks: { db: 'ok', probe: 'fail' },
+        data: { realPatientDataAllowed: false },
+      });
     } finally {
       runtime.readinessChecks.pop();
     }

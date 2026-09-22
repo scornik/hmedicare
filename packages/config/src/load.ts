@@ -35,6 +35,13 @@ const ENV_PREFIX: Record<AppEnv, string> = {
   production: 'prod',
 };
 
+function parseOrigins(value: string | undefined): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((o: string) => o.trim())
+    .filter(Boolean);
+}
+
 /** Cross-field rules that fail closed in staging and production (ENVIRONMENT-CONTRACT.md §11, ADR-018 §2). */
 function crossChecks(env: Env, appEnv: AppEnv, app: AppName): string[] {
   const problems: string[] = [];
@@ -61,6 +68,19 @@ function crossChecks(env: Env, appEnv: AppEnv, app: AppName): string[] {
     }
   }
 
+  // DEPLOY-001 / ADR-023. The deployed client is served by this app and is therefore same-origin, so it
+  // needs no CORS grant. A localhost origin left in a deployed config is a development leftover that grants
+  // a real browser nothing and only obscures which origins are genuinely allowed.
+  if (deployed && app === 'api') {
+    const localOrigins = parseOrigins(env.CORS_ALLOWED_ORIGINS).filter((o: string) =>
+      /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(o),
+    );
+    if (localOrigins.length > 0) {
+      problems.push(
+        `CORS_ALLOWED_ORIGINS: ${localOrigins.join(', ')} is a development origin and is refused in ${appEnv}`,
+      );
+    }
+  }
   if (app === 'api' && (env.CORS_ALLOWED_ORIGINS ?? '').split(',').some((o) => o.trim() === '*')) {
     problems.push('CORS_ALLOWED_ORIGINS: wildcard origin is not allowed');
   }

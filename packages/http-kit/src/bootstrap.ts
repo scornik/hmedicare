@@ -10,6 +10,7 @@ import { PrismaAuditPort } from '@hmedic/audit';
 import { createLogger, createMetrics } from '@hmedic/observability';
 import { fastifyOptions, registerHttpHooks } from './fastify-hooks';
 import { PinoNestLogger } from './nest-components';
+import { registerStaticWeb } from './static-web';
 import type { HttpRuntime } from './runtime';
 
 export const CORS_ALLOWED_HEADERS = [
@@ -91,6 +92,18 @@ export async function createHttpApp(
     abortOnError: false,
   });
   app.setGlobalPrefix('api/v1', { exclude: ['health/*path', 'internal/*path'] });
+
+  // DEPLOY-001 (ADR-023): the built web client is served by this same app when WEB_DIST_DIR is set, which
+  // makes it same-origin. Registered after the global prefix so the API keeps `/api/v1`, and it installs
+  // the not-found handler that returns the SPA shell for client-routed deep links.
+  const webDist = runtime.config.WEB_DIST_DIR;
+  if (webDist) {
+    registerStaticWeb(adapter.getInstance(), { root: webDist });
+    runtime.logger.info({ root: webDist }, 'serving the web client from this app (single-app profile)');
+  }
+
+  // A same-origin client needs no CORS at all, so none is granted for it. The header list stays for any
+  // origin an operator adds deliberately — a separate web host, or a native app during development.
   if (options.cors) {
     const allowed = new Set(parseAllowedOrigins(runtime.config.CORS_ALLOWED_ORIGINS));
     app.enableCors({

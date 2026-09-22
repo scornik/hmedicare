@@ -18,6 +18,15 @@ Region: **India** data center (HOST-009). DNS: `app.`, `api.`, `worker.`, plus t
 
 ## 2. Hostinger app configuration (per app)
 
+> **Stage 6 (ADR-023): production runs the single-app profile.** One Node app on the domain serves the web
+> client at `/`, the API under `/api/v1`, `/health/*` and `/internal/*`, and embeds the job runner
+> (`JOB_RUNNER_MODE=embedded`). Set `WEB_DIST_DIR=apps/web/dist` and leave `CORS_ALLOWED_ORIGINS` empty — the
+> client is same-origin and needs no grant, and a `localhost` entry is now refused in a deployed
+> environment. The build command is the root `build`, which produces `apps/web/dist` alongside the server
+> bundles. The three-app table below remains the reference for splitting them apart again, which is a
+> configuration change: unset `WEB_DIST_DIR`, set `CORS_ALLOWED_ORIGINS`, and build the client with
+> `VITE_API_BASE_URL`.
+
 | Setting | api / api-staging | worker / worker-staging | app / app-staging |
 |---|---|---|---|
 | Type | Node.js web app | Node.js web app | Static (Vite) |

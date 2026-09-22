@@ -17,6 +17,7 @@
     "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
   },
   "dependencies": {
+    "@fastify/static": "10.1.4",
     "@hmedic/audit": "workspace:*",
     "@hmedic/communication": "workspace:*",
     "@hmedic/communication-adapters-mock": "workspace:*",

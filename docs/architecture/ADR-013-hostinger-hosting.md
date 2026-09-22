@@ -78,6 +78,10 @@ External (behind ports; provider = external decision):
 - Every Node app binds `process.env.PORT`, handles `SIGTERM` (stop claiming jobs, finish or release leases within 10 s, close pools) and tolerates cold starts. Readiness waits for the DB pool and configuration validation.
 - There is no process manager of our own. Hostinger restarts crashed apps.
 
+> **Amended by ADR-023 (Stage 6).** The web client, the API and the job runner now share one Node process,
+> so the per-application budgets below are one budget: one connection pool and one heap covering request
+> handling, the embedded job batch and static file serving.
+
 ### 4. Memory budget (4 GB shared)
 
 | Process | `NODE_OPTIONS` | Expected RSS ceiling | Notes |

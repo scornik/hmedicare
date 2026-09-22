@@ -28,8 +28,21 @@ let inFlight: Promise<boolean> | null = null;
 const listeners = new Set<Listener>();
 const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('hm-auth') : null;
 
+/**
+ * Where the API lives, in one place (DEPLOY-001, ADR-023).
+ *
+ * Empty means same origin, which is what the deployed single-app profile serves: this client comes from
+ * the same Node app as the API, so relative requests reach it and no CORS applies. `pnpm dev` runs the
+ * client on 5173 and the API on 3000, so development keeps an explicit origin.
+ *
+ * Splitting the client onto its own subdomain later is this one variable plus `CORS_ALLOWED_ORIGINS` on
+ * the server — no code change.
+ */
 export const apiBase = (): string =>
-  (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
+  (import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:3000' : '')).replace(
+    /\/+$/,
+    '',
+  );
 
 function notify() {
   for (const l of listeners) l(state !== null);

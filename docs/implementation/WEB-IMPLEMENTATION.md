@@ -54,6 +54,13 @@ Route loaders call permission-aware API endpoints. Hidden controls are not autho
 
 ## 5. Queue and consultation workspace
 
+- **Deployment (ADR-023).** The built client is served by the API process at `/`, so it is same-origin: no
+  CORS applies to it, and `apiBase()` resolves to an empty string (relative URLs) in a production build.
+  `pnpm dev` still runs the client on 5173 against the API on 3000. A deep link is answered with the shell
+  because the API's 404 is rewritten for `GET`/`HEAD` requests that asked for `text/html` and are not under
+  `/api`, `/health` or `/internal`; `/assets/*` is fingerprinted by Vite and cached `immutable`, the shell
+  never is. Moving the client to its own subdomain is configuration only: `WEB_DIST_DIR`,
+  `CORS_ALLOWED_ORIGINS` and `VITE_API_BASE_URL`.
 - **Queue view polls** `GET /chamber-days/{id}/queue` every 5 s while the tab is visible (`refetchInterval` + `If-None-Match`), pauses when hidden, and refetches on focus.
 - Every mutation sends `Idempotency-Key` (generated per click intent; reused on retry) and `expectedRowVersion` / `expectedQueueOrderVersion`.
 - Conflicts (`STALE_VERSION`, `QUEUE_STATE_CONFLICT`, `QUEUE_VERSION_CONFLICT`) show a reload prompt with the current server state. No blind merge.
