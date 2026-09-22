@@ -13,9 +13,22 @@ Legend:
 |---|---|---|---|
 | CP1 Foundation | FOUND-*, JOB-*, HOST harness, CI, api/worker shells, SEC suite, seed | PASS (local gates; CI evidence pending H-1, HOST evidence pending H-2) | `stage4-cp1-foundation` |
 | CP2 Tenant/Identity | ID-001…ID-007, SMS-001…005/008, web + mobile shells | PASS (local gates; SMS-002 capture and SMS-008 live send are human-run) | `stage4-cp2-identity` |
-| CP3 Patient registry (Stage 5) | CI-000, PAT-001…PAT-007: migration 0004, search normalization, lock ranking, patient/merge/consent/access services, HTTP routes + patient context, seed, web staff screens, mobile profile switcher | PASS (local gates on both MariaDB versions; GitHub CI on the self-hosted runner) | `stage5-cp3-patient` (set on `main` by `scripts/checkpoint-verify.mjs` after the PR merge) |
-| CP4 Chamber & scheduling (Stage 5) | CHAM-000…004, SCHED-001, APPT-001/002: migrations 0005/0006, clinics, chambers, schedule rules, chamber days, appointments, the serial lifecycle they reach and the no-show job | PASS (local gates on both MariaDB versions) | `stage5-cp4-scheduling` |
-| CP5 Serial/queue engine (Stage 5) | SERIAL-*, QUEUE-*, LOC-* | NOT STARTED (gated on HOST-001/003/004/005 evidence, Stage 5 §0.3) | `stage5-cp5-queue` |
+| CP3 Patient registry (Stage 5) | CI-000, PAT-001…PAT-007: migration 0004, search normalization, lock ranking, patient/merge/consent/access services, HTTP routes + patient context, seed, web staff screens, mobile profile switcher | **PASS as part of the CP5 tree.** At the boundary commit itself 18 of 20 gates pass; integration fails only on the argon2 `timeCost` rebase artefact (see the tag note) | `stage5-cp3-patient` — scope marker on `fcbad0b`, annotated |
+| CP4 Chamber & scheduling (Stage 5) | CHAM-000…004, SCHED-001, APPT-001/002: migrations 0005/0006, clinics, chambers, schedule rules, chamber days, appointments, the serial lifecycle they reach and the no-show job | **PASS as part of the CP5 tree.** At the boundary commit itself 18 of 20 gates pass; integration fails only on the same argon2 artefact plus the worker-shell flake, both fixed in `7cf4d53` | `stage5-cp4-scheduling` — scope marker on `fa7a8a4`, annotated |
+| CP5 Serial/queue engine (Stage 5) | SERIAL-*, QUEUE-*, LOC-*: the queue-active lifecycle, reorder, the ETagged snapshot and the patient view, the queue HTTP endpoint matrix, the web board, the doctor and patient app screens and the queue-active seed | **PASS** — `checkpoint-verify.mjs` 20/20 at `4456a36`, both MariaDB series; HOST-001/002/003/004 recorded, HOST-005 still open | `stage5-cp5-queue` |
+
+### Why CP3 and CP4 are scope markers
+
+The Stage 5 branch was rebased onto a `main` that had moved on — argon2 pinned to 0.41.1 for the host's
+glibc, and Prisma 6 for the query engine. Rebasing replays the old commits onto that new base, so every
+intermediate commit becomes a combination that never existed while the work was done. `fcbad0b` and
+`fa7a8a4` are exactly that: CP3 and CP4 code, whose tests ask argon2 for `timeCost: 1`, sitting on a base
+whose argon2 refuses anything below 2. The value was raised in `7cf4d53`, which belongs to CP5.
+
+Only the tip of a rebased branch is a tree that ever really existed, and only the tip was verified as a
+whole (`checkpoint-verify.mjs` 20/20 at `4456a36`). The two earlier tags therefore mark where each
+checkpoint's scope ends; `git tag -n99 stage5-cp3-patient` states what was and was not verified. The
+lesson for Stage 6 is to tag a checkpoint when it is reached, not retroactively after a rebase.
 
 ## 2. Tasks
 
@@ -90,8 +103,8 @@ Still open in Stage 5: HOST-005. Out of scope: encounters, clinical, prescriptio
 |---|---|---|
 | unit | 301 | Vitest `unit` project (packages, apps, tooling, scripts) |
 | architecture | 37 | depcruise + ESLint rule fixtures |
-| integration + security | 266 on mariadb:10.6 · 266 on mariadb:11.8 | Testcontainers, `node scripts/test/run-integration.mjs` (seed test: 5-minute budget, the Stage 5 dataset takes ~85 s per run) |
-| e2e (Playwright) | 8 | built web app against a mocked API (smoke + patient flows) |
+| integration + security | 269 on mariadb:10.6 · 269 on mariadb:11.8 | Testcontainers, `node scripts/test/run-integration.mjs` (seed test: 5-minute budget, the Stage 5 dataset takes ~85 s per run) |
+| e2e (Playwright) | 11 | built web app against a mocked API (smoke, patient and queue flows) |
 | mobile (Flutter) | 15 | `dart run melos run test`; `flutter analyze --fatal-infos` clean |
 
 ## 3a. Stage 5 load measurements (prompt §4.13)
@@ -178,8 +191,8 @@ HOST-002 and HOST-006…013 are still pending the human run of
 
 | # | Action | Why | Blocking |
 |---|---|---|---|
-| H-1 | Create the GitHub repository, push `main` and tags, protect `main`/`staging` | CI has never run on GitHub (no remote) | CI evidence; FOUND-009/011 |
-| H-2 | Run the HOST verification runbook on the Hostinger plan and record results | HOST-001…013 evidence | PROVISIONAL → DONE for DB tasks; staging deploy |
+| H-1 | ~~Create the GitHub repository, push `main` and tags, protect `main`/`staging`~~ **DONE** (`scornik/hmedicare`, private; `main` requires linear history, so merges are `--rebase`) | CI now runs on every PR and on `main` | — |
+| H-2 | Run the remaining HOST verification runbook items. **HOST-001, 002, 003 and 004 are PASS** (recorded 2026-09-20/22); HOST-005 needs 24 h of cron-pinged observation plus 2 h idle; HOST-006…013 are still pending | HOST evidence | HOST-005 blocks the deployed `JOB_RUNNER_MODE` choice |
 | H-3 | Pin the gitleaks tarball SHA-256 in `ci.yml` (today it is checked against the release checksums file) | supply-chain hardening | — |
 | H-4 | SMS-002 capture on staging (`pnpm ops:capture-sms-probe`, ZAMANIT-VERIFICATION §3.1) with the owner's Zaman IT key | fixtures for the adapter parser; ZAMANIT-VER-01/02 | SMS-004 final |
 | H-5 | SMS-008: exactly one live SMS by the account owner (ZAMANIT-VERIFICATION §4) | charge/format evidence | SMS-008 |
