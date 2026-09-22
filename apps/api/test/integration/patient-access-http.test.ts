@@ -444,18 +444,23 @@ describe('clinic and chamber day transitions over HTTP', () => {
         supportsPhysical: true,
       })
       .expect(201);
-    await request(server)
-      .post(`/api/v1/chambers/${chamber.body.data.id}/schedule-rules`)
-      .set(admin.headers)
-      .set('idempotency-key', idem())
-      .send({
-        ruleType: 'WEEKLY',
-        weekday: new Date().getUTCDay() === 0 ? 7 : new Date().getUTCDay(),
-        localStartTime: '00:00',
-        localEndTime: '23:59',
-        effectiveFrom: '2020-01-01',
-      })
-      .expect(201);
+    // A rule for every weekday. Deriving one weekday from `new Date()` reads it in UTC while the day is
+    // materialized in Dhaka time (UTC+6), so after 18:00 UTC the two disagree and no rule matches — a
+    // failure that only appears in the evening.
+    for (let weekday = 1; weekday <= 7; weekday++) {
+      await request(server)
+        .post(`/api/v1/chambers/${chamber.body.data.id}/schedule-rules`)
+        .set(admin.headers)
+        .set('idempotency-key', idem())
+        .send({
+          ruleType: 'WEEKLY',
+          weekday,
+          localStartTime: '00:00',
+          localEndTime: '23:59',
+          effectiveFrom: '2020-01-01',
+        })
+        .expect(201);
+    }
 
     const { dhakaDate } = await import('@hmedic/localization');
     const created = await request(server)
