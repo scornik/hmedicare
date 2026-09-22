@@ -213,9 +213,7 @@ class _ReadyButtonState extends ConsumerState<_ReadyButton> {
       ref.invalidate(mySerialsProvider);
     } on DioException {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(HmStrings.of(context).t('error'))));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(HmStrings.of(context).t('error'))));
       }
     } finally {
       if (mounted) setState(() => _busy = false);

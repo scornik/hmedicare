@@ -21,6 +21,7 @@ abstract class QueueClient {
   Future<GetApiV1ChamberDaysIdQueueResponse> getQueue({
     @Path('id') required String id,
     @Header('X-Tenant-ID') required String xTenantId,
+    @Header('If-None-Match') String? ifNoneMatch,
   });
 
   @POST('/api/v1/chamber-days/{id}/reorder')
