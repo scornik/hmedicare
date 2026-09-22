@@ -14,7 +14,7 @@ let api: ApiInstance;
 let server: Parameters<typeof request>[0];
 let seq = 0;
 const idem = () => `sched-key-${Date.now()}-${++seq}`;
-const hasher = new Argon2idHasher({ memoryKiB: 8192, timeCost: 1, parallelism: 1 });
+const hasher = new Argon2idHasher({ memoryKiB: 8192, timeCost: 2, parallelism: 1 });
 let phoneSeq = 700;
 const nextPhone = () => `+88017000${String(phoneSeq++).padStart(5, '0')}`;
 

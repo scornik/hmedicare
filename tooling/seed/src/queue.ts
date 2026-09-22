@@ -89,14 +89,16 @@ export async function seedQueue(d: QueueSeedDeps): Promise<void> {
     );
   }
 
-  // 2. Two booked serials arrive at the desk.
+  // 2. One booked serial arrives at the desk. Only one: the CP4 dataset confirms two, and a demo database
+  // should still show a CONFIRMED serial that has not turned up yet, which is the common state before a
+  // chamber opens. Checking in both would erase that.
   const booked = await prisma.serial.findMany({
     where: { chamberDayId: day.id, status: { in: ['BOOKED', 'CONFIRMED'] }, careMode: 'PHYSICAL' },
     orderBy: { serialNumber: 'asc' },
     take: 2,
   });
   const arrived = [];
-  for (const s of booked) {
+  for (const s of booked.slice(0, 1)) {
     arrived.push(
       await ctx.queue.checkIn(asStaff(), s.id, {
         expectedRowVersion: s.rowVersion,
@@ -136,8 +138,32 @@ export async function seedQueue(d: QueueSeedDeps): Promise<void> {
     expectedRowVersion: calledInChamber.rowVersion,
   });
 
+  // 5. A serial parked in CHECKED_IN. On this day arrival goes straight to WAITING, so the state only
+  // exists on a chamber whose policy sets `waitingRequiresConfirmation` — the slotted morning chamber does.
+  // Without this the demo board never shows an arrival awaiting confirmation.
+  const slotted = await prisma.chamber.findFirst({
+    where: {
+      tenantId: tenantA.tenantId,
+      defaultQueuePolicy: { path: '$.waitingRequiresConfirmation', equals: true },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+  if (slotted) {
+    const materialized = await ctx.days.materialize(staff(), { chamberId: slotted.id, localDate: today });
+    const openDay = await ctx.days.open(staff(), materialized.day.id, {
+      expectedRowVersion: materialized.day.rowVersion,
+    });
+    await ctx.queue.issueWalkIn(
+      staff(),
+      openDay.id,
+      { patientId: nextPatient(), careMode: 'PHYSICAL' },
+      { idempotencyKey: newId() },
+    );
+  }
+
   d.report.created.push(
-    "today's queue: 3 walk-ins and 2 desk arrivals; one completed, one in consultation, one skipped, the rest waiting",
+    "today's queue: walk-ins and a desk arrival; one completed, one in consultation, one skipped, one " +
+      'awaiting confirmation on the slotted chamber, the rest waiting',
   );
 }
 
