@@ -37,7 +37,13 @@ import {
   serialTransition,
 } from '../domain/transitions';
 import type { QueueOutbox } from './events';
-import { type SerialActor, type SerialView, type SerialService, serialView } from './serial-service';
+import {
+  type SerialActor,
+  type SerialView,
+  type SerialService,
+  queueActorRef,
+  serialView,
+} from './serial-service';
 
 export interface QueueEntry {
   serialId: string;
@@ -450,10 +456,7 @@ export class QueueService {
   ): Promise<void> {
     const now = this.clock.now();
     const late = placement.late;
-    const ref: QueueActorRef =
-      actor.kind === 'staff'
-        ? { userId: actor.actor.userId, actorType: 'USER' }
-        : { userId: actor.context.userId, actorType: 'PATIENT_CONTEXT' };
+    const ref: QueueActorRef = queueActorRef(actor);
     await tx.checkIn.create({
       data: {
         id: newId(),
@@ -569,10 +572,7 @@ export class QueueService {
         fieldErrors: [{ path: 'serialId', code: 'not_remote', message: 'validation.not_remote' }],
       });
     }
-    const ref: QueueActorRef =
-      actor.kind === 'staff'
-        ? { userId: actor.actor.userId, actorType: 'USER' }
-        : { userId: actor.context.userId, actorType: 'PATIENT_CONTEXT' };
+    const ref: QueueActorRef = queueActorRef(actor);
     const now = this.clock.now();
     const row = await withTransaction(
       this.prisma,
@@ -627,6 +627,8 @@ export class QueueService {
           tenantId,
           actorUserId: ref.userId,
           actorType: ref.actorType,
+          actingAs: ref.actingAs ?? null,
+          onBehalfOfPatientId: ref.onBehalfOfPatientId ?? null,
           action: 'SERIAL_REMOTE_READY',
           resourceType: 'serial',
           resourceId: serialId,

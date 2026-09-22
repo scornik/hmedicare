@@ -13,6 +13,7 @@ import { dhakaDate } from '@hmedic/localization';
 import type { PatientContextActor } from '@hmedic/patient';
 import {
   type AppointmentService,
+  type CancelReason,
   type ChamberDayFacts,
   type IssueSerialForAppointmentInput,
   type IssuedSerial,
@@ -116,10 +117,15 @@ export function serialView(s: SerialRow): SerialView {
   };
 }
 
-function actorRef(actor: SerialActor): QueueActorRef {
+export function queueActorRef(actor: SerialActor): QueueActorRef {
   return actor.kind === 'staff'
     ? { userId: actor.actor.userId, actorType: 'USER' }
-    : { userId: actor.context.userId, actorType: 'PATIENT_CONTEXT' };
+    : {
+        userId: actor.context.userId,
+        actorType: 'PATIENT_CONTEXT',
+        actingAs: actor.context.actingAs === 'GUARDIAN' ? 'GUARDIAN' : 'SELF',
+        onBehalfOfPatientId: actor.context.patientId,
+      };
 }
 
 function correlation(actor: SerialActor): { requestId: string | null; correlationId: string } {
@@ -222,6 +228,8 @@ export class SerialService implements SerialPort<Tx> {
       tenantId: day.tenantId,
       actorUserId: input.actor.userId,
       actorType: input.actor.actorType,
+      actingAs: input.actor.actingAs ?? null,
+      onBehalfOfPatientId: input.actor.onBehalfOfPatientId ?? null,
       action: 'SERIAL_ISSUED',
       resourceType: 'serial',
       resourceId: id,
@@ -403,6 +411,8 @@ export class SerialService implements SerialPort<Tx> {
       tenantId: day.tenantId,
       actorUserId: o.actor.userId,
       actorType: o.actor.actorType,
+      actingAs: o.actor.actingAs ?? null,
+      onBehalfOfPatientId: o.actor.onBehalfOfPatientId ?? null,
       action: `SERIAL_${eventType}`,
       resourceType: 'serial',
       resourceId: s.id,
@@ -503,7 +513,7 @@ export class SerialService implements SerialPort<Tx> {
         o.guard?.(s, day);
         if (o.guardAsync) await o.guardAsync(tx, s, day);
         const updated = await this.applyTransition(tx, day, s, command, {
-          actor: actorRef(actor),
+          actor: queueActorRef(actor),
           reason: o.reason ?? null,
           correlationId,
           requestId,
@@ -547,6 +557,17 @@ export class SerialService implements SerialPort<Tx> {
           throw new AppError('INVALID_TRANSITION', undefined, {
             details: { from: s.status, command: 'cancel' },
           });
+      },
+      // The appointment follows its serial. Without this the pair diverges: the appointment stays BOOKED
+      // and holds its slot against a serial that no longer exists.
+      after: async (tx, day, before) => {
+        if (!before.appointmentId) return;
+        await this.appointments.cancelFollowingSerial(tx, day.tenantId, before.appointmentId, {
+          serialId: before.id,
+          reason: input.reason as CancelReason,
+          actor: queueActorRef(actor),
+          correlationId: correlation(actor).correlationId,
+        });
       },
     });
   }
@@ -599,7 +620,7 @@ export class SerialService implements SerialPort<Tx> {
         details: { reason: 'walk_in_not_reschedulable' },
       });
     const { requestId, correlationId } = correlation(actor);
-    const ref = actorRef(actor);
+    const ref = queueActorRef(actor);
     const result = await withTransaction(
       this.prisma,
       async (tx) => {

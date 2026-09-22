@@ -41,17 +41,27 @@ export const queueKey = (tenant: string | null, chamberDayId: string) =>
  */
 export function useQueueSnapshot(chamberDayId: string | null) {
   const tenant = getTenant();
+  const qc = useQueryClient();
+  const key = queueKey(tenant, chamberDayId ?? '');
   return useQuery({
-    queryKey: queueKey(tenant, chamberDayId ?? ''),
+    queryKey: key,
     enabled: chamberDayId !== null,
     refetchInterval: QUEUE_POLL_MS,
     refetchIntervalInBackground: false,
-    queryFn: async () =>
-      unwrap(
-        await api.GET('/api/v1/chamber-days/{id}/queue', {
-          params: { header: tenantHeader(), path: { id: chamberDayId! } },
-        }),
-      ),
+    queryFn: async () => {
+      // Conditional polling (ADR-013, audit C-09). A quiet chamber answers 304 with no body, so the
+      // five-second poll costs a round trip rather than a whole board; the cached snapshot is returned
+      // unchanged, which also leaves its object identity alone and re-renders nothing.
+      const cached = qc.getQueryData<QueueSnapshot>(key);
+      const result = await api.GET('/api/v1/chamber-days/{id}/queue', {
+        params: {
+          header: { ...tenantHeader(), ...(cached ? { 'If-None-Match': cached.etag } : {}) },
+          path: { id: chamberDayId! },
+        },
+      });
+      if (result.response.status === 304 && cached) return cached;
+      return unwrap(result);
+    },
   });
 }
 

@@ -11,7 +11,11 @@ import type {
   SchedulingActor,
   SerialPort,
 } from '../application/ports';
-import { type AppointmentStatus, appointmentTransition } from '../domain/appointment-transitions';
+import {
+  type AppointmentStatus,
+  type CancelReason,
+  appointmentTransition,
+} from '../domain/appointment-transitions';
 import {
   BOOKABLE_DAY_STATUSES,
   type BookingRefusal,
@@ -132,7 +136,12 @@ function resolveBooker(actor: BookingActor, patientId: string): Booker {
     tenantId: ctx.tenantId,
     userId: ctx.userId,
     onBehalf: ctx.actingAs === 'GUARDIAN' ? 'GUARDIAN' : 'SELF',
-    queueActor: { userId: ctx.userId, actorType: 'PATIENT_CONTEXT' },
+    queueActor: {
+      userId: ctx.userId,
+      actorType: 'PATIENT_CONTEXT',
+      actingAs: ctx.actingAs === 'GUARDIAN' ? 'GUARDIAN' : 'SELF',
+      onBehalfOfPatientId: ctx.patientId,
+    },
     staff: false,
     requestId: ctx.requestId ?? null,
     correlationId: ctx.correlationId ?? ctx.requestId ?? newId(),
@@ -617,6 +626,72 @@ export class AppointmentService {
       },
       TX_OPTS,
     );
+  }
+
+  /**
+   * Cancels an appointment because its serial was cancelled (queue context, inside its transaction): the
+   * status, the cancel reason and the slot all follow, so the pair never diverges and a cancelled serial
+   * does not leave its slot consumed.
+   *
+   * This is deliberately driven from `SerialService.cancel` rather than from the shared transition, because
+   * `cancelForAppointment` already drives the same pair from the appointment end and would otherwise cancel
+   * the appointment twice.
+   */
+  async cancelFollowingSerial(
+    tx: Tx,
+    tenantId: string,
+    appointmentId: string,
+    input: { serialId: string; reason: CancelReason; actor: QueueActorRef; correlationId: string },
+  ): Promise<void> {
+    const a = await tx.appointment.findFirst({ where: { tenantId, id: appointmentId } });
+    if (!a) return;
+    const to = appointmentTransition(a.status as AppointmentStatus, 'cancel');
+    if (!to) return;
+    const now = this.clock.now();
+    await tx.appointment.update({
+      where: { id: appointmentId },
+      data: {
+        status: to,
+        cancelReason: input.reason,
+        updatedAt: now,
+        updatedByUserId: input.actor.userId,
+        rowVersion: { increment: 1 },
+      },
+    });
+    await this.releaseSlot(tx, tenantId, a.slotId, now);
+    await this.audit.append(tx, {
+      tenantId,
+      actorUserId: input.actor.userId,
+      actorType: input.actor.actorType,
+      actingAs: input.actor.actingAs ?? null,
+      onBehalfOfPatientId: input.actor.onBehalfOfPatientId ?? null,
+      action: 'APPOINTMENT_CANCELLED',
+      resourceType: 'appointment',
+      resourceId: appointmentId,
+      outcome: 'SUCCESS',
+      correlationId: input.correlationId,
+      metadata: {
+        chamberDayId: a.chamberDayId,
+        serialId: input.serialId,
+        reason: input.reason,
+        followedSerial: true,
+      },
+    });
+    await this.events.emit(tx, {
+      tenantId,
+      name: 'AppointmentCancelled',
+      aggregateType: 'appointment',
+      aggregateId: appointmentId,
+      payload: {
+        appointmentId,
+        patientId: a.patientId,
+        chamberDayId: a.chamberDayId,
+        serialId: input.serialId,
+        reason: input.reason,
+      },
+      actorId: input.actor.userId,
+      correlationId: input.correlationId,
+    });
   }
 
   /**

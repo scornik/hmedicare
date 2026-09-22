@@ -20,6 +20,12 @@ export type QueueActorType = 'USER' | 'PATIENT_CONTEXT' | 'SYSTEM';
 export interface QueueActorRef {
   userId: string | null;
   actorType: QueueActorType;
+  /**
+   * On-behalf auditing (AUTHORIZATION-MATRIX §3): every action a patient context drives records who acted
+   * and for which patient, so `actor_type = PATIENT_CONTEXT` alone is never the whole answer.
+   */
+  actingAs?: 'SELF' | 'GUARDIAN' | null;
+  onBehalfOfPatientId?: string | null;
 }
 
 /** Chamber-day facts handed to the queue context inside a scheduling transaction. */

@@ -77,20 +77,20 @@ Legend:
 
 | SERIAL-002 QUEUE-001 QUEUE-002 queue-active lifecycle | PROVISIONAL (HOST-005) | `404928c`, `eb4056b`, `bbf1d58`, `2a4ee0f`, `15179a4` | integration 25 (lifecycle 14, engine 11) | check-in with late-arrival placement, mark-waiting, call/skip/recall, remote-ready, the interim consultation transitions (ADR-021), reorder, the ETagged snapshot and the patient view. Serial numbers allocate through `LAST_INSERT_ID(col)+1` after duplicates appeared under load; the lock ranking exempts rows the transaction already holds |
 | QUEUE-CONCURRENCY §4 suite | DONE | `913af0b` | integration 16 | the mandatory races and invariants, with real parallel connections. **10 runs on mariadb:10.6 and 10 on mariadb:11.8, zero failures, zero flakes** (§3a) |
-| QUEUE-003 contracts + routes | PROVISIONAL (HOST-001/003) | `3e971ce` | — | 18 operations (93 total): the snapshot, walk-ins, reorder and the twelve serial transitions. `GET /serials/{id}` is staff-only and `/me/serials/{id}` is the patient view — API §3.5 describes one route for both, and the deviation is recorded there |
+| QUEUE-003 contracts + routes | PROVISIONAL (HOST-001/003) | `3e971ce` | integration 12 (HTTP) | 18 operations (93 total): the snapshot, walk-ins, reorder and the twelve serial transitions. `GET /serials/{id}` is staff-only and `/me/serials/{id}` is the patient view — API §3.5 describes one route for both, and the deviation is recorded there. The HTTP suite found four gaps against the published contract, all fixed: the snapshot never answered `304` to an `If-None-Match` poll (ADR-013/C-09), `GET /me/serials` returned a bare array instead of `SerialListResponse`, cancelling a serial left its appointment BOOKED and holding its slot, and serial transitions driven by a patient context recorded neither `acting_as` nor `on_behalf_of_patient_id` (AUTHORIZATION-MATRIX §3) |
 | QUEUE-004 seed queue mix | DONE | `bc33b6e` | `seed:verify` assertions | walk-ins and desk arrivals carried through CHECKED_IN, WAITING, CALLED, SKIPPED, IN_CONSULTATION and COMPLETED; the verifier asserts no two serials on a day share a queue position |
-| QUEUE-005 web queue board | DONE | `3e971ce`, `bc33b6e` | e2e 3 | five-second polling with optimistic reconcile, drag reorder carrying `queueOrderVersion`, and the conflict path when another desk wins the race |
+| QUEUE-005 web queue board | DONE | `3e971ce`, `bc33b6e` | e2e 3 | five-second polling with optimistic reconcile, drag reorder carrying `queueOrderVersion`, and the conflict path when another desk wins the race. The poll is conditional on the snapshot's ETag, so a quiet chamber costs a 304 and no re-render |
 | QUEUE-006 mobile queue screens | DONE | `3e971ce` | Flutter analyze | doctor board (call / start / complete) and the patient's own serial with people-ahead, estimates and remote-ready; both read through the session cache |
 
-Still open in Stage 5: the queue HTTP integration suite, and HOST-005. Out of scope: encounters, clinical, prescriptions, catalog, labs, documents, timeline, follow-ups, communications delivery, telemedicine, payments, AI.
+Still open in Stage 5: HOST-005. Out of scope: encounters, clinical, prescriptions, catalog, labs, documents, timeline, follow-ups, communications delivery, telemedicine, payments, AI.
 
 ## 3. Test summary (latest full run)
 
 | Suite | Count | Notes |
 |---|---|---|
-| unit | 288 | Vitest `unit` project (packages, apps, tooling, scripts) |
+| unit | 301 | Vitest `unit` project (packages, apps, tooling, scripts) |
 | architecture | 37 | depcruise + ESLint rule fixtures |
-| integration + security | 189 on mariadb:10.6 · 189 on mariadb:11.4 | Testcontainers, `node scripts/test/run-integration.mjs` (seed test: 5-minute budget, the Stage 5 dataset takes ~85 s per run) |
+| integration + security | 266 on mariadb:10.6 · 266 on mariadb:11.8 | Testcontainers, `node scripts/test/run-integration.mjs` (seed test: 5-minute budget, the Stage 5 dataset takes ~85 s per run) |
 | e2e (Playwright) | 8 | built web app against a mocked API (smoke + patient flows) |
 | mobile (Flutter) | 15 | `dart run melos run test`; `flutter analyze --fatal-infos` clean |
 

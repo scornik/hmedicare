@@ -9,8 +9,9 @@ import {
   Post,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { createZodDto } from 'nestjs-zod';
 import { AppError, type ActorContext, type TenantContext } from '@hmedic/kernel';
 import {
@@ -23,7 +24,7 @@ import {
   RowVersionOnlyRequest,
   SkipSerialRequest,
 } from '@hmedic/contracts';
-import { Idempotent } from '@hmedic/http-kit';
+import { Idempotent, notModified } from '@hmedic/http-kit';
 import {
   CurrentActor,
   CurrentPatientContext,
@@ -70,13 +71,17 @@ function serialActor(
 export class QueueBoardController {
   constructor(@Inject(QUEUE_SERVICES) private readonly svc: QueueServices) {}
 
+  /** Polled every few seconds by the board, so an unchanged queue answers 304 with no body (ADR-013). */
   @Get(':id/queue')
   @RequirePermission('queue.read')
-  snapshot(
+  async snapshot(
     @CurrentTenant() tenant: TenantContext,
     @Param('id', new ParseUUIDPipe()) id: string,
-  ): Promise<QueueSnapshot> {
-    return this.svc.queue.snapshot(tenant.tenantId, id);
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<QueueSnapshot | undefined> {
+    const snapshot = await this.svc.queue.snapshot(tenant.tenantId, id);
+    return notModified(req, reply, snapshot.etag) ? undefined : snapshot;
   }
 
   @Post(':id/walk-ins')
@@ -368,12 +373,16 @@ export class MySerialsController {
 
   @Get()
   @PatientContextRoute({ mode: 'only', scope: 'VIEW_RECORDS' })
-  list(
+  async list(
     @Query() query: MySerialsQueryDto,
     @Req() req: FastifyRequest,
     @CurrentPatientContext() ctx?: ResolvedPatientContext,
-  ): Promise<PatientSerialView[]> {
+  ): Promise<{ items: PatientSerialView[] }> {
     if (!ctx) throw new AppError('PATIENT_CONTEXT_REQUIRED');
-    return this.svc.queue.listMine({ ...ctx, requestId: req.id, correlationId: req.id }, query.limit);
+    const items = await this.svc.queue.listMine(
+      { ...ctx, requestId: req.id, correlationId: req.id },
+      query.limit,
+    );
+    return { items };
   }
 }
