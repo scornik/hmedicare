@@ -52,11 +52,14 @@ try {
   const after = path.join(tmp, 'after.prisma');
   writeFileSync(after, schemaForSections(schema, [...(previous ?? []), number]));
   const prismaCli = createRequire(import.meta.url).resolve('prisma/build/index.js');
-  const args = [prismaCli, 'migrate', 'diff', '--script', '--to-schema', after];
+  // `--to-schema-datamodel`, not `--to-schema`: the latter is Prisma 7's spelling, and ADR-022 moved this
+  // project back to Prisma 6 for the deployment target. No migration had been created since that move, so
+  // the generator stayed broken until Stage 6 needed one.
+  const args = [prismaCli, 'migrate', 'diff', '--script', '--to-schema-datamodel', after];
   if (previous === null) args.push('--from-empty');
   else {
     writeFileSync(before, schemaForSections(schema, previous));
-    args.push('--from-schema', before);
+    args.push('--from-schema-datamodel', before);
   }
   const sql = execFileSync(process.execPath, args, {
     cwd: root,

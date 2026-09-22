@@ -37,6 +37,11 @@ export const LOCK_RANKING: Readonly<Record<string, number>> = {
   serials: 44,
   check_ins: 46,
   encounters: 50,
+  // The note follows its encounter, and a signed version follows the draft it was copied from. Signing
+  // locks the draft and then appends a version, so the version must outrank the draft (Stage 6 CLIN-003).
+  encounter_participants: 52,
+  encounter_notes: 54,
+  encounter_note_versions: 56,
   // 60 – auth and platform rows
   sessions: 60,
   refresh_tokens: 60,

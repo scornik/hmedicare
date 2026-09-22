@@ -31,6 +31,12 @@ const SELF_REFERENCING: Readonly<Record<string, string>> = {
 
 /** Tables owned by Stage 4/5 migrations, in delete-safe order (children first). */
 const TABLES = [
+  // 0007 encounters: children first. `serials.encounter_id` points here, so the serials delete below
+  // would fail on the foreign key if these were left behind.
+  'encounter_note_versions',
+  'encounter_notes',
+  'encounter_participants',
+  'encounters',
   // 0006 queue, 0005 scheduling (children of chamber_days/chambers/clinics/patients)
   'queue_events',
   'check_ins',
@@ -78,6 +84,9 @@ const TABLES = [
 export async function truncateAll(): Promise<void> {
   const conn = await rawConnection();
   try {
+    // `encounters.serial_id` and `serials.encounter_id` point at each other (0007), so neither table can
+    // be deleted first. Breaking the back-pointer turns the cycle into an ordinary parent-child delete.
+    await conn.query('UPDATE serials SET encounter_id = NULL WHERE encounter_id IS NOT NULL');
     for (const t of TABLES) {
       const column = SELF_REFERENCING[t];
       if (column) await conn.query(`DELETE FROM \`${t}\` WHERE \`${column}\` IS NOT NULL`);

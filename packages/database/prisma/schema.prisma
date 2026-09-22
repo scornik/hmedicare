@@ -1309,3 +1309,160 @@ model QueueEvent {
   @@index([tenantId, serialId, occurredAt], map: "ix_queue_events_serial")
   @@map("queue_events")
 }
+
+// ---------------------------------------------------------------- 0007 encounters
+// DATABASE-IMPLEMENTATION.md §3.7. The first tables that hold clinical records, so the invariants that
+// matter here are immutability and attribution rather than throughput.
+
+model Encounter {
+  /// @ascii
+  id                     String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId               String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  patientId              String    @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  doctorProfileId        String    @map("doctor_profile_id") @db.VarChar(36)
+  /// @ascii
+  chamberId              String    @map("chamber_id") @db.VarChar(36)
+  /// @ascii
+  serialId               String    @map("serial_id") @db.VarChar(36)
+  /// @ascii
+  appointmentId          String?   @map("appointment_id") @db.VarChar(36)
+  /// Set when the acting doctor was covering for the assigned one (AUTHORIZATION-MATRIX §3).
+  /// @ascii
+  coveringDoctorProfileId String?  @map("covering_doctor_profile_id") @db.VarChar(36)
+  /// @ascii
+  doctorCoverageId       String?   @map("doctor_coverage_id") @db.VarChar(36)
+  /// True for an encounter backfilled from an ADR-021 interim transition, which has no note.
+  legacyInterim          Boolean   @default(false) @map("legacy_interim")
+  /// @ascii
+  careMode               String    @map("care_mode") @db.VarChar(16)
+  /// @ascii
+  status                 String    @db.VarChar(20)
+  startedAt              DateTime  @map("started_at") @db.DateTime(3)
+  interruptedAt          DateTime? @map("interrupted_at") @db.DateTime(3)
+  /// @ascii
+  interruptionReason     String?   @map("interruption_reason") @db.VarChar(32)
+  resumedAt              DateTime? @map("resumed_at") @db.DateTime(3)
+  completedAt            DateTime? @map("completed_at") @db.DateTime(3)
+  /// @ascii
+  completionReason       String?   @map("completion_reason") @db.VarChar(32)
+  enteredInErrorReason   String?   @map("entered_in_error_reason") @db.VarChar(300)
+  createdAt              DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt              DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId        String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId        String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion             Int       @default(1) @map("row_version")
+
+  // Composite foreign keys reference `(tenant_id, id)`, which needs an index of its own — every
+  // tenant-scoped parent in this schema carries the same one.
+  @@unique([tenantId, id], map: "uq_encounters_tenant_id")
+  @@index([tenantId, patientId, startedAt], map: "ix_encounters_patient")
+  @@index([tenantId, doctorProfileId, status], map: "ix_encounters_doctor_status")
+  @@map("encounters")
+}
+
+model EncounterParticipant {
+  /// @ascii
+  id                   String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId             String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  encounterId          String    @map("encounter_id") @db.VarChar(36)
+  /// @ascii
+  participantType      String    @map("participant_type") @db.VarChar(16)
+  /// @ascii
+  participantUserId    String?   @map("participant_user_id") @db.VarChar(36)
+  /// @ascii
+  participantPatientId String?   @map("participant_patient_id") @db.VarChar(36)
+  /// @ascii
+  role                 String    @db.VarChar(16)
+  /// @ascii
+  authorizationStatus  String    @map("authorization_status") @db.VarChar(16)
+  joinedAt             DateTime? @map("joined_at") @db.DateTime(3)
+  leftAt               DateTime? @map("left_at") @db.DateTime(3)
+  createdAt            DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt            DateTime  @map("updated_at") @db.DateTime(3)
+  rowVersion           Int       @default(1) @map("row_version")
+
+  @@unique([tenantId, id], map: "uq_encounter_participants_tenant_id")
+  @@index([tenantId, encounterId], map: "ix_encounter_participants_encounter")
+  @@map("encounter_participants")
+}
+
+/// The single mutable draft per encounter (resolves C-10). Autosave writes here under `row_version`;
+/// signing copies it into an append-only version row.
+model EncounterNote {
+  /// @ascii
+  id                    String   @id @db.VarChar(36)
+  /// @ascii
+  tenantId              String   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  encounterId           String   @map("encounter_id") @db.VarChar(36)
+  /// @ascii
+  authorDoctorProfileId String   @map("author_doctor_profile_id") @db.VarChar(36)
+  /// @ascii
+  status                String   @db.VarChar(16)
+  chiefComplaint        String?  @map("chief_complaint") @db.LongText
+  history               String?  @db.LongText
+  examination           String?  @db.LongText
+  assessment            String?  @db.LongText
+  plan                  String?  @db.LongText
+  extensions            Json?
+  schemaVersion         Int      @default(1) @map("schema_version") @db.SmallInt
+  sectionSources        Json     @map("section_sources")
+  lastSignedRevision    Int?     @map("last_signed_revision")
+  createdAt             DateTime @map("created_at") @db.DateTime(3)
+  updatedAt             DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId       String?  @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId       String?  @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion            Int      @default(1) @map("row_version")
+
+  @@unique([tenantId, id], map: "uq_encounter_notes_tenant_id")
+  @@index([tenantId, encounterId], map: "ix_encounter_notes_encounter")
+  @@map("encounter_notes")
+}
+
+/// Append-only and hash-chained per encounter. Nothing updates or deletes a row here; a correction is a
+/// new revision that carries its reason.
+model EncounterNoteVersion {
+  /// @ascii
+  id                       String   @id @db.VarChar(36)
+  /// @ascii
+  tenantId                 String   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  encounterId              String   @map("encounter_id") @db.VarChar(36)
+  /// @ascii
+  noteId                   String   @map("note_id") @db.VarChar(36)
+  revision                 Int      @db.UnsignedInt
+  /// @ascii
+  signedByDoctorProfileId  String   @map("signed_by_doctor_profile_id") @db.VarChar(36)
+  signedAt                 DateTime @map("signed_at") @db.DateTime(3)
+  chiefComplaint           String?  @map("chief_complaint") @db.LongText
+  history                  String?  @db.LongText
+  examination              String?  @db.LongText
+  assessment               String?  @db.LongText
+  plan                     String?  @db.LongText
+  extensions               Json?
+  sectionSources           Json     @map("section_sources")
+  schemaVersion            Int      @default(1) @map("schema_version") @db.SmallInt
+  correctionReason         String?  @map("correction_reason") @db.VarChar(500)
+  supersedesRevision       Int?     @map("supersedes_revision")
+  /// @ascii
+  contentSha256            String   @map("content_sha256") @db.VarChar(64)
+  /// @ascii
+  prevRowHash              String?  @map("prev_row_hash") @db.VarChar(64)
+  /// @ascii
+  rowHash                  String   @map("row_hash") @db.VarChar(64)
+  createdAt                DateTime @map("created_at") @db.DateTime(3)
+
+  @@unique([tenantId, encounterId, revision], map: "uq_encounter_note_versions_revision")
+  @@unique([tenantId, id], map: "uq_encounter_note_versions_tenant_id")
+  @@index([tenantId, noteId], map: "ix_encounter_note_versions_note")
+  @@map("encounter_note_versions")
+}
