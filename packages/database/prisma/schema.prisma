@@ -9,14 +9,19 @@
 //   insert-only repositories; eslint hmedic/no-append-only-mutation forbids updates/deletes.
 // - Stage 4 scope: migrations 0001, 0002, 0003, 0014 (checkpoints only), 0015, 0016.
 
+// Prisma 6 with the Rust library engine, not 7's WebAssembly query compiler: the deployment target runs
+// Node under LiteSpeed's Passenger wrapper, which cannot instantiate the WASM module (ADR-022). Driver
+// adapters are kept, so `initSql` still applies the ADR-014 session settings to every connection.
 generator client {
-  provider     = "prisma-client"
-  output       = "../src/generated/prisma"
-  moduleFormat = "cjs"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  // `native` builds for the developer machine and CI; the plan is CloudLinux EL8 with OpenSSL 1.1.1k.
+  binaryTargets   = ["native", "rhel-openssl-1.1.x"]
 }
 
 datasource db {
   provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 // ---------------------------------------------------------------- 0001 platform_jobs

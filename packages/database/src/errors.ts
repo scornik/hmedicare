@@ -41,6 +41,23 @@ function findErrno(value: unknown, depth = 0): number | null {
   return null;
 }
 
+/**
+ * Prisma reports the offending index in `meta.target`: a string for a named constraint, or the field list
+ * when it can only name columns. Reading it avoids depending on message wording, which differs between
+ * the driver's raw text and Prisma's own rendering.
+ */
+function metaTarget(error: unknown): string | null {
+  if (error === null || typeof error !== 'object') return null;
+  const meta = (error as { meta?: unknown }).meta;
+  if (meta === null || typeof meta !== 'object') return null;
+  const target = (meta as { target?: unknown }).target;
+  if (typeof target === 'string' && target.length > 0) return target;
+  if (Array.isArray(target) && target.every((t) => typeof t === 'string') && target.length > 0) {
+    return target.join(',');
+  }
+  return null;
+}
+
 function findMessage(value: unknown, depth = 0): string {
   if (value === null || typeof value !== 'object' || depth > 6) return '';
   const o = value as Record<string, unknown>;
@@ -65,9 +82,12 @@ export function dbErrorInfo(error: unknown): DbErrorInfo {
     else if (/CONSTRAINT `[^`]+` failed/i.test(message)) errno = ER_CONSTRAINT_FAILED;
     else if (/foreign key constraint fails/i.test(message)) errno = ER_NO_REFERENCED_ROW;
   }
+  // `meta.target` is the structured answer and is preferred; the message patterns cover the driver's raw
+  // text ("for key 'uq_x'"), Prisma's own phrasing ("on the constraint: `uq_x`") and CHECK failures.
   const constraint =
+    metaTarget(error) ??
     message.match(/for key '(?:[a-z0-9_]+\.)?([a-z0-9_]+)'/i)?.[1] ??
-    message.match(/CONSTRAINT `([a-z0-9_]+)`/i)?.[1] ??
+    message.match(/constraint:?\s*`([a-z0-9_]+)`/i)?.[1] ??
     null;
   let kind: DbErrorKind = 'OTHER';
   if (errno === ER_DUP_ENTRY) kind = 'UNIQUE_VIOLATION';
