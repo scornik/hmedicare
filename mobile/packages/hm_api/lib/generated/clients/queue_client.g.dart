@@ -23,10 +23,15 @@ class _QueueClient implements QueueClient {
   Future<GetApiV1ChamberDaysIdQueueResponse> getQueue({
     required String id,
     required String xTenantId,
+    String? ifNoneMatch,
   }) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{};
-    final _headers = <String, dynamic>{r'X-Tenant-ID': xTenantId};
+    queryParameters.removeWhere((k, v) => v == null);
+    final _headers = <String, dynamic>{
+      r'X-Tenant-ID': xTenantId,
+      r'If-None-Match': ifNoneMatch,
+    };
     _headers.removeWhere((k, v) => v == null);
     const Map<String, dynamic>? _data = null;
     final _options = _setStreamType<GetApiV1ChamberDaysIdQueueResponse>(

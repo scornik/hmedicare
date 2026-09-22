@@ -4,8 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hm_api/hm_api.dart'
-    show CallSerialRequest, QueueEntry, QueueSnapshot, RowVersionOnlyRequest;
+import 'package:hm_api/hm_api.dart' show CallSerialRequest, QueueEntry, QueueSnapshot, RowVersionOnlyRequest;
 import 'package:hm_auth/hm_auth.dart';
 import 'package:hm_core/hm_core.dart';
 import 'package:hm_localization/hm_localization.dart';
@@ -21,20 +20,22 @@ String _digits(String v, String locale) => locale == 'bn' ? toBanglaDigits(v) : 
 
 /// `GET /chamber-days/{id}/queue`. Read through the session cache so a dropped connection in the chamber
 /// shows the last board with a staleness indicator rather than an empty screen.
-final queueSnapshotProvider = FutureProvider.autoDispose
-    .family<CachedRead<QueueSnapshot>, String>((ref, chamberDayId) async {
-      final tenantId = ref.watch(activeTenantProvider);
-      if (tenantId == null) throw StateError('no active tenant');
-      final api = ref.read(apiClientProvider);
-      return ref.read(readCacheProvider).readThrough<QueueSnapshot>('queue:$tenantId:$chamberDayId', () async {
-        try {
-          final r = await api.queue.getQueue(id: chamberDayId, xTenantId: tenantId);
-          return r.data;
-        } on DioException catch (e) {
-          throw ApiProblem.fromDio(e);
-        }
-      });
-    });
+final queueSnapshotProvider = FutureProvider.autoDispose.family<CachedRead<QueueSnapshot>, String>((
+  ref,
+  chamberDayId,
+) async {
+  final tenantId = ref.watch(activeTenantProvider);
+  if (tenantId == null) throw StateError('no active tenant');
+  final api = ref.read(apiClientProvider);
+  return ref.read(readCacheProvider).readThrough<QueueSnapshot>('queue:$tenantId:$chamberDayId', () async {
+    try {
+      final r = await api.queue.getQueue(id: chamberDayId, xTenantId: tenantId);
+      return r.data;
+    } on DioException catch (e) {
+      throw ApiProblem.fromDio(e);
+    }
+  });
+});
 
 /// The doctor's live queue for one chamber day: call the next patient, start and complete the consultation
 /// (ADR-021 interim transitions, retired in Stage 6). Every command carries the row's `rowVersion`, so a
@@ -68,9 +69,7 @@ class _DoctorQueueScreenState extends ConsumerState<DoctorQueueScreen> {
 
   /// Runs one transition and refreshes. Polling pauses while a command is in flight so the row the doctor
   /// is acting on does not shift under the tap.
-  Future<void> _command(
-    Future<void> Function(String tenantId, String key) send,
-  ) async {
+  Future<void> _command(Future<void> Function(String tenantId, String key) send) async {
     final tenantId = ref.read(activeTenantProvider);
     if (tenantId == null || _busy) return;
     setState(() => _busy = true);
@@ -146,7 +145,9 @@ class _DoctorQueueScreenState extends ConsumerState<DoctorQueueScreen> {
                 ),
               ),
               if (board.entries.isEmpty)
-                Expanded(child: Center(child: Text(s.t('noQueue'), key: const Key('noQueue'))))
+                Expanded(
+                  child: Center(child: Text(s.t('noQueue'), key: const Key('noQueue'))),
+                )
               else
                 Expanded(
                   child: ListView(
