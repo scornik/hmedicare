@@ -239,6 +239,9 @@ async function book(s: Setup, headers: Record<string, string>, patientId: string
   return { appointment: r.body.data, serial: serial.body.data };
 }
 
+/** Node types every header as `string | string[] | undefined`; an ETag is always single-valued. */
+const etagOf = (res: { headers: Record<string, unknown> }) => String(res.headers.etag);
+
 const command = (headers: Record<string, string>, serialId: string, action: string) =>
   request(server).post(`/api/v1/serials/${serialId}/${action}`).set(headers).set('idempotency-key', idem());
 
@@ -266,7 +269,7 @@ describe('the queue board over HTTP', () => {
       queuePosition: 1,
       source: 'WALK_IN',
     });
-    const etag = first.headers.etag;
+    const etag = etagOf(first);
     // The board carries its own tag so a client that only reads the body can still poll conditionally.
     expect(etag).toBe(first.body.data.etag);
     expect(etag).toMatch(/^"[0-9a-f]+"$/);
@@ -275,7 +278,7 @@ describe('the queue board over HTTP', () => {
     const unchanged = await request(server).get(url).set(s.admin.headers).set('if-none-match', etag);
     expect(unchanged.status).toBe(304);
     expect(unchanged.text).toBeFalsy();
-    expect(unchanged.headers.etag).toBe(etag);
+    expect(etagOf(unchanged)).toBe(etag);
 
     const two = await patient(reception.headers, 'Board Two');
     await walkIn(reception.headers, day.id, two.id);
@@ -284,7 +287,7 @@ describe('the queue board over HTTP', () => {
       .set(s.admin.headers)
       .set('if-none-match', etag)
       .expect(200);
-    expect(changed.headers.etag).not.toBe(etag);
+    expect(etagOf(changed)).not.toBe(etag);
     expect(changed.body.data.counts.totalSerials).toBe(2);
   });
 
