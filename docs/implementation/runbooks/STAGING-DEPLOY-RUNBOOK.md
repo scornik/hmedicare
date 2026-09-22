@@ -28,13 +28,17 @@
 ## 2. Each staging deploy
 
 1. Confirm CI is green on the `main` commit you want to promote.
-2. **Migrations.** The api build runs `pnpm db:migrate` (guarded, `GET_LOCK`). On staging, a pre-migration dump is confirmed manually until OPS-002 (deviation D-01):
-   - hPanel → *Databases → phpMyAdmin / Backups*: export `…_hmedic_staging`;
-   - set `PRE_MIGRATION_DUMP_CONFIRMED=<APP_VERSION>` on the api app for this deploy only.
+2. **Migrations.** The api build runs `pnpm db:migrate` (guarded, `GET_LOCK`). The pre-migration dump is taken
+   automatically and verified before anything is applied (DEPLOY-002); there is nothing to set by hand. It lands in
+   `PRE_MIGRATION_DUMP_DIR` (default `~/hmedic-db-dumps`), which must be outside the application directory because
+   the deploy replaces that directory. A `.json` manifest beside each dump records its checksum, table and row
+   counts, and the migrations that were pending.
 3. Fast-forward `staging` to the green commit. Use the **`promote-staging`** workflow (*Actions → promote-staging → Run*, optional `sha`); it needs the repository variables `STAGING_API_URL`, `STAGING_WORKER_URL` and `STAGING_WEB_URL` and a `staging` environment. It refuses non-green or non-`main` SHAs and never force-pushes. It then waits until `/health/live` reports `version == SHA`. The build writes `dist/build-info.json` from `git rev-parse HEAD`. If the Hostinger build has no git metadata, set `APP_VERSION=<sha>` in hPanel for that deploy. Finally it runs the Stage 4 smoke checks and opens an issue on failure.
 4. Watch the build logs:
+   - `PRE_MIGRATION_DUMP_TAKEN` (with `path`, `sha256`, `tables`, `rows`) or `PRE_MIGRATION_DUMP_SKIPPED` with
+     `no_tables` on a first deploy, where the database is empty and there is nothing to lose;
    - `MIGRATION_SKIPPED` / `MIGRATION_APPLIED` JSON lines;
-   - exit code 3 (`MIGRATION_LOCKED`) or 4 (`PRE_MIGRATION_DUMP_REQUIRED`) means the deploy stopped safely and the previous version keeps serving.
+   - exit code 3 (`MIGRATION_LOCKED`) or 4 (`PRE_MIGRATION_DUMP_FAILED`) means the deploy stopped safely and the previous version keeps serving.
 5. **Verify:**
    ```bash
    curl -s https://api-staging.<domain>/health/ready
@@ -61,7 +65,6 @@ It prints a `TENANT_BOOTSTRAPPED` line with the ids, refuses to run when a tenan
 safe to repeat: the same `--slug` reports `TENANT_ALREADY_BOOTSTRAPPED` and changes nothing. Further tenants
 are created through `POST /tenants` as a platform operator, not with this command.
 7. **Chain check:** `DATABASE_URL=… pnpm verify-audit-chain --full` must print `"broken":0`.
-8. Remove `PRE_MIGRATION_DUMP_CONFIRMED` from the api app after the deploy.
 
 ## 3. Rollback
 

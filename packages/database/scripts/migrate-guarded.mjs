@@ -4,12 +4,14 @@
 //
 // 1. Take GET_LOCK('hmedic:migrate:<APP_ENV>') on a dedicated connection (exit 3 MIGRATION_LOCKED on timeout).
 // 2. Compute pending migrations; nothing pending → exit 0.
-// 3. Staging/production: a pre-migration dump must be confirmed. Until OPS-002 ships EncryptedDatabaseDump,
-//    the operator takes the dump manually and sets PRE_MIGRATION_DUMP_CONFIRMED=<APP_VERSION> (Stage 4
-//    deviation, IMPLEMENTATION-STATUS.md). `-- contract` migrations also need ALLOW_CONTRACT_MIGRATION=<APP_VERSION>.
+// 3. Staging/production: take a pre-migration dump automatically and verify it, refusing to migrate if it
+//    fails (DEPLOY-002). `-- contract` migrations still need ALLOW_CONTRACT_MIGRATION=<APP_VERSION>, because
+//    dropping a column is a decision, not an accident a backup should make painless.
 // 4. `prisma migrate deploy`, verify nothing is pending, release the lock, print a JSON summary line.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +22,7 @@ const migrationsDir = path.join(root, 'prisma/migrations');
 
 function fail(code, message) {
   console.error(JSON.stringify({ event: 'MIGRATION_FAILED', code, message }));
-  process.exit(code === 'MIGRATION_LOCKED' ? 3 : code === 'PRE_MIGRATION_DUMP_REQUIRED' ? 4 : 1);
+  process.exit(code === 'MIGRATION_LOCKED' ? 3 : code === 'PRE_MIGRATION_DUMP_FAILED' ? 4 : 1);
 }
 
 function parse(url) {
@@ -53,6 +55,65 @@ function migrationDirs() {
     .sort();
 }
 
+/**
+ * Where the dump goes. It must survive the deploy that triggers it: on this host the application lives
+ * under `hbuilds/current/`, a symlink into a release directory that is replaced wholesale, so a dump
+ * written beside the code is gone the moment it might be needed. Refuse such a path rather than write a
+ * backup into a directory that is about to be deleted.
+ */
+function resolveDumpDir() {
+  const configured = process.env.PRE_MIGRATION_DUMP_DIR;
+  const dir = path.resolve(configured ?? path.join(os.homedir(), 'hmedic-db-dumps'));
+  const appRoot = path.resolve(root, '../..');
+  const rel = path.relative(appRoot, dir);
+  if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
+    throw new Error(
+      `PRE_MIGRATION_DUMP_DIR (${dir}) is inside the application directory (${appRoot}), which the next ` +
+        'deploy replaces. Point it somewhere that outlives a release.',
+    );
+  }
+  return dir;
+}
+
+/**
+ * Takes the dump and checks it before letting the migration proceed: a file with bytes in it, a table
+ * count matching the live database, and a checksum recorded for the manifest. A dump that cannot be
+ * verified is treated as no dump at all.
+ */
+async function takeVerifiedDump(conn, { appEnv, version, pending }) {
+  const outDir = resolveDumpDir();
+  const { countTables, dumpDatabase } = await import('../dist/index.js');
+  // Over the connection this script already holds. Building a Prisma client here opened a second pool and
+  // the query-engine process with it, which on a constrained host exhausted connections and timed out
+  // after the migration had already run — a backup step must not be able to break the deploy it protects.
+  const reader = { rows: (sql, params = []) => conn.query(sql, params) };
+  {
+    const live = await countTables(reader);
+    // A first deploy migrates an empty database. There is nothing to lose and therefore nothing to back
+    // up, and refusing on that would block every new installation. Say so in the log rather than
+    // inventing an empty artefact that would later look like a real backup.
+    if (live === 0) return { skipped: 'no_tables', tables: 0 };
+    const result = await dumpDatabase(reader, { outDir, label: `${appEnv}-${version}` });
+    if (result.bytes === 0) throw new Error(`${result.path} is empty`);
+    if (result.tableCount !== live) {
+      throw new Error(`dump covered ${result.tableCount} tables but the database has ${live}`);
+    }
+    await writeFile(
+      `${result.path}.json`,
+      `${JSON.stringify({ ...result, appEnv, version, pendingMigrations: pending }, null, 2)}
+`,
+      { mode: 0o600 },
+    );
+    return {
+      path: result.path,
+      bytes: result.bytes,
+      sha256: result.sha256,
+      tables: result.tableCount,
+      rows: result.rowCount,
+    };
+  }
+}
+
 async function main() {
   if (process.env.HOSTINGER_BUILD_SKIP_MIGRATIONS === 'true') {
     console.log(JSON.stringify({ event: 'MIGRATION_SKIPPED', reason: 'HOSTINGER_BUILD_SKIP_MIGRATIONS' }));
@@ -77,11 +138,17 @@ async function main() {
       return;
     }
     const deployed = appEnv === 'staging' || appEnv === 'production';
-    if (deployed && process.env.PRE_MIGRATION_DUMP_CONFIRMED !== version) {
-      fail(
-        'PRE_MIGRATION_DUMP_REQUIRED',
-        `pending: ${pending.join(', ')}. Take a pre-migration dump (runbook STAGING-DEPLOY-RUNBOOK.md) and set PRE_MIGRATION_DUMP_CONFIRMED=${version}`,
-      );
+    if (deployed) {
+      // DEPLOY-002. The dump used to be a manual step (D-01) and it cost an outage: the Stage 5 merge
+      // added three migrations, this guard refused, and Passenger restart-looped on a 503 until someone
+      // set a variable by hand. Now the deploy takes it, verifies it, and refuses to migrate if it fails.
+      try {
+        const dump = await takeVerifiedDump(conn, { appEnv, version, pending });
+        const event = dump.skipped ? 'PRE_MIGRATION_DUMP_SKIPPED' : 'PRE_MIGRATION_DUMP_TAKEN';
+        console.log(JSON.stringify({ event, ...dump }));
+      } catch (error) {
+        fail('PRE_MIGRATION_DUMP_FAILED', error instanceof Error ? error.message : String(error));
+      }
     }
     const contract = pending.filter((m) =>
       readFileSync(path.join(migrationsDir, m, 'migration.sql'), 'utf8').includes('-- contract'),

@@ -222,7 +222,7 @@ patient who cannot be reached is not a patient who can be treated.
 
 | ID | Deviation | Reason | Follow-up |
 |---|---|---|---|
-| D-01 | Pre-migration dump is a manual gate (`PRE_MIGRATION_DUMP_CONFIRMED=<APP_VERSION>`) | OPS-002 is outside Stage 4 | automate in OPS-002 |
+| D-01 | ~~Pre-migration dump is a manual gate (`PRE_MIGRATION_DUMP_CONFIRMED=<APP_VERSION>`)~~ **RESOLVED** in Stage 6 (DEPLOY-002): the deploy takes the dump, verifies it and refuses to migrate if it fails | it cost a production outage — the Stage 5 merge added three migrations, the guard refused, and Passenger restart-looped on a 503 until someone set a variable by hand | — |
 | D-02 | `MIGRATION_APPLIED` is written by api/worker on startup, not by migrate-guarded | avoids a `database → audit` cycle | — |
 | D-03 | Migration 0014 creates only `integrity_chain_checkpoints` | `backup_runs`/`restore_drills` belong to OPS | later OPS migration |
 | D-04 | `@testcontainers/mariadb` instead of `@testcontainers/mysql` | native MariaDB module | — |
