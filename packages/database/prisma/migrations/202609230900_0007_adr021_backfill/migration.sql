@@ -1,5 +1,7 @@
 -- hmedic:normalized v1
--- Migration 202609230900_0008_adr021_backfill. Hand-written data migration (no schema change).
+-- Migration 202609230900_0007_adr021_backfill. Hand-written data migration (no schema change).
+-- It carries section 0007, the section whose tables it fills: a data migration has no section of its own,
+-- and claiming the next free number would make `migration-new.mjs 0008` refuse to create the real 0008.
 -- Never edit after it has been applied anywhere (scripts/ci/check-applied-migrations.mjs).
 --
 -- Stage 6 retires ADR-021. Stage 5 moved serials through IN_CONSULTATION and COMPLETED with no encounter

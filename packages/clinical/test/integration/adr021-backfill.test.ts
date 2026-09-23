@@ -18,7 +18,7 @@ import { openTestDatabase, rawConnection, truncateAll } from '../../../../tests/
 const db = openTestDatabase();
 const MIGRATION = path.resolve(
   __dirname,
-  '../../../database/prisma/migrations/202609230900_0008_adr021_backfill/migration.sql',
+  '../../../database/prisma/migrations/202609230900_0007_adr021_backfill/migration.sql',
 );
 
 /** The migration's statements, as the deploy would run them. */

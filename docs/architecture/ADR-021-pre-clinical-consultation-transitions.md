@@ -41,7 +41,7 @@ Retired as planned by CLIN-002, with two deliberate departures from the exit pla
    `ENDPOINT_RETIRED` carries `details.replacement` and `details.adr`, so an old client is pointed at
    `POST /api/v1/serials/{id}/encounter` rather than left guessing. Both routes stay registered, `deprecated: true`,
    for one release, and are deleted after it.
-2. **Decision 4 was reversed: Stage 5 serials *were* backfilled** (migration `0008_adr021_backfill`).
+2. **Decision 4 was reversed: Stage 5 serials *were* backfilled** (migration `0007_adr021_backfill`).
    This ADR said Stage 6 would "never backfill fake encounters" and would leave `encounter_id` NULL
    forever. The Stage 6 model makes that untenable: `IN_CONSULTATION` and `COMPLETED` serials without an
    encounter contradict the clinical invariants, and every query, board and report would have to carry a
