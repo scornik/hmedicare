@@ -115,6 +115,9 @@ Still open in Stage 5: HOST-005. Out of scope: encounters, clinical, prescriptio
 | CLIN-003/004 routes + clinical access policy | PROVISIONAL (HOST-001/003) | `5a9f00c` | integration 11 (HTTP) | 11 operations (110 total). Two authorization footings: assignment for doctors, chamber scope for nurses. Test 9 found two holes before release — a receptionist reading notes via `encounter.read`, and an unassigned doctor passing the scope fallback (C-54) |
 | Clinical metrics (§5) | DONE | `5a9f00c` | asserted by the redaction suite | encounter start latency, autosave and conflict counts, sign latency, active encounters, covering-doctor usage, PHI read volume. No label carries a patient, doctor or encounter id |
 | Clinical seed (§7) | DONE | `5a9f00c` | `db:seed:verify` assertions | two completed consultations (one amended, with a voided and replaced diagnosis), one running with an unsigned draft, one interrupted, two legacy ADR-021 encounters. Verified idempotent against a live MariaDB |
+| WEB-002 consultation workspace | DONE | `83c1e62` | e2e 8 | one screen: patient header, note editor with autosave and a visible save state, diagnoses, the patient's earlier consultations, sign and complete. A stale save stops and shows both versions rather than picking one. No clinical text in `localStorage` or `sessionStorage`, asserted by reading every key back after a save. Later-stage panels labelled and empty |
+| MOB-004 doctor encounter screen | DONE | `83c1e62` | `flutter analyze` + existing suite | note editing, diagnoses with void-and-reason, sign, amend, complete. Same conflict rule as the web; nothing clinical written to device storage. Later-stage panels omitted rather than shown empty |
+| `GET /patients/{id}/encounters` | DONE | `83c1e62` | integration 2 | 111 operations. A new route, not in the documented API (C-55): the spec reaches patient history through the Stage 11 timeline. Authorized at patient level so a doctor sees a colleague's earlier consultation; carries no note text |
 ## 3. Test summary (latest full run)
 
 | Suite | Count | Notes |
@@ -219,7 +222,7 @@ Conditions outstanding before it can be turned on:
 | G-2 | HOST-005 recorded | `JOB_RUNNER_MODE` for a deployed worker is still a guess between `worker` and `cron`; reminders and no-show processing depend on it |
 | G-3 | HOST-006…013 recorded | Backup, restore, storage and egress behaviour on the plan are unverified |
 | G-4 | A restore drill completed | A backup nobody has restored is not a backup. DEPLOY-002 automates the dump; the drill proves it can be read back |
-| G-5 | The single-app profile deployed and observed | DEPLOY-001 changes the process model; real data should not be the first traffic through it |
+| G-5 | The single-app profile deployed and observed | DEPLOY-001 changes the process model; real data should not be the first traffic through it. **Deployed 2026-09-23** and serving the client at `/` with the API under `/api/v1`; the observation window is what remains |
 
 The config refuses the flag outside production, and refuses it while `SMS_PROVIDER=mock`, because a
 patient who cannot be reached is not a patient who can be treated.
@@ -235,7 +238,7 @@ patient who cannot be reached is not a patient who can be treated.
 | H-5 | SMS-008: exactly one live SMS by the account owner (ZAMANIT-VERIFICATION §4) | charge/format evidence | SMS-008 |
 | H-6 | Staging setup: DB, three Hostinger apps, env vars, repository variables `STAGING_API_URL`/`STAGING_WORKER_URL`/`STAGING_WEB_URL`, `staging` environment | first staging deploy via `promote-staging` | after H-1, H-2 |
 | H-7 | Native-speaker review of the Bangla UI strings (web `messages.ts`, mobile `strings.dart`) | copy quality | — |
-| H-8 | Set `WEB_DIST_DIR` on the production app to the **absolute** release path (`/home/<user>/hbuilds/current/apps/web/dist`), not `apps/web/dist` | Passenger runs with the home directory as cwd, so a relative path finds nothing. DEPLOY-001 is built but not serving the web bundle until this is set | DEPLOY-001 deployment |
+| H-8 | ~~Set `WEB_DIST_DIR` on the production app to the **absolute** release path~~ **DONE** (2026-09-23): set to the absolute release path (`/home/<user>/hbuilds/current/apps/web/dist`), not `apps/web/dist` | Passenger runs with the home directory as cwd, so a relative path finds nothing. DEPLOY-001 is built but not serving the web bundle until this is set | DEPLOY-001 deployment |
 | H-9 | Delete the two retired ADR-021 routes one release after Stage 6 ships | they answer `410 ENDPOINT_RETIRED` today so Stage 5 clients get a clear answer; the ADR says they go after one release | — |
 
 ## 6. Deviations

@@ -138,6 +138,7 @@ Legend: **Tx** = transaction (RC = READ COMMITTED with locks; RR = default). **I
 |---|---|---|---|---|
 | `POST /serials/{id}/encounter` | StartEncounter | `encounter.start` + doctor of chamber | RC day+serial | ✓ |
 | `GET /encounters/{id}` | GetEncounter | `encounter.read` + asg/scope | – | – |
+| **`GET /patients/{id}/encounters`** | ListPatientEncounters (Stage 6, C-55) | `encounter.read` + assignment to the **patient** | – | – |
 | `POST /encounters/{id}/participants` | AddParticipant | `encounter.manage` | RR | ✓ |
 | **`POST /encounters/{id}/interrupt`** | InterruptEncounter | `encounter.manage` + asg | RC | ✓ |
 | `POST /encounters/{id}/resume` | ResumeEncounter | `encounter.manage` + asg | RC | ✓ |
