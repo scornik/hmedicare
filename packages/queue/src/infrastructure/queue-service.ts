@@ -60,6 +60,8 @@ export interface QueueEntry {
   recallDeadlineAt: string | null;
   remoteReady: boolean;
   duplicateOverride: boolean;
+  /** The consultation this serial is in, once one has been started (CLIN-002). */
+  encounterId: string | null;
   rowVersion: number;
 }
 
@@ -902,6 +904,7 @@ export class QueueService {
       recallDeadlineAt: s.recallDeadlineAt?.toISOString() ?? null,
       remoteReady: ready.has(s.id),
       duplicateOverride: s.duplicateOverride,
+      encounterId: s.encounterId,
       rowVersion: s.rowVersion,
     }));
     const count = (p: (s: SerialStatus) => boolean) => entries.filter((e) => p(e.status)).length;

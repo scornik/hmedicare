@@ -62,6 +62,8 @@ enum ErrorCode {
   prescriptionNotEditable('PRESCRIPTION_NOT_EDITABLE'),
   @JsonValue('UPLOAD_EXPIRED')
   uploadExpired('UPLOAD_EXPIRED'),
+  @JsonValue('ENDPOINT_RETIRED')
+  endpointRetired('ENDPOINT_RETIRED'),
   @JsonValue('CHECKSUM_MISMATCH')
   checksumMismatch('CHECKSUM_MISMATCH'),
   @JsonValue('CONTENT_TYPE_NOT_ALLOWED')

@@ -14,7 +14,6 @@ import '../models/get_api_v1_serials_id_response.dart';
 import '../models/post_api_v1_serials_id_call_response.dart';
 import '../models/post_api_v1_serials_id_cancel_response.dart';
 import '../models/post_api_v1_serials_id_check_in_response.dart';
-import '../models/post_api_v1_serials_id_complete_response.dart';
 import '../models/post_api_v1_serials_id_confirm_response.dart';
 import '../models/post_api_v1_serials_id_mark_waiting_response.dart';
 import '../models/post_api_v1_serials_id_no_show_response.dart';
@@ -22,7 +21,6 @@ import '../models/post_api_v1_serials_id_recall_response.dart';
 import '../models/post_api_v1_serials_id_remote_ready_response.dart';
 import '../models/post_api_v1_serials_id_reschedule_response.dart';
 import '../models/post_api_v1_serials_id_skip_response.dart';
-import '../models/post_api_v1_serials_id_start_consultation_response.dart';
 import '../models/reschedule_serial_request.dart';
 import '../models/row_version_only_request.dart';
 import '../models/skip_serial_request.dart';
@@ -79,8 +77,9 @@ abstract class SerialsClient {
     @Body() CheckInRequest? body,
   });
 
+  @Deprecated('This method is marked as deprecated')
   @POST('/api/v1/serials/{id}/complete')
-  Future<PostApiV1SerialsIdCompleteResponse> completeConsultation({
+  Future<void> completeConsultation({
     @Path('id') required String id,
     @Header('X-Tenant-ID') required String xTenantId,
     @Header('Idempotency-Key') required String idempotencyKey,
@@ -146,8 +145,9 @@ abstract class SerialsClient {
     @Body() SkipSerialRequest? body,
   });
 
+  @Deprecated('This method is marked as deprecated')
   @POST('/api/v1/serials/{id}/start-consultation')
-  Future<PostApiV1SerialsIdStartConsultationResponse> startConsultation({
+  Future<void> startConsultation({
     @Path('id') required String id,
     @Header('X-Tenant-ID') required String xTenantId,
     @Header('Idempotency-Key') required String idempotencyKey,

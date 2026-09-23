@@ -75,7 +75,7 @@ export function useChamberDays(input: { chamberId?: string; from: string; to: st
   });
 }
 
-type SerialCommand = 'check-in' | 'mark-waiting' | 'call' | 'recall' | 'start-consultation' | 'complete';
+type SerialCommand = 'check-in' | 'mark-waiting' | 'call' | 'recall';
 
 /**
  * One serial command. React Query's cache is updated optimistically so the row reacts to the click at once,
@@ -108,10 +108,6 @@ export function useSerialCommand(chamberDayId: string) {
           return unwrap(await api.POST('/api/v1/serials/{id}/call', { params, body }));
         case 'recall':
           return unwrap(await api.POST('/api/v1/serials/{id}/recall', { params, body }));
-        case 'start-consultation':
-          return unwrap(await api.POST('/api/v1/serials/{id}/start-consultation', { params, body }));
-        case 'complete':
-          return unwrap(await api.POST('/api/v1/serials/{id}/complete', { params, body }));
       }
     },
     onMutate: async (input) => {
@@ -132,6 +128,50 @@ export function useSerialCommand(chamberDayId: string) {
     },
     onError: (_e, _input, ctx) => {
       if (ctx?.previous) qc.setQueryData(key, ctx.previous);
+    },
+    onSettled: () => void qc.invalidateQueries({ queryKey: key }),
+  });
+}
+
+/**
+ * Starting and finishing a consultation from the board. These are encounter commands, not serial ones: the
+ * ADR-021 interim serial transitions were retired in Stage 6, and the serial now follows its encounter
+ * rather than the other way round.
+ *
+ * Completing reads the encounter first, because the row version that guards it belongs to the encounter and
+ * the board only carries the serial's. The consultation workspace holds the encounter open and will not
+ * need that hop; the board keeps it so a doctor who never leaves the queue screen can still finish.
+ */
+export function useConsultationCommand(chamberDayId: string) {
+  const qc = useQueryClient();
+  const tenant = getTenant();
+  const key = queueKey(tenant, chamberDayId);
+  return useMutation({
+    mutationFn: async (
+      input:
+        | { command: 'start'; serialId: string; expectedRowVersion: number }
+        | { command: 'complete'; encounterId: string },
+    ) => {
+      const header = { ...tenantHeader(), 'Idempotency-Key': idem() };
+      if (input.command === 'start') {
+        return unwrap(
+          await api.POST('/api/v1/serials/{id}/encounter', {
+            params: { header, path: { id: input.serialId } },
+            body: { expectedRowVersion: input.expectedRowVersion },
+          }),
+        );
+      }
+      const encounter = unwrap(
+        await api.GET('/api/v1/encounters/{id}', {
+          params: { header: tenantHeader(), path: { id: input.encounterId } },
+        }),
+      );
+      return unwrap(
+        await api.POST('/api/v1/encounters/{id}/complete', {
+          params: { header, path: { id: input.encounterId } },
+          body: { expectedRowVersion: encounter.rowVersion },
+        }),
+      );
     },
     onSettled: () => void qc.invalidateQueries({ queryKey: key }),
   });

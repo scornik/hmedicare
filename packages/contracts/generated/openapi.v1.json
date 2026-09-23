@@ -1583,6 +1583,123 @@
         ],
         "type": "object"
       },
+      "Encounter": {
+        "properties": {
+          "appointmentId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "careMode": {
+            "enum": [
+              "PHYSICAL",
+              "REMOTE",
+              "HYBRID"
+            ],
+            "type": "string"
+          },
+          "chamberId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "completedAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "coveringDoctorProfileId": {
+            "description": "Set when a covering doctor acted, with the grant recorded alongside it",
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "doctorProfileId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "id": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "interruptedAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "legacyInterim": {
+            "description": "Backfilled from a Stage 5 interim transition (ADR-021). Carries no note, because none was written",
+            "type": "boolean"
+          },
+          "patientId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "resumedAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rowVersion": {
+            "type": "integer"
+          },
+          "serialId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "startedAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "IN_PROGRESS",
+              "INTERRUPTED",
+              "COMPLETED",
+              "ENTERED_IN_ERROR"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "patientId",
+          "doctorProfileId",
+          "chamberId",
+          "serialId",
+          "appointmentId",
+          "coveringDoctorProfileId",
+          "careMode",
+          "status",
+          "legacyInterim",
+          "startedAt",
+          "interruptedAt",
+          "resumedAt",
+          "completedAt",
+          "rowVersion"
+        ],
+        "type": "object"
+      },
       "EndGuardianshipRequest": {
         "properties": {
           "expectedRowVersion": {
@@ -1618,6 +1735,25 @@
         ],
         "type": "object"
       },
+      "EnterEncounterInErrorRequest": {
+        "properties": {
+          "expectedRowVersion": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "reason": {
+            "description": "Required. The row is kept for the audit trail, so the reason is the record",
+            "maxLength": 300,
+            "minLength": 3,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedRowVersion",
+          "reason"
+        ],
+        "type": "object"
+      },
       "ErrorCode": {
         "enum": [
           "UNAUTHENTICATED",
@@ -1648,6 +1784,7 @@
           "PRESCRIPTION_NOT_APPROVED",
           "PRESCRIPTION_NOT_EDITABLE",
           "UPLOAD_EXPIRED",
+          "ENDPOINT_RETIRED",
           "CHECKSUM_MISMATCH",
           "CONTENT_TYPE_NOT_ALLOWED",
           "PAYLOAD_TOO_LARGE",
@@ -1969,6 +2106,24 @@
         "required": [
           "status",
           "checks"
+        ],
+        "type": "object"
+      },
+      "InterruptEncounterRequest": {
+        "properties": {
+          "expectedRowVersion": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 300,
+            "minLength": 3,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedRowVersion",
+          "reason"
         ],
         "type": "object"
       },
@@ -3158,6 +3313,15 @@
           "duplicateOverride": {
             "type": "boolean"
           },
+          "encounterId": {
+            "description": "The consultation started from this serial, once there is one. The board follows it to `/encounters/{id}` rather than acting on the serial itself",
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "lateArrival": {
             "type": "boolean"
           },
@@ -3246,6 +3410,7 @@
           "recallDeadlineAt",
           "remoteReady",
           "duplicateOverride",
+          "encounterId",
           "rowVersion"
         ],
         "type": "object"
@@ -4344,6 +4509,19 @@
         "required": [
           "expectedRowVersion",
           "reason"
+        ],
+        "type": "object"
+      },
+      "StartEncounterRequest": {
+        "properties": {
+          "expectedRowVersion": {
+            "description": "The serial's row version, so a stale board cannot start a consultation twice",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expectedRowVersion"
         ],
         "type": "object"
       },
@@ -10950,6 +11128,795 @@
         ]
       }
     },
+    "/api/v1/encounters/{id}": {
+      "get": {
+        "operationId": "getEncounter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Encounter"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The encounter (assigned or covering doctor; `encounter.read`)"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "encounters"
+        ]
+      }
+    },
+    "/api/v1/encounters/{id}/complete": {
+      "post": {
+        "operationId": "completeEncounter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "expectedRowVersion": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expectedRowVersion"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Encounter"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "IN_PROGRESS/INTERRUPTED → COMPLETED (`encounter.complete` + assignment). The serial completes in the same transaction"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "encounters"
+        ]
+      }
+    },
+    "/api/v1/encounters/{id}/entered-in-error": {
+      "post": {
+        "operationId": "enterEncounterInError",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnterEncounterInErrorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Encounter"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Voids an encounter recorded in error (`encounter.manage` + assignment). The only exit from COMPLETED. The row is kept and the serial is freed for a correct encounter"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "encounters"
+        ]
+      }
+    },
+    "/api/v1/encounters/{id}/interrupt": {
+      "post": {
+        "operationId": "interruptEncounter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InterruptEncounterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Encounter"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "IN_PROGRESS → INTERRUPTED (`encounter.manage` + assignment). The serial stays IN_CONSULTATION: the patient still holds the room"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "encounters"
+        ]
+      }
+    },
+    "/api/v1/encounters/{id}/resume": {
+      "post": {
+        "operationId": "resumeEncounter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "expectedRowVersion": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expectedRowVersion"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Encounter"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "INTERRUPTED → IN_PROGRESS (`encounter.manage` + assignment)"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "encounters"
+        ]
+      }
+    },
     "/api/v1/guardianships": {
       "get": {
         "operationId": "listGuardianships",
@@ -16847,6 +17814,7 @@
     },
     "/api/v1/serials/{id}/complete": {
       "post": {
+        "deprecated": true,
         "operationId": "completeConsultation",
         "parameters": [
           {
@@ -16890,28 +17858,6 @@
           }
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Serial"
-                    },
-                    "meta": {
-                      "$ref": "#/components/schemas/ResponseMeta"
-                    }
-                  },
-                  "required": [
-                    "data",
-                    "meta"
-                  ],
-                  "type": "object"
-                }
-              }
-            },
-            "description": "IN_CONSULTATION → COMPLETED (`encounter.complete` and the doctor of the chamber; ADR-021)"
-          },
           "400": {
             "content": {
               "application/problem+json": {
@@ -16961,6 +17907,9 @@
               }
             },
             "description": "Conflict"
+          },
+          "410": {
+            "description": "Retired (ADR-021 exit, Stage 6). Use `POST /api/v1/encounters/{id}/complete`. Deleted one release later"
           },
           "422": {
             "content": {
@@ -17168,6 +18117,164 @@
         ],
         "tags": [
           "serials"
+        ]
+      }
+    },
+    "/api/v1/serials/{id}/encounter": {
+      "post": {
+        "operationId": "startEncounter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartEncounterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Encounter"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Consultation started (`encounter.start`, assigned or covering doctor). The serial moves to IN_CONSULTATION in the same transaction and an empty note draft is created. 409 when another encounter already holds the serial; INVALID_TRANSITION when the serial is not waiting to be seen"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "encounters"
         ]
       }
     },
@@ -18141,6 +19248,7 @@
     },
     "/api/v1/serials/{id}/start-consultation": {
       "post": {
+        "deprecated": true,
         "operationId": "startConsultation",
         "parameters": [
           {
@@ -18184,28 +19292,6 @@
           }
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Serial"
-                    },
-                    "meta": {
-                      "$ref": "#/components/schemas/ResponseMeta"
-                    }
-                  },
-                  "required": [
-                    "data",
-                    "meta"
-                  ],
-                  "type": "object"
-                }
-              }
-            },
-            "description": "CALLED → IN_CONSULTATION (`encounter.start` and the doctor of the chamber; ADR-021, retired in Stage 6)"
-          },
           "400": {
             "content": {
               "application/problem+json": {
@@ -18255,6 +19341,9 @@
               }
             },
             "description": "Conflict"
+          },
+          "410": {
+            "description": "Retired (ADR-021 exit, Stage 6). Use `POST /api/v1/serials/{id}/encounter`. Deleted one release later"
           },
           "422": {
             "content": {

@@ -482,44 +482,35 @@ describe('the serial lifecycle over HTTP', () => {
     expect(exhausted.body.details).toMatchObject({ recallCount: 2, recallLimit: 2 });
   });
 
-  it('gives the interim consultation transitions to the doctor of the chamber (ADR-021)', async () => {
+  it('answers 410 on the retired ADR-021 transitions, and leaves the serial alone', async () => {
     const s = await chamberSetup('consult');
-    const reception = await staff(s.tenantId, 'receptionist');
-    const nurse = await staff(s.tenantId, 'nurse');
     const day = await chamberDay(s);
-    const p = await patient(reception.headers, 'Consult');
-    const serial = await walkIn(reception.headers, day.id, p.id);
+    const p = await patient(s.admin.headers, 'Consult');
+    const serial = await walkIn(s.admin.headers, day.id, p.id);
     const called = await command(s.admin.headers, serial.id, 'call')
       .send({ expectedRowVersion: serial.rowVersion })
       .expect(200);
     const body = { expectedRowVersion: called.body.data.rowVersion };
 
-    // Two different refusals with the same status: the admin holds no encounter permission at all, and the
-    // nurse holds `encounter.start` but is not this chamber's doctor.
-    await command(s.admin.headers, serial.id, 'start-consultation').send(body).expect(403);
-    await command(nurse.headers, serial.id, 'start-consultation').send(body).expect(403);
+    // ADR-021's own exit clause: the interim routes answer 410 for one release, then go. Consultations
+    // belong to `/encounters` now, where the covering-doctor rule and the clinical record live; the
+    // encounter suite covers the replacement path.
+    for (const action of ['start-consultation', 'complete'] as const) {
+      const res = await command(s.doctor.headers, serial.id, action).send(body);
+      expect(res.status, action).toBe(410);
+      expect(res.body.code, action).toBe('ENDPOINT_RETIRED');
+      expect(res.body.details?.adr, action).toBe('ADR-021');
+    }
 
-    const started = await command(s.doctor.headers, serial.id, 'start-consultation').send(body).expect(200);
-    expect(started.body.data.status).toBe('IN_CONSULTATION');
-
-    const finishing = { expectedRowVersion: started.body.data.rowVersion };
-    await command(nurse.headers, serial.id, 'complete').send(finishing).expect(403);
-    const completed = await command(s.doctor.headers, serial.id, 'complete').send(finishing).expect(200);
-    expect(completed.body.data.status).toBe('COMPLETED');
-    expect(completed.body.data.completedAt).not.toBeNull();
-
-    // A terminal serial refuses the next command instead of quietly doing nothing.
-    const again = await command(s.doctor.headers, serial.id, 'complete').send({
-      expectedRowVersion: completed.body.data.rowVersion,
-    });
-    expect(again.body.code).toBe('INVALID_TRANSITION');
-    expect(again.body.details).toMatchObject({ from: 'COMPLETED', command: 'complete' });
+    // The serial is exactly where it was: a retired route is not a half-applied command.
+    const after = await request(server).get(`/api/v1/serials/${serial.id}`).set(s.admin.headers).expect(200);
+    expect(after.body.data).toMatchObject({ status: 'CALLED', rowVersion: called.body.data.rowVersion });
 
     const board = await request(server)
       .get(`/api/v1/chamber-days/${day.id}/queue`)
       .set(s.admin.headers)
       .expect(200);
-    expect(board.body.data.counts).toMatchObject({ waiting: 0, completed: 1, totalSerials: 1 });
+    expect(board.body.data.counts).toMatchObject({ completed: 0, totalSerials: 1 });
   });
 
   it('confirms, checks in and marks waiting when the policy asks for confirmation', async () => {

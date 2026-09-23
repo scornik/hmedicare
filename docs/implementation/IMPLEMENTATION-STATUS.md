@@ -97,6 +97,19 @@ lesson for Stage 6 is to tag a checkpoint when it is reached, not retroactively 
 
 Still open in Stage 5: HOST-005. Out of scope: encounters, clinical, prescriptions, catalog, labs, documents, timeline, follow-ups, communications delivery, telemedicine, payments, AI.
 
+### Stage 6
+
+| Task | Status | Commit(s) | Tests added | Notes |
+|---|---|---|---|---|
+| DEPLOY-001 single-app deployment profile | DONE (not yet deployed) | `0b44b3b` (ADR-023) | integration 6 (static-web) | one Passenger app serves the API and the web bundle; `WEB_DIST_DIR` must be **absolute** — Passenger's cwd is the home directory, not the release. A missing bundle logs and continues rather than throwing, so a mis-set path cannot take the API down |
+| DEPLOY-002 automated verified pre-migration dump | DONE | `0b44b3b` | integration 5 (`dump.ts`) | in-process dumper on the guard's existing connection; gzip + sha256, verified by reading it back. Replaces the manual `PRE_MIGRATION_DUMP_CONFIRMED` gate that caused the Stage 5 outage (D-01) |
+| DEPLOY-003 `sql_mode` guarantee | DONE | `0b44b3b` | integration 3 | `assertStrictSession()` refuses a session without `STRICT_ALL_TABLES`; a permissive server truncates silently, which is how clinical data goes wrong quietly |
+| DEPLOY-004 `REAL_PATIENT_DATA_ALLOWED` gate | DONE | `0b44b3b` | integration 2, unit 3 | five gates in §4a; readiness reports the flag |
+| TEST-001 HTTP coverage for the 19 uncovered routes | DONE | `17efa77` | integration 19 | found C-49 (list shape) and C-50 (cross-tenant care team) |
+| CLIN-001 migration 0007 + invariants | PROVISIONAL (HOST-001/003) | `82ad9f8` | integration engine-contract 4 | `encounters`, `encounter_participants`, `encounter_notes`, `encounter_note_versions`; generated-column unique keys for the one-encounter-per-serial and one-open-draft rules; lock ranks 50/52/54/56 |
+| CLIN-002 encounter lifecycle + serial seam | PROVISIONAL (HOST-001/003) | `e6734ce`, `1653ac3`, `0b44b3b` | integration 17 (lifecycle 12, backfill 5) | start/interrupt/resume/complete/entered-in-error; cancelling a serial interrupts its encounter through `EncounterInterruptionPort`; the covering-doctor rule (AUTHORIZATION §3 rule 4) is non-transitive by construction |
+| CLIN-002 ADR-021 retirement | PROVISIONAL (HOST-001/003) | *(this commit)* | integration 10 (8 HTTP + 2 in the queue suite) | `POST /serials/{id}/encounter` and the five `/encounters/{id}/…` routes (99 operations); both interim routes answer `410 ENDPOINT_RETIRED` naming their replacement; web, doctor app and the Dart client moved over. Migration 0008 backfills Stage 5 serials as `legacy_interim` encounters (C-51) |
+
 ## 3. Test summary (latest full run)
 
 | Suite | Count | Notes |
@@ -217,6 +230,8 @@ patient who cannot be reached is not a patient who can be treated.
 | H-5 | SMS-008: exactly one live SMS by the account owner (ZAMANIT-VERIFICATION §4) | charge/format evidence | SMS-008 |
 | H-6 | Staging setup: DB, three Hostinger apps, env vars, repository variables `STAGING_API_URL`/`STAGING_WORKER_URL`/`STAGING_WEB_URL`, `staging` environment | first staging deploy via `promote-staging` | after H-1, H-2 |
 | H-7 | Native-speaker review of the Bangla UI strings (web `messages.ts`, mobile `strings.dart`) | copy quality | — |
+| H-8 | Set `WEB_DIST_DIR` on the production app to the **absolute** release path (`/home/<user>/hbuilds/current/apps/web/dist`), not `apps/web/dist` | Passenger runs with the home directory as cwd, so a relative path finds nothing. DEPLOY-001 is built but not serving the web bundle until this is set | DEPLOY-001 deployment |
+| H-9 | Delete the two retired ADR-021 routes one release after Stage 6 ships | they answer `410 ENDPOINT_RETIRED` today so Stage 5 clients get a clear answer; the ADR says they go after one release | — |
 
 ## 6. Deviations
 

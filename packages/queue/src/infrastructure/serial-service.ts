@@ -11,7 +11,7 @@ import {
 import type { PrismaAuditPort } from '@hmedic/audit';
 import { dhakaDate } from '@hmedic/localization';
 import type { PatientContextActor } from '@hmedic/patient';
-import type { EncounterInterruptionPort } from './serial-lifecycle';
+import type { EncounterInterruptionPort } from '../application/encounter-port';
 import {
   type AppointmentService,
   type CancelReason,
@@ -161,7 +161,7 @@ export class SerialService implements SerialPort<Tx> {
    *
    * Absent, cancelling behaves exactly as it did in Stage 5.
    */
-  private encounters: EncounterInterruptionPort | null = null;
+  private encounters: EncounterInterruptionPort<Tx> | null = null;
 
   constructor(
     private readonly prisma: PrismaClient,
@@ -174,7 +174,7 @@ export class SerialService implements SerialPort<Tx> {
   }
 
   /** Called once by the composition root when the clinical context is part of this application. */
-  attachEncounterInterruption(port: EncounterInterruptionPort): void {
+  attachEncounterInterruption(port: EncounterInterruptionPort<Tx>): void {
     this.encounters = port;
   }
 

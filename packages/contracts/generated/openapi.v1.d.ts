@@ -563,6 +563,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/encounters/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getEncounter"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/encounters/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["completeEncounter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/encounters/{id}/entered-in-error": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["enterEncounterInError"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/encounters/{id}/interrupt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["interruptEncounter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/encounters/{id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resumeEncounter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/guardianships": {
         parameters: {
             query?: never;
@@ -1106,6 +1186,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @deprecated */
         post: operations["completeConsultation"];
         delete?: never;
         options?: never;
@@ -1123,6 +1204,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["confirmSerial"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/serials/{id}/encounter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["startEncounter"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1234,6 +1331,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @deprecated */
         post: operations["startConsultation"];
         delete?: never;
         options?: never;
@@ -1896,6 +1994,71 @@ export interface components {
             acknowledgedCandidateIds: string[];
             reason: string;
         };
+        Encounter: {
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            appointmentId: string | null;
+            /** @enum {string} */
+            careMode: "PHYSICAL" | "REMOTE" | "HYBRID";
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            chamberId: string;
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            completedAt: string | null;
+            /**
+             * Format: uuid
+             * @description Set when a covering doctor acted, with the grant recorded alongside it
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            coveringDoctorProfileId: string | null;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            doctorProfileId: string;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            id: string;
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            interruptedAt: string | null;
+            /** @description Backfilled from a Stage 5 interim transition (ADR-021). Carries no note, because none was written */
+            legacyInterim: boolean;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            patientId: string;
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            resumedAt: string | null;
+            rowVersion: number;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            serialId: string;
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            startedAt: string;
+            /** @enum {string} */
+            status: "IN_PROGRESS" | "INTERRUPTED" | "COMPLETED" | "ENTERED_IN_ERROR";
+        };
         EndGuardianshipRequest: {
             expectedRowVersion: number;
             reason?: string;
@@ -1908,8 +2071,13 @@ export interface components {
             effectiveTo: string;
             expectedRowVersion: number;
         };
+        EnterEncounterInErrorRequest: {
+            expectedRowVersion: number;
+            /** @description Required. The row is kept for the audit trail, so the reason is the record */
+            reason: string;
+        };
         /** @enum {string} */
-        ErrorCode: "UNAUTHENTICATED" | "SESSION_REVOKED" | "FORBIDDEN" | "CSRF_FAILED" | "TENANT_CONTEXT_REQUIRED" | "PATIENT_CONTEXT_REQUIRED" | "RESOURCE_NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "IDEMPOTENCY_KEY_REQUIRED" | "IDEMPOTENCY_REPLAY" | "IDEMPOTENCY_IN_PROGRESS" | "IDEMPOTENCY_KEY_REUSED" | "STALE_VERSION" | "QUEUE_STATE_CONFLICT" | "QUEUE_VERSION_CONFLICT" | "QUEUE_BUSY" | "CONCURRENCY_RETRY_EXHAUSTED" | "INVALID_TRANSITION" | "DUPLICATE_ACTIVE_SERIAL" | "RECALL_LIMIT_REACHED" | "CHAMBER_DAY_CLOSED" | "CHAMBER_DAY_HAS_ACTIVE_CONSULTATION" | "CAPACITY_EXCEEDED" | "DUPLICATE_PATIENT_REVIEW_REQUIRED" | "PRESCRIPTION_NOT_APPROVED" | "PRESCRIPTION_NOT_EDITABLE" | "UPLOAD_EXPIRED" | "CHECKSUM_MISMATCH" | "CONTENT_TYPE_NOT_ALLOWED" | "PAYLOAD_TOO_LARGE" | "DOCUMENT_NOT_AVAILABLE" | "DOWNLOAD_TOKEN_INVALID" | "PROVIDER_UNAVAILABLE" | "FEATURE_DISABLED" | "AI_REVIEW_REQUIRED" | "AI_DRAFT_CLOSED" | "AI_CONSENT_REQUIRED" | "AI_ACK_VERSION_OUTDATED" | "AI_CREDENTIAL_DUPLICATE" | "AI_CREDENTIAL_REVOKED" | "INVALID_CREDENTIAL" | "QUOTA_EXHAUSTED" | "MODEL_UNAVAILABLE" | "CONTENT_BLOCKED" | "SCHEMA_INVALID" | "TIMEOUT" | "PROVIDER_ERROR" | "PHI_MINIMIZATION_FAILED" | "POLICY_BLOCKED" | "PAYMENT_NOT_REQUIRED" | "FEE_NOT_CONFIGURED" | "PAYMENT_METHOD_UNAVAILABLE" | "PAYMENT_ALREADY_PAID" | "PAYMENT_INTENT_EXPIRED" | "PAYMENT_GATEWAY_REJECTED" | "PAYMENT_GATEWAY_UNAVAILABLE" | "MERCHANT_CREDENTIAL_INVALID" | "REFUND_NOT_ALLOWED" | "SMS_CREDENTIAL_INVALID" | "MEDDATA_CHECKSUM_MISMATCH" | "MEDDATA_SCHEMA_UNSUPPORTED" | "MEDDATA_IMPORT_IN_PROGRESS" | "PLATFORM_CONTEXT_REQUIRED" | "DATA_INTEGRITY_ERROR" | "INTERNAL_ERROR";
+        ErrorCode: "UNAUTHENTICATED" | "SESSION_REVOKED" | "FORBIDDEN" | "CSRF_FAILED" | "TENANT_CONTEXT_REQUIRED" | "PATIENT_CONTEXT_REQUIRED" | "RESOURCE_NOT_FOUND" | "VALIDATION_FAILED" | "RATE_LIMITED" | "IDEMPOTENCY_KEY_REQUIRED" | "IDEMPOTENCY_REPLAY" | "IDEMPOTENCY_IN_PROGRESS" | "IDEMPOTENCY_KEY_REUSED" | "STALE_VERSION" | "QUEUE_STATE_CONFLICT" | "QUEUE_VERSION_CONFLICT" | "QUEUE_BUSY" | "CONCURRENCY_RETRY_EXHAUSTED" | "INVALID_TRANSITION" | "DUPLICATE_ACTIVE_SERIAL" | "RECALL_LIMIT_REACHED" | "CHAMBER_DAY_CLOSED" | "CHAMBER_DAY_HAS_ACTIVE_CONSULTATION" | "CAPACITY_EXCEEDED" | "DUPLICATE_PATIENT_REVIEW_REQUIRED" | "PRESCRIPTION_NOT_APPROVED" | "PRESCRIPTION_NOT_EDITABLE" | "UPLOAD_EXPIRED" | "ENDPOINT_RETIRED" | "CHECKSUM_MISMATCH" | "CONTENT_TYPE_NOT_ALLOWED" | "PAYLOAD_TOO_LARGE" | "DOCUMENT_NOT_AVAILABLE" | "DOWNLOAD_TOKEN_INVALID" | "PROVIDER_UNAVAILABLE" | "FEATURE_DISABLED" | "AI_REVIEW_REQUIRED" | "AI_DRAFT_CLOSED" | "AI_CONSENT_REQUIRED" | "AI_ACK_VERSION_OUTDATED" | "AI_CREDENTIAL_DUPLICATE" | "AI_CREDENTIAL_REVOKED" | "INVALID_CREDENTIAL" | "QUOTA_EXHAUSTED" | "MODEL_UNAVAILABLE" | "CONTENT_BLOCKED" | "SCHEMA_INVALID" | "TIMEOUT" | "PROVIDER_ERROR" | "PHI_MINIMIZATION_FAILED" | "POLICY_BLOCKED" | "PAYMENT_NOT_REQUIRED" | "FEE_NOT_CONFIGURED" | "PAYMENT_METHOD_UNAVAILABLE" | "PAYMENT_ALREADY_PAID" | "PAYMENT_INTENT_EXPIRED" | "PAYMENT_GATEWAY_REJECTED" | "PAYMENT_GATEWAY_UNAVAILABLE" | "MERCHANT_CREDENTIAL_INVALID" | "REFUND_NOT_ALLOWED" | "SMS_CREDENTIAL_INVALID" | "MEDDATA_CHECKSUM_MISMATCH" | "MEDDATA_SCHEMA_UNSUPPORTED" | "MEDDATA_IMPORT_IN_PROGRESS" | "PLATFORM_CONTEXT_REQUIRED" | "DATA_INTEGRITY_ERROR" | "INTERNAL_ERROR";
         FieldError: {
             code: string;
             message: string;
@@ -2005,6 +2173,10 @@ export interface components {
             };
             /** @enum {string} */
             status: "ready" | "degraded" | "unavailable";
+        };
+        InterruptEncounterRequest: {
+            expectedRowVersion: number;
+            reason: string;
         };
         IssueWalkInRequest: {
             /** @enum {string} */
@@ -2417,6 +2589,12 @@ export interface components {
             /** @enum {string} */
             careMode: "PHYSICAL" | "REMOTE" | "HYBRID";
             duplicateOverride: boolean;
+            /**
+             * Format: uuid
+             * @description The consultation started from this serial, once there is one. The board follows it to `/encounters/{id}` rather than acting on the serial itself
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            encounterId: string | null;
             lateArrival: boolean;
             medicalRecordNumber: string;
             patientDisplayName: string;
@@ -2805,6 +2983,10 @@ export interface components {
         SkipSerialRequest: {
             expectedRowVersion: number;
             reason: string;
+        };
+        StartEncounterRequest: {
+            /** @description The serial's row version, so a stale board cannot start a consultation twice */
+            expectedRowVersion: number;
         };
         StepUpVerifyRequest: {
             code: string;
@@ -7173,6 +7355,525 @@ export interface operations {
             };
         };
     };
+    getEncounter: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The encounter (assigned or covering doctor; `encounter.read`) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Encounter"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    completeEncounter: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    expectedRowVersion: number;
+                };
+            };
+        };
+        responses: {
+            /** @description IN_PROGRESS/INTERRUPTED → COMPLETED (`encounter.complete` + assignment). The serial completes in the same transaction */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Encounter"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    enterEncounterInError: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EnterEncounterInErrorRequest"];
+            };
+        };
+        responses: {
+            /** @description Voids an encounter recorded in error (`encounter.manage` + assignment). The only exit from COMPLETED. The row is kept and the serial is freed for a correct encounter */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Encounter"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    interruptEncounter: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["InterruptEncounterRequest"];
+            };
+        };
+        responses: {
+            /** @description IN_PROGRESS → INTERRUPTED (`encounter.manage` + assignment). The serial stays IN_CONSULTATION: the patient still holds the room */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Encounter"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    resumeEncounter: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    expectedRowVersion: number;
+                };
+            };
+        };
+        responses: {
+            /** @description INTERRUPTED → IN_PROGRESS (`encounter.manage` + assignment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Encounter"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     listGuardianships: {
         parameters: {
             query?: {
@@ -11158,7 +11859,107 @@ export interface operations {
             };
         };
         responses: {
-            /** @description IN_CONSULTATION → COMPLETED (`encounter.complete` and the doctor of the chamber; ADR-021) */
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Retired (ADR-021 exit, Stage 6). Use `POST /api/v1/encounters/{id}/complete`. Deleted one release later */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    confirmSerial: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Patient-Context"?: string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RowVersionOnlyRequest"];
+            };
+        };
+        responses: {
+            /** @description BOOKED → CONFIRMED (`serial.manage`, or the patient in context) */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -11244,12 +12045,11 @@ export interface operations {
             };
         };
     };
-    confirmSerial: {
+    startEncounter: {
         parameters: {
             query?: never;
             header: {
                 "Idempotency-Key": string;
-                "X-Patient-Context"?: string;
                 "X-Tenant-ID": string;
             };
             path: {
@@ -11259,18 +12059,18 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["RowVersionOnlyRequest"];
+                "application/json": components["schemas"]["StartEncounterRequest"];
             };
         };
         responses: {
-            /** @description BOOKED → CONFIRMED (`serial.manage`, or the patient in context) */
-            200: {
+            /** @description Consultation started (`encounter.start`, assigned or covering doctor). The serial moves to IN_CONSULTATION in the same transaction and an empty note draft is created. 409 when another encounter already holds the serial; INVALID_TRANSITION when the serial is not waiting to be seen */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        data: components["schemas"]["Serial"];
+                        data: components["schemas"]["Encounter"];
                         meta: components["schemas"]["ResponseMeta"];
                     };
                 };
@@ -11993,18 +12793,6 @@ export interface operations {
             };
         };
         responses: {
-            /** @description CALLED → IN_CONSULTATION (`encounter.start` and the doctor of the chamber; ADR-021, retired in Stage 6) */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["Serial"];
-                        meta: components["schemas"]["ResponseMeta"];
-                    };
-                };
-            };
             /** @description Validation failed */
             400: {
                 headers: {
@@ -12049,6 +12837,13 @@ export interface operations {
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
+            };
+            /** @description Retired (ADR-021 exit, Stage 6). Use `POST /api/v1/serials/{id}/encounter`. Deleted one release later */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
             422: {

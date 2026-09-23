@@ -15,6 +15,7 @@ class QueueEntry {
   const QueueEntry({
     required this.careMode,
     required this.duplicateOverride,
+    required this.encounterId,
     required this.lateArrival,
     required this.medicalRecordNumber,
     required this.patientDisplayName,
@@ -34,6 +35,9 @@ class QueueEntry {
   
   final QueueEntryCareMode careMode;
   final bool duplicateOverride;
+
+  /// The consultation started from this serial, once there is one. The board follows it to `/encounters/{id}` rather than acting on the serial itself
+  final String? encounterId;
   final bool lateArrival;
   final String medicalRecordNumber;
   final String patientDisplayName;

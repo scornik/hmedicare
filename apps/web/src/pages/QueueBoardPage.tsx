@@ -9,6 +9,7 @@ import {
   type QueueSnapshot,
   useQueueSnapshot,
   useReorderQueue,
+  useConsultationCommand,
   useSerialCommand,
   useSkipSerial,
 } from '../queue/api';
@@ -138,8 +139,11 @@ function Row({
 }) {
   const { t } = useI18n();
   const command = useSerialCommand(day);
+  const consultation = useConsultationCommand(day);
   const skip = useSkipSerial(day);
   const [stale, setStale] = useState(false);
+  // Hoisted so the narrowing survives into the click handler.
+  const encounterId = entry.encounterId;
 
   const run = (
     c: Parameters<typeof command.mutate>[0]['command'],
@@ -155,6 +159,12 @@ function Row({
         },
       },
     );
+  };
+
+  /** Errors from the encounter routes read the same as queue ones: a stale row is a stale row. */
+  const onConsultationError = (e: unknown) => {
+    if (e instanceof ApiError && (e.code === 'STALE_VERSION' || e.code === 'QUEUE_STATE_CONFLICT'))
+      setStale(true);
   };
 
   return (
@@ -182,14 +192,29 @@ function Row({
       {entry.status === 'CALLED' && (
         <>
           <button onClick={() => run('recall')}>{t('queue.action.recall')}</button>
-          <button onClick={() => run('start-consultation', 'IN_CONSULTATION')}>
+          <button
+            onClick={() => {
+              setStale(false);
+              consultation.mutate(
+                { command: 'start', serialId: entry.serialId, expectedRowVersion: entry.rowVersion },
+                { onError: onConsultationError },
+              );
+            }}
+          >
             {t('queue.action.start')}
           </button>
           <SkipButton entry={entry} skip={skip} />
         </>
       )}
-      {entry.status === 'IN_CONSULTATION' && (
-        <button onClick={() => run('complete', 'COMPLETED')}>{t('queue.action.complete')}</button>
+      {entry.status === 'IN_CONSULTATION' && encounterId !== null && (
+        <button
+          onClick={() => {
+            setStale(false);
+            consultation.mutate({ command: 'complete', encounterId }, { onError: onConsultationError });
+          }}
+        >
+          {t('queue.action.complete')}
+        </button>
       )}
       {stale && <span role="alert">{t('common.stale')}</span>}
     </li>

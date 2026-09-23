@@ -9,6 +9,7 @@ part of 'queue_entry.dart';
 QueueEntry _$QueueEntryFromJson(Map<String, dynamic> json) => QueueEntry(
   careMode: QueueEntryCareMode.fromJson(json['careMode'] as String),
   duplicateOverride: json['duplicateOverride'] as bool,
+  encounterId: json['encounterId'] as String?,
   lateArrival: json['lateArrival'] as bool,
   medicalRecordNumber: json['medicalRecordNumber'] as String,
   patientDisplayName: json['patientDisplayName'] as String,
@@ -30,6 +31,7 @@ Map<String, dynamic> _$QueueEntryToJson(QueueEntry instance) =>
     <String, dynamic>{
       'careMode': instance.careMode,
       'duplicateOverride': instance.duplicateOverride,
+      'encounterId': ?instance.encounterId,
       'lateArrival': instance.lateArrival,
       'medicalRecordNumber': instance.medicalRecordNumber,
       'patientDisplayName': instance.patientDisplayName,

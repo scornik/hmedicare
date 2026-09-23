@@ -103,24 +103,3 @@ export class QueueSerialLifecycle implements SerialLifecyclePort {
     await tx.serial.updateMany({ where: { tenantId, id: serialId }, data: { encounterId } });
   }
 }
-
-/**
- * The other direction: cancelling a serial that is mid-consultation has to interrupt the encounter, in the
- * same transaction (DOMAIN-SERVICE-CONTRACTS `CancelSerial`). The queue declares what it needs and the
- * composition root supplies clinical's implementation, so neither package imports the other.
- *
- * Absent — before Stage 6, and in any composition without the clinical context — cancelling behaves as it
- * did in Stage 5.
- */
-export interface EncounterInterruptionPort {
-  /**
-   * Interrupts the live encounter on this serial, if there is one. Returns its id when it interrupted
-   * one, so the caller can record it, or null when the serial had no encounter.
-   */
-  interruptForSerial(
-    tx: Tx,
-    tenantId: string,
-    serialId: string,
-    input: { reason: string; actor: QueueActorRef; correlationId: string },
-  ): Promise<string | null>;
-}

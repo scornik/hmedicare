@@ -4,7 +4,14 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hm_api/hm_api.dart' show CallSerialRequest, QueueEntry, QueueSnapshot, RowVersionOnlyRequest;
+import 'package:hm_api/hm_api.dart'
+    show
+        ApiV1EncountersIdCompleteRequestBody,
+        CallSerialRequest,
+        HmApiClient,
+        QueueEntry,
+        QueueSnapshot,
+        StartEncounterRequest;
 import 'package:hm_auth/hm_auth.dart';
 import 'package:hm_core/hm_core.dart';
 import 'package:hm_localization/hm_localization.dart';
@@ -69,6 +76,18 @@ class _DoctorQueueScreenState extends ConsumerState<DoctorQueueScreen> {
 
   /// Runs one transition and refreshes. Polling pauses while a command is in flight so the row the doctor
   /// is acting on does not shift under the tap.
+  /// Completing needs the encounter's own row version, so the board reads it first. The consultation
+  /// workspace holds the encounter open and will not need the extra hop.
+  Future<void> _completeEncounter(HmApiClient api, String encounterId, String tenantId, String key) async {
+    final current = await api.encounters.getEncounter(id: encounterId, xTenantId: tenantId);
+    await api.encounters.completeEncounter(
+      id: encounterId,
+      xTenantId: tenantId,
+      idempotencyKey: key,
+      body: ApiV1EncountersIdCompleteRequestBody(expectedRowVersion: current.data.rowVersion),
+    );
+  }
+
   Future<void> _command(Future<void> Function(String tenantId, String key) send) async {
     final tenantId = ref.read(activeTenantProvider);
     if (tenantId == null || _busy) return;
@@ -165,22 +184,19 @@ class _DoctorQueueScreenState extends ConsumerState<DoctorQueueScreen> {
                               body: CallSerialRequest(expectedRowVersion: e.rowVersion),
                             ),
                           ),
+                          // Consultations are encounters now: the ADR-021 serial transitions were
+                          // retired in Stage 6 and answer 410.
                           onStart: () => _command(
-                            (t, k) => api.serials.startConsultation(
+                            (t, k) => api.encounters.startEncounter(
                               id: e.serialId,
                               xTenantId: t,
                               idempotencyKey: k,
-                              body: RowVersionOnlyRequest(expectedRowVersion: e.rowVersion),
+                              body: StartEncounterRequest(expectedRowVersion: e.rowVersion),
                             ),
                           ),
-                          onComplete: () => _command(
-                            (t, k) => api.serials.completeConsultation(
-                              id: e.serialId,
-                              xTenantId: t,
-                              idempotencyKey: k,
-                              body: RowVersionOnlyRequest(expectedRowVersion: e.rowVersion),
-                            ),
-                          ),
+                          onComplete: e.encounterId == null
+                              ? null
+                              : () => _command((t, k) => _completeEncounter(api, e.encounterId!, t, k)),
                         ),
                     ],
                   ),
@@ -216,7 +232,7 @@ class _Row extends StatelessWidget {
   final String locale;
   final VoidCallback onCall;
   final VoidCallback onStart;
-  final VoidCallback onComplete;
+  final VoidCallback? onComplete;
 
   @override
   Widget build(BuildContext context) {
@@ -238,7 +254,7 @@ class _Row extends StatelessWidget {
           onPressed: busy ? null : onStart,
           child: Text(s.t('startConsultation')),
         ),
-        'IN_CONSULTATION' => FilledButton(
+        'IN_CONSULTATION' when onComplete != null => FilledButton(
           key: const Key('completeConsultation'),
           onPressed: busy ? null : onComplete,
           child: Text(s.t('completeConsultation')),

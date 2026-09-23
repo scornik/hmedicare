@@ -129,7 +129,7 @@ Legend: **Tx** = transaction (RC = READ COMMITTED with locks; RR = default). **I
 | **`POST /serials/{id}/no-show`** | MarkNoShow | `serial.manage` | RC | ✓ |
 | **`POST /serials/{id}/cancel`** | CancelSerial | `serial.manage` / patient context (BOOKED/CONFIRMED only) | RC | ✓ |
 | **`POST /serials/{id}/reschedule`** | RescheduleSerial | `appointment.write` / patient context `BOOK_APPOINTMENTS` | RC both days | ✓ |
-| `POST /serials/{id}/start-consultation` · `POST /serials/{id}/complete` (Stage 5 only; ADR-021, C-42; retired in Stage 6) | StartConsultation / CompleteConsultation (pre-clinical) | `encounter.start` / `encounter.complete` + doctor of the chamber | RC day+serial | ✓ |
+| ~~`POST /serials/{id}/start-consultation`~~ · ~~`POST /serials/{id}/complete`~~ (retired 2026-09-23; ADR-021, C-42) | — answer `410 ENDPOINT_RETIRED` with `details.replacement`; deleted one release after Stage 6 | — | — | — |
 | `POST /appointments/{id}/payment-override` | WaiveAppointmentPayment (`PENDING_PAYMENT` → `BOOKED`, serial issued; reason required) | `appointment.write` | RC | ✓ |
 
 ### 3.6 Clinical
@@ -280,6 +280,7 @@ Codes are stable strings. HTTP status is shown. The single source is `packages/k
 | `PRESCRIPTION_NOT_APPROVED` | 409 | |
 | `PRESCRIPTION_NOT_EDITABLE` | 409 | |
 | `UPLOAD_EXPIRED` | 410 | |
+| `ENDPOINT_RETIRED` | 410 | A route that existed and has been withdrawn, with `details.replacement`. Distinct from `FEATURE_DISABLED` (409), which means *not yet*. |
 | `CHECKSUM_MISMATCH` | 422 | |
 | `CONTENT_TYPE_NOT_ALLOWED` | 415 | |
 | `PAYLOAD_TOO_LARGE` | 413 | |

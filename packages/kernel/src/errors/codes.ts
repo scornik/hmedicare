@@ -32,6 +32,10 @@ export const ERROR_CODES = {
   PRESCRIPTION_NOT_APPROVED: 409,
   PRESCRIPTION_NOT_EDITABLE: 409,
   UPLOAD_EXPIRED: 410,
+  // A route that existed and has been withdrawn. Distinct from FEATURE_DISABLED (409), which means a
+  // feature is not available *yet* — prepaid booking answers that while payments are unbuilt, and it
+  // will start working. 410 says the opposite: this will not come back, change the client.
+  ENDPOINT_RETIRED: 410,
   CHECKSUM_MISMATCH: 422,
   CONTENT_TYPE_NOT_ALLOWED: 415,
   PAYLOAD_TOO_LARGE: 413,

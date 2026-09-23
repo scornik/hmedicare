@@ -32,6 +32,8 @@ import { PatientWriteModule, type PatientServices } from '@hmedic/patient/nest';
 import { SchedulingWriteModule, type SchedulingServices } from '@hmedic/scheduling/nest';
 import { composeSchedulingAndQueue, registerQueueJobs } from '@hmedic/queue';
 import { QueueWriteModule, type QueueServices } from '@hmedic/queue/nest';
+import { composeClinical } from '@hmedic/clinical';
+import { ClinicalWriteModule, type ClinicalServices } from '@hmedic/clinical/nest';
 import { OutboxPort } from '@hmedic/jobs';
 import {
   AppointmentController,
@@ -44,6 +46,7 @@ import {
   ScheduleRuleController,
 } from './scheduling/scheduling.controllers';
 import { MySerialsController, QueueBoardController, SerialController } from './scheduling/queue.controllers';
+import { EncounterController, SerialEncounterController } from './clinical/encounter.controllers';
 import { ConsentController, MergeCaseController, PatientController } from './patient/patient.controllers';
 import {
   CareTeamController,
@@ -74,6 +77,7 @@ export class ApiModule {
     patient: PatientServices,
     scheduling: SchedulingServices,
     queue: QueueServices,
+    clinical: ClinicalServices,
   ): DynamicModule {
     const mode = runtime.config.JOB_RUNNER_MODE;
     const devInbox = identity.mockOtp !== null || identity.mockReset !== null;
@@ -86,6 +90,7 @@ export class ApiModule {
         PatientWriteModule.forRoot(patient),
         SchedulingWriteModule.forRoot(scheduling),
         QueueWriteModule.forRoot(queue),
+        ClinicalWriteModule.forRoot(clinical),
       ],
       controllers: [
         AuthController,
@@ -109,6 +114,8 @@ export class ApiModule {
         QueueBoardController,
         SerialController,
         MySerialsController,
+        EncounterController,
+        SerialEncounterController,
         ...(devInbox ? [DevInboxController] : []),
       ],
     };
@@ -137,6 +144,7 @@ export interface ApiInstance {
   patient: PatientServices;
   scheduling: SchedulingServices;
   queue: QueueServices;
+  clinical: ClinicalServices;
   jobs: JobComposition | null;
   close(): Promise<void>;
 }
@@ -164,6 +172,14 @@ export async function buildApi(
     appointments: context.appointments,
   };
   const queue: QueueServices = { serials: context.serials, queue: context.queue };
+  // Built after the queue and handed back into it: cancelling a serial mid-consultation has to interrupt
+  // the encounter, and the two contexts cannot import each other (MODULE-BOUNDARIES §3).
+  const clinical: ClinicalServices = composeClinical({
+    prisma: runtime.prisma,
+    audit: runtime.audit,
+    serials: context.serials,
+    clock: runtime.clock,
+  });
   const jobs =
     config.JOB_RUNNER_MODE === 'embedded' || config.JOB_RUNNER_MODE === 'cron'
       ? composePlatformJobs(runtime, sms, ({ registry, runner }) =>
@@ -184,7 +200,7 @@ export async function buildApi(
     await patient.access.autoLinkOnOtpVerify(userId, phoneE164);
   };
   const app = await createHttpApp(
-    ApiModule.forRoot(runtime, identity, tenantOrg, patient, scheduling, queue),
+    ApiModule.forRoot(runtime, identity, tenantOrg, patient, scheduling, queue, clinical),
     runtime,
     { cors: true },
   );
@@ -197,6 +213,7 @@ export async function buildApi(
     patient,
     scheduling,
     queue,
+    clinical,
     jobs,
     async close() {
       if (closed) return;

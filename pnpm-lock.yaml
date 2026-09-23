@@ -274,6 +274,9 @@ importers:
       '@hmedic/audit':
         specifier: workspace:*
         version: link:../../packages/audit
+      '@hmedic/clinical':
+        specifier: workspace:*
+        version: link:../../packages/clinical
       '@hmedic/config':
         specifier: workspace:*
         version: link:../../packages/config

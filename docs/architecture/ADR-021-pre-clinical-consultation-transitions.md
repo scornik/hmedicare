@@ -1,8 +1,8 @@
 # ADR-021 — Pre-clinical consultation transitions (Stage 5 queue without encounters)
 
-**Status:** Accepted (2026-09-19, Stage 5)
+**Status:** Superseded (2026-09-23, Stage 6 / CLIN-002). Accepted 2026-09-19 (Stage 5).
 **Resolves:** audit row C-42.
-**Supersedes:** nothing. It is **retired by Stage 6** (CLIN-001…003), as described under "Exit".
+**Superseded by:** the encounter routes (`POST /serials/{id}/encounter` and friends). See "Outcome" and audit row C-51.
 
 ## Context
 
@@ -29,6 +29,31 @@
    - both interim routes return `410 FEATURE_DISABLED`, and are deleted one release later;
    - the web and mobile queue screens switch to the encounter routes;
    - the invariant in DATABASE §4.4 is restored for serials completed after the Stage 6 release date. The test asserts it for `completed_at >= <release>`.
+
+## Outcome (Stage 6, 2026-09-23)
+
+Retired as planned by CLIN-002, with two deliberate departures from the exit plan above.
+
+1. **The retirement code is `ENDPOINT_RETIRED` (410), not `FEATURE_DISABLED` (410).** `FEATURE_DISABLED`
+   maps to **409** in the kernel table and means *not available yet* — prepaid booking answers it while
+   payments are unbuilt, and it will start working. A retired route says the opposite: it will not come
+   back, change the client. Conflating the two would have told a Stage 5 client to retry forever.
+   `ENDPOINT_RETIRED` carries `details.replacement` and `details.adr`, so an old client is pointed at
+   `POST /api/v1/serials/{id}/encounter` rather than left guessing. Both routes stay registered, `deprecated: true`,
+   for one release, and are deleted after it.
+2. **Decision 4 was reversed: Stage 5 serials *were* backfilled** (migration `0008_adr021_backfill`).
+   This ADR said Stage 6 would "never backfill fake encounters" and would leave `encounter_id` NULL
+   forever. The Stage 6 model makes that untenable: `IN_CONSULTATION` and `COMPLETED` serials without an
+   encounter contradict the clinical invariants, and every query, board and report would have to carry a
+   permanent exception for rows nobody can identify by looking at them. The backfilled rows are therefore
+   **marked, not disguised**: `legacy_interim = true`, no note, no participants, timestamps copied from
+   the serial. They record that a consultation happened and who ran it, which is true, and they do not
+   claim any clinical content, which would not be. A doctor reading one sees a consultation with no
+   record, because that is exactly what Stage 5 produced. The migration is idempotent and re-running it
+   leaves rows byte-identical (tested).
+
+The rest of the exit plan held: the queue screens moved to the encounter routes, and DATABASE §4.4 is
+restored — every `COMPLETED` serial now has an `encounter_id`, including the historical ones.
 
 ## Consequences
 

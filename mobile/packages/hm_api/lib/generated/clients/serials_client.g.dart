@@ -240,7 +240,7 @@ class _SerialsClient implements SerialsClient {
   }
 
   @override
-  Future<PostApiV1SerialsIdCompleteResponse> completeConsultation({
+  Future<void> completeConsultation({
     required String id,
     required String xTenantId,
     required String idempotencyKey,
@@ -256,7 +256,7 @@ class _SerialsClient implements SerialsClient {
     _headers.removeWhere((k, v) => v == null);
     final _data = <String, dynamic>{};
     _data.addAll(body?.toJson() ?? <String, dynamic>{});
-    final _options = _setStreamType<PostApiV1SerialsIdCompleteResponse>(
+    final _options = _setStreamType<void>(
       Options(method: 'POST', headers: _headers, extra: _extra)
           .compose(
             _dio.options,
@@ -266,15 +266,7 @@ class _SerialsClient implements SerialsClient {
           )
           .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
     );
-    final _result = await _dio.fetch<Map<String, Object?>>(_options);
-    late PostApiV1SerialsIdCompleteResponse _value;
-    try {
-      _value = PostApiV1SerialsIdCompleteResponse.fromJson(_result.data!);
-    } on Object catch (e, s) {
-      errorLogger?.logError(e, s, _options, response: _result);
-      rethrow;
-    }
-    return _value;
+    await _dio.fetch<void>(_options);
   }
 
   @override
@@ -550,7 +542,7 @@ class _SerialsClient implements SerialsClient {
   }
 
   @override
-  Future<PostApiV1SerialsIdStartConsultationResponse> startConsultation({
+  Future<void> startConsultation({
     required String id,
     required String xTenantId,
     required String idempotencyKey,
@@ -566,30 +558,17 @@ class _SerialsClient implements SerialsClient {
     _headers.removeWhere((k, v) => v == null);
     final _data = <String, dynamic>{};
     _data.addAll(body?.toJson() ?? <String, dynamic>{});
-    final _options =
-        _setStreamType<PostApiV1SerialsIdStartConsultationResponse>(
-          Options(method: 'POST', headers: _headers, extra: _extra)
-              .compose(
-                _dio.options,
-                '/api/v1/serials/${id}/start-consultation',
-                queryParameters: queryParameters,
-                data: _data,
-              )
-              .copyWith(
-                baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl),
-              ),
-        );
-    final _result = await _dio.fetch<Map<String, Object?>>(_options);
-    late PostApiV1SerialsIdStartConsultationResponse _value;
-    try {
-      _value = PostApiV1SerialsIdStartConsultationResponse.fromJson(
-        _result.data!,
-      );
-    } on Object catch (e, s) {
-      errorLogger?.logError(e, s, _options, response: _result);
-      rethrow;
-    }
-    return _value;
+    final _options = _setStreamType<void>(
+      Options(method: 'POST', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/api/v1/serials/${id}/start-consultation',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    await _dio.fetch<void>(_options);
   }
 
   RequestOptions _setStreamType<T>(RequestOptions requestOptions) {

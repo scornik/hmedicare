@@ -28,8 +28,8 @@ Every command carries `tenantId`, `actor`, `correlationId`, `idempotencyKey` (re
 | `ExpireRecallDeadlines` | job (`queue` queue, every minute via runner) | — | system |
 | `ApplyNoShowPolicy` | job (every 5 min) | — | system |
 | `CancelChamberDay` | `POST /chamber-days/{id}/cancel` (Stage 5, audit C-43; §3.3) | `expectedRowVersion` | `schedule.manage` |
-| `StartConsultation` (pre-clinical, Stage 5 only; ADR-021) | `POST /serials/{id}/start-consultation` | `expectedRowVersion` | `encounter.start` + doctor of the chamber |
-| `CompleteConsultation` (pre-clinical, Stage 5 only; ADR-021) | `POST /serials/{id}/complete` | `expectedRowVersion` | `encounter.complete` + doctor of the chamber |
+| ~~`StartConsultation`~~ (retired 2026-09-23; ADR-021) | `POST /serials/{id}/start-consultation` | — | answers `410 ENDPOINT_RETIRED`; use `POST /serials/{id}/encounter` |
+| ~~`CompleteConsultation`~~ (retired 2026-09-23; ADR-021) | `POST /serials/{id}/complete` | — | answers `410 ENDPOINT_RETIRED`; use `POST /encounters/{id}/complete` |
 | `StartEncounter` | `POST /serials/{id}/encounter` (clinical) | `expectedRowVersion` | `encounter.start` |
 | `InterruptEncounter` / `CompleteEncounter` | `POST /encounters/{id}/interrupt` · `/complete` | encounter `expectedRowVersion` | `encounter.manage` / `encounter.complete` |
 
