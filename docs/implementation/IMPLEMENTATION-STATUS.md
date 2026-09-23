@@ -1,6 +1,6 @@
-# Implementation Status — Stage 4 (Foundation + Tenant/Identity) and Stage 5 (Patient, Scheduling, Queue)
+# Implementation Status — Stages 4 (Foundation + Tenant/Identity), 5 (Patient, Scheduling, Queue) and 6 (Consultation & Encounter)
 
-Living document (BUILD-CONTRACT; Stage 4 prompt §8, Stage 5 prompt §10). Updated after every merged task.
+Living document (BUILD-CONTRACT; Stage 4 prompt §8, Stage 5 prompt §10, Stage 6 prompt §10). Updated after every merged task.
 Legend:
 - **DONE:** merged to `main` with tests.
 - **PROVISIONAL:** merged with tests; final only after the listed HOST items or human actions pass.
@@ -16,6 +16,9 @@ Legend:
 | CP3 Patient registry (Stage 5) | CI-000, PAT-001…PAT-007: migration 0004, search normalization, lock ranking, patient/merge/consent/access services, HTTP routes + patient context, seed, web staff screens, mobile profile switcher | **PASS as part of the CP5 tree.** At the boundary commit itself 18 of 20 gates pass; integration fails only on the argon2 `timeCost` rebase artefact (see the tag note) | `stage5-cp3-patient` — scope marker on `fcbad0b`, annotated |
 | CP4 Chamber & scheduling (Stage 5) | CHAM-000…004, SCHED-001, APPT-001/002: migrations 0005/0006, clinics, chambers, schedule rules, chamber days, appointments, the serial lifecycle they reach and the no-show job | **PASS as part of the CP5 tree.** At the boundary commit itself 18 of 20 gates pass; integration fails only on the same argon2 artefact plus the worker-shell flake, both fixed in `7cf4d53` | `stage5-cp4-scheduling` — scope marker on `fa7a8a4`, annotated |
 | CP5 Serial/queue engine (Stage 5) | SERIAL-*, QUEUE-*, LOC-*: the queue-active lifecycle, reorder, the ETagged snapshot and the patient view, the queue HTTP endpoint matrix, the web board, the doctor and patient app screens and the queue-active seed | **PASS** — `checkpoint-verify.mjs` 20/20 at `4456a36`, both MariaDB series; HOST-001/002/003/004 recorded, HOST-005 still open | `stage5-cp5-queue` |
+| CP6 Encounter core (Stage 6) | DEPLOY-001…004, TEST-001, CLIN-001/002: the single-app profile, the automated verified pre-migration dump, the `sql_mode` guarantee, the real-data gate, HTTP coverage for the 19 uncovered routes, migration 0007, the encounter lifecycle and the ADR-021 retirement with its backfill | **PASS** — `checkpoint-verify.mjs` 20/20 at `5135a91`, both MariaDB series. Mandatory tests 1–3 flake-free over 10 runs per series | `stage6-cp6-encounter` |
+| CP7 Notes & diagnoses (Stage 6) | CLIN-003/004: migration 0008, the note draft with autosave, signing into a hash-chained revision, amendments with a mandatory reason, diagnoses and symptoms, the clinical access policy, the §5 metrics and the clinical seed | **PASS** — `checkpoint-verify.mjs` 20/20 at `5b36412`, both series. Mandatory tests 4–7, 9, 10, 11, 13, 14 and 15 green | `stage6-cp7-notes` |
+| CP8 Consultation workspace (Stage 6) | WEB-002, MOB-004 and `GET /patients/{id}/encounters`: the web workspace, the doctor app's encounter screen and the history panel behind them, plus the deployed single-app build | **PASS** — `checkpoint-verify.mjs` 20/20 at `54b087d`, both series. The deployed end-to-end walkthrough is scripted and outstanding (H-10) | `stage6-cp8-workspace` |
 
 ### Why CP3 and CP4 are scope markers
 
@@ -101,7 +104,7 @@ Still open in Stage 5: HOST-005. Out of scope: encounters, clinical, prescriptio
 
 | Task | Status | Commit(s) | Tests added | Notes |
 |---|---|---|---|---|
-| DEPLOY-001 single-app deployment profile | DONE (not yet deployed) | `0b44b3b` (ADR-023) | integration 6 (static-web) | one Passenger app serves the API and the web bundle; `WEB_DIST_DIR` must be **absolute** — Passenger's cwd is the home directory, not the release. A missing bundle logs and continues rather than throwing, so a mis-set path cannot take the API down |
+| DEPLOY-001 single-app deployment profile | DONE (deployed 2026-09-23) | `0b44b3b` (ADR-023) | integration 6 (static-web) | one Passenger app serves the API and the web bundle; `WEB_DIST_DIR` must be **absolute** — Passenger's cwd is the home directory, not the release. A missing bundle logs and continues rather than throwing, so a mis-set path cannot take the API down |
 | DEPLOY-002 automated verified pre-migration dump | DONE | `0b44b3b` | integration 5 (`dump.ts`) | in-process dumper on the guard's existing connection; gzip + sha256, verified by reading it back. Replaces the manual `PRE_MIGRATION_DUMP_CONFIRMED` gate that caused the Stage 5 outage (D-01) |
 | DEPLOY-003 `sql_mode` guarantee | DONE | `0b44b3b` | integration 3 | `assertStrictSession()` refuses a session without `STRICT_ALL_TABLES`; a permissive server truncates silently, which is how clinical data goes wrong quietly |
 | DEPLOY-004 `REAL_PATIENT_DATA_ALLOWED` gate | DONE | `0b44b3b` | integration 2, unit 3 | five gates in §4a; readiness reports the flag |
@@ -122,10 +125,11 @@ Still open in Stage 5: HOST-005. Out of scope: encounters, clinical, prescriptio
 
 | Suite | Count | Notes |
 |---|---|---|
-| unit | 301 | Vitest `unit` project (packages, apps, tooling, scripts) |
-| architecture | 37 | depcruise + ESLint rule fixtures |
-| integration + security | 269 on mariadb:10.6 · 269 on mariadb:11.8 | Testcontainers, `node scripts/test/run-integration.mjs` (seed test: 5-minute budget, the Stage 5 dataset takes ~85 s per run) |
-| e2e (Playwright) | 11 | built web app against a mocked API (smoke, patient and queue flows) |
+| unit | 324 | Vitest `unit` project (packages, apps, tooling, scripts) |
+| architecture | 40 | depcruise + ESLint rule fixtures |
+| integration + security | 365 on mariadb:10.6 · 365 on mariadb:11.8 | Testcontainers, `node scripts/test/run-integration.mjs` |
+| security | 10 | Vitest `security` project |
+| e2e (Playwright) | 19 | built web app against a mocked API (smoke, patient, queue and consultation flows) |
 | mobile (Flutter) | 15 | `dart run melos run test`; `flutter analyze --fatal-infos` clean |
 
 ## 3a. Stage 5 load measurements (prompt §4.13)
@@ -239,6 +243,8 @@ patient who cannot be reached is not a patient who can be treated.
 | H-6 | Staging setup: DB, three Hostinger apps, env vars, repository variables `STAGING_API_URL`/`STAGING_WORKER_URL`/`STAGING_WEB_URL`, `staging` environment | first staging deploy via `promote-staging` | after H-1, H-2 |
 | H-7 | Native-speaker review of the Bangla UI strings (web `messages.ts`, mobile `strings.dart`) | copy quality | — |
 | H-8 | ~~Set `WEB_DIST_DIR` on the production app to the **absolute** release path~~ **DONE** (2026-09-23): set to the absolute release path (`/home/<user>/hbuilds/current/apps/web/dist`), not `apps/web/dist` | Passenger runs with the home directory as cwd, so a relative path finds nothing. DEPLOY-001 is built but not serving the web bundle until this is set | DEPLOY-001 deployment |
+| H-10 | Run `scripts/ops/verify-clinical-loop.mjs` against production to close CP8's deployed-walkthrough condition. `HM_BASE_URL=https://hmedicare.hakeemify.com HM_EMAIL=<owner> HM_PASSWORD=<owner password> HM_DOCTOR_PROFILE_ID=<tenants.owner_doctor_profile_id> node scripts/ops/verify-clinical-loop.mjs` | the script walks queue → encounter → note → sign → diagnosis → amend → complete and checks the properties, not just the status codes. It needs a login, which this agent does not hold | CP8 acceptance |
+| H-11 | Production has one user and no recovery path: if that password is lost nobody can sign in at all. Either record it somewhere durable or build `ops:reset-owner-password` | gate G-1 (D-18) already blocks real patient data on exactly this; it is also an operational single point of failure today | G-1, real-data gate |
 | H-9 | Delete the two retired ADR-021 routes one release after Stage 6 ships | they answer `410 ENDPOINT_RETIRED` today so Stage 5 clients get a clear answer; the ADR says they go after one release | — |
 
 ## 6. Deviations
