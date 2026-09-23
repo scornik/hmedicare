@@ -597,6 +597,43 @@ class _EncountersClient implements EncountersClient {
   }
 
   @override
+  Future<GetApiV1PatientsIdEncountersResponse> listPatientEncounters({
+    required String id,
+    required String xTenantId,
+    int? limit,
+    String? excludeEncounterId,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{
+      r'limit': limit,
+      r'excludeEncounterId': excludeEncounterId,
+    };
+    queryParameters.removeWhere((k, v) => v == null);
+    final _headers = <String, dynamic>{r'X-Tenant-ID': xTenantId};
+    _headers.removeWhere((k, v) => v == null);
+    const Map<String, dynamic>? _data = null;
+    final _options = _setStreamType<GetApiV1PatientsIdEncountersResponse>(
+      Options(method: 'GET', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/api/v1/patients/${id}/encounters',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch<Map<String, Object?>>(_options);
+    late GetApiV1PatientsIdEncountersResponse _value;
+    try {
+      _value = GetApiV1PatientsIdEncountersResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options, response: _result);
+      rethrow;
+    }
+    return _value;
+  }
+
+  @override
   Future<PostApiV1SerialsIdEncounterResponse> startEncounter({
     required String id,
     required String xTenantId,

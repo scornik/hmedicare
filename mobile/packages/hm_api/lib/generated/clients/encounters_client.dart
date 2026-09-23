@@ -16,6 +16,7 @@ import '../models/get_api_v1_encounters_id_note_response.dart';
 import '../models/get_api_v1_encounters_id_note_revisions_response.dart';
 import '../models/get_api_v1_encounters_id_response.dart';
 import '../models/get_api_v1_encounters_id_symptoms_response.dart';
+import '../models/get_api_v1_patients_id_encounters_response.dart';
 import '../models/interrupt_encounter_request.dart';
 import '../models/patch_api_v1_diagnoses_id_response.dart';
 import '../models/post_api_v1_diagnoses_id_void_response.dart';
@@ -155,6 +156,14 @@ abstract class EncountersClient {
     @Header('X-Tenant-ID') required String xTenantId,
     @Header('Idempotency-Key') required String idempotencyKey,
     @Body() AddSymptomRequest? body,
+  });
+
+  @GET('/api/v1/patients/{id}/encounters')
+  Future<GetApiV1PatientsIdEncountersResponse> listPatientEncounters({
+    @Path('id') required String id,
+    @Header('X-Tenant-ID') required String xTenantId,
+    @Query('limit') int? limit,
+    @Query('excludeEncounterId') String? excludeEncounterId,
   });
 
   @POST('/api/v1/serials/{id}/encounter')
