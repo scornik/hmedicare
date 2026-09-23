@@ -48,6 +48,7 @@ export const LIVE_ENCOUNTER_STATUSES: ReadonlySet<EncounterStatus> = new Set<Enc
   'COMPLETED',
 ]);
 
-/** The note sections the domain model defines. No others are accepted, and none is mandatory (see ADR). */
+/** The note sections the domain model defines. No others are accepted, and none is mandatory (see ADR).
+ * Everything else about a note — limits, normalization, the signed content hash — is in `note-sections.ts`. */
 export const NOTE_SECTIONS = ['chiefComplaint', 'history', 'examination', 'assessment', 'plan'] as const;
 export type NoteSection = (typeof NOTE_SECTIONS)[number];

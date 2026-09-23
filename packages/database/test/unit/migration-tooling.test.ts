@@ -48,6 +48,7 @@ describe('schema sections', () => {
       '0005',
       '0006',
       '0007',
+      '0008',
     ]);
     expect(cumulativeSchema(schema, '0001')).not.toContain('model Tenant ');
     expect(cumulativeSchema(schema, '0002')).toContain('model Tenant ');

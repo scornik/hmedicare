@@ -12,8 +12,8 @@ import { Idempotent } from '@hmedic/http-kit';
 import { CurrentActor, CurrentTenant, RequirePermission } from '@hmedic/identity-access/nest';
 import { CLINICAL_SERVICES, type ClinicalServices } from '@hmedic/clinical/nest';
 import type { ClinicalActor, EncounterView } from '@hmedic/clinical';
-import type { PrismaClient } from '@hmedic/database';
 import { HTTP_RUNTIME, type HttpRuntime } from '@hmedic/http-kit';
+import { clinicalActor, idempotencyKey } from './actor';
 
 class StartEncounterDto extends createZodDto(StartEncounterRequest) {}
 class RowVersionOnlyDto extends createZodDto(RowVersionOnly) {}
@@ -147,34 +147,4 @@ export class SerialEncounterController {
       { idempotencyKey: idempotencyKey(req) },
     );
   }
-}
-
-/**
- * Every clinical command needs the acting user's doctor profile, because assignment is defined in terms
- * of the doctor, not the user (AUTHORIZATION-MATRIX §3). Staff without one are never assigned, so the
- * services refuse them: the permission alone is not enough.
- */
-async function clinicalActor(
-  runtime: HttpRuntime,
-  actor: ActorContext,
-  tenant: TenantContext,
-  req: FastifyRequest,
-): Promise<ClinicalActor> {
-  const prisma = runtime.prisma as PrismaClient;
-  const profile = await prisma.doctorProfile.findFirst({
-    where: { tenantId: tenant.tenantId, userId: actor.userId, status: 'ACTIVE' },
-    select: { id: true },
-  });
-  return {
-    userId: actor.userId,
-    tenant,
-    doctorProfileId: profile?.id ?? null,
-    requestId: req.id,
-    correlationId: req.id,
-  };
-}
-
-function idempotencyKey(req: FastifyRequest): string | null {
-  const header = req.headers['idempotency-key'];
-  return typeof header === 'string' && header.length > 0 ? header : null;
 }

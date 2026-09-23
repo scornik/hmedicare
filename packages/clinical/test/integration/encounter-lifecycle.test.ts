@@ -1,5 +1,4 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import type { MembershipId, TenantContext, TenantId } from '@hmedic/kernel';
 import { newId, systemClock } from '@hmedic/kernel';
 import { PrismaAuditPort } from '@hmedic/audit';
 import { OutboxPort } from '@hmedic/jobs';
@@ -8,6 +7,9 @@ import { composeSchedulingAndQueue } from '@hmedic/queue';
 import { QueueSerialLifecycle } from '@hmedic/queue';
 import { AssignmentPolicy, type ClinicalActor, ClinicalOutbox, EncounterService } from '../../src/public';
 import { openTestDatabase, truncateAll } from '../../../../tests/support/db';
+import { chamberWithCalledSerial as fixture, tenantContext } from './support';
+
+const chamberWithCalledSerial = (label: string) => fixture(db.prisma, label);
 
 /**
  * CLIN-002. Mandatory tests 1–3 of the Stage 6 brief: the double start, the serial/encounter invariant
@@ -37,147 +39,6 @@ afterAll(async () => {
 beforeEach(async () => {
   await truncateAll();
 });
-
-/**
- * A resolved tenant context. The clinical services care only about `tenantId`; the rest of the shape is
- * the HTTP layer's business and is filled in so the type is honest rather than cast away.
- */
-function tenantContext(tenantId: TenantId): TenantContext {
-  return {
-    tenantId,
-    membershipId: newId<MembershipId>(),
-    role: 'doctor',
-    effectivePermissions: new Set<string>(),
-    clinicIds: [],
-    chamberIds: [],
-    rolePermissionsVersion: 2,
-  };
-}
-
-/** A tenant with a doctor, a chamber, an open day and one CALLED serial: the state a consultation starts from. */
-async function chamberWithCalledSerial(label: string) {
-  const now = new Date();
-  const tenantId = newId<TenantId>();
-  const userId = newId();
-  const doctorProfileId = newId();
-  const patientId = newId();
-  const clinicId = newId();
-  const chamberId = newId();
-  const chamberDayId = newId();
-  const serialId = newId();
-  const p = db.prisma;
-
-  await p.tenant.create({
-    data: {
-      id: tenantId,
-      name: `DEMO ${label}`,
-      slug: `${label}-${tenantId.slice(-6)}`,
-      status: 'ACTIVE',
-      practiceType: 'GROUP',
-      createdAt: now,
-      updatedAt: now,
-    },
-  });
-  await p.user.create({
-    data: {
-      id: userId,
-      email: `${userId}@example.invalid`,
-      emailNormalized: `${userId}@example.invalid`,
-      status: 'ACTIVE',
-      createdAt: now,
-      updatedAt: now,
-    },
-  });
-  await p.doctorProfile.create({
-    data: {
-      id: doctorProfileId,
-      tenantId,
-      userId,
-      displayName: `Dr. ${label}`,
-      specialties: [],
-      status: 'ACTIVE',
-      createdAt: now,
-      updatedAt: now,
-    },
-  });
-  await p.patient.create({
-    data: {
-      id: patientId,
-      tenantId,
-      medicalRecordNumber: patientId.slice(-12),
-      legalName: 'SYNTHETIC Patient',
-      displayName: 'SYNTHETIC Patient',
-      status: 'ACTIVE',
-      createdAt: now,
-      updatedAt: now,
-    },
-  });
-  await p.clinic.create({
-    data: {
-      id: clinicId,
-      tenantId,
-      name: `DEMO Clinic ${label}`,
-      nameNormalizedHash: newId().replace(/-/g, '').padEnd(64, '0').slice(0, 64),
-      status: 'ACTIVE',
-      createdAt: now,
-      updatedAt: now,
-    },
-  });
-  await p.chamber.create({
-    data: {
-      id: chamberId,
-      tenantId,
-      clinicId,
-      doctorProfileId,
-      name: `DEMO Chamber ${label}`,
-      supportsPhysical: true,
-      supportsRemote: false,
-      supportsHybrid: false,
-      defaultQueuePolicy: {},
-      status: 'ACTIVE',
-      createdAt: now,
-      updatedAt: now,
-    },
-  });
-  await p.chamberDay.create({
-    data: {
-      id: chamberDayId,
-      tenantId,
-      chamberId,
-      doctorProfileId,
-      localDate: now,
-      localStartTime: new Date('1970-01-01T00:00:00.000Z'),
-      localEndTime: new Date('1970-01-01T23:59:00.000Z'),
-      timezone: 'Asia/Dhaka',
-      status: 'OPEN',
-      queuePolicy: {},
-      createdAt: now,
-      updatedAt: now,
-    },
-  });
-  const serial = await p.serial.create({
-    data: {
-      id: serialId,
-      tenantId,
-      chamberDayId,
-      patientId,
-      serialNumber: 1,
-      source: 'WALK_IN',
-      careMode: 'PHYSICAL',
-      status: 'CALLED',
-      createdAt: now,
-      updatedAt: now,
-    },
-  });
-  const actor: ClinicalActor = {
-    userId,
-    tenant: tenantContext(tenantId),
-    doctorProfileId,
-    requestId: newId(),
-    correlationId: newId(),
-  };
-  return { tenantId, userId, doctorProfileId, patientId, chamberId, chamberDayId, serial, actor };
-}
 
 /**
  * The serial/encounter invariant, stated as three properties that are each true at every commit.

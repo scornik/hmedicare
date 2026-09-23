@@ -27,10 +27,14 @@ const SELF_REFERENCING: Readonly<Record<string, string>> = {
   serials: 'rescheduled_from_serial_id',
   appointments: 'rescheduled_from_appointment_id',
   patients: 'merged_into_patient_id',
+  diagnoses: 'replaces_diagnosis_id',
 };
 
 /** Tables owned by Stage 4/5 migrations, in delete-safe order (children first). */
 const TABLES = [
+  // 0008 clinical_observations: children of encounters, so they go before them.
+  'symptom_observations',
+  'diagnoses',
   // 0007 encounters: children first. `serials.encounter_id` points here, so the serials delete below
   // would fail on the foreign key if these were left behind.
   'encounter_note_versions',

@@ -531,6 +531,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/diagnoses/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateDiagnosis"];
+        trace?: never;
+    };
+    "/api/v1/diagnoses/{id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["voidDiagnosis"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/doctor-coverages": {
         parameters: {
             query?: never;
@@ -595,6 +627,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/encounters/{id}/diagnoses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listEncounterDiagnoses"];
+        put?: never;
+        post: operations["addEncounterDiagnosis"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/encounters/{id}/entered-in-error": {
         parameters: {
             query?: never;
@@ -627,6 +675,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/encounters/{id}/note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getEncounterNote"];
+        put: operations["saveEncounterNoteDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/encounters/{id}/note/corrections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["amendEncounterNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/encounters/{id}/note/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listEncounterNoteRevisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/encounters/{id}/note/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["signEncounterNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/encounters/{id}/resume": {
         parameters: {
             query?: never;
@@ -637,6 +749,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["resumeEncounter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/encounters/{id}/symptoms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listEncounterSymptoms"];
+        put?: never;
+        post: operations["addEncounterSymptom"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1426,6 +1554,44 @@ export interface components {
              */
             startsAt?: string;
         };
+        AddDiagnosisRequest: {
+            /** @enum {string} */
+            certainty: "CONFIRMED" | "PROVISIONAL" | "DIFFERENTIAL";
+            /** @enum {string} */
+            clinicalStatus?: "ACTIVE" | "RESOLVED" | "RULED_OUT";
+            code?: string | null;
+            codeSystem?: string | null;
+            display: string;
+            displayBn?: string | null;
+            notes?: string | null;
+            /**
+             * Format: uuid
+             * @description The voided diagnosis this one corrects, so the replacement reads as a correction
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            replacesDiagnosisId?: string | null;
+        };
+        AddSymptomRequest: {
+            /** @enum {string} */
+            certainty: "CONFIRMED" | "PROVISIONAL" | "DIFFERENTIAL";
+            codeSystem?: string | null;
+            detail?: string | null;
+            display: string;
+            normalizedCode?: string | null;
+            onset?: string | null;
+            /** @enum {string|null} */
+            severity?: "MILD" | "MODERATE" | "SEVERE" | "UNKNOWN" | null;
+            /**
+             * @description Who it came from. `AI_APPROVED` exists in the model and no route can set it
+             * @enum {string}
+             */
+            source: "PATIENT_REPORTED" | "CLINICIAN_OBSERVED";
+        };
+        AmendNoteRequest: {
+            /** @description Required. A revision after the first explains itself or it is not accepted */
+            correctionReason: string;
+            expectedRowVersion: number;
+        };
         Appointment: {
             /**
              * Format: uuid
@@ -1932,6 +2098,59 @@ export interface components {
         CsrfResponse: {
             csrfToken: string;
         };
+        Diagnosis: {
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            authorDoctorProfileId: string;
+            /** @enum {string} */
+            certainty: "CONFIRMED" | "PROVISIONAL" | "DIFFERENTIAL";
+            /** @enum {string} */
+            clinicalStatus: "ACTIVE" | "RESOLVED" | "RULED_OUT" | "ENTERED_IN_ERROR";
+            code: string | null;
+            codeSystem: string | null;
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            createdAt: string;
+            display: string;
+            displayBn: string | null;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            encounterId: string;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            id: string;
+            notes: string | null;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            patientId: string;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            replacesDiagnosisId: string | null;
+            rowVersion: number;
+            /**
+             * @description Always `doctor` in this stage. No code path can produce `ai_approved` before Stage 10
+             * @enum {string}
+             */
+            source: "doctor" | "ai_approved";
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            voidedAt: string | null;
+            voidReason: string | null;
+        };
         DoctorCoverage: {
             /**
              * Format: uuid
@@ -2058,6 +2277,73 @@ export interface components {
             startedAt: string;
             /** @enum {string} */
             status: "IN_PROGRESS" | "INTERRUPTED" | "COMPLETED" | "ENTERED_IN_ERROR";
+        };
+        EncounterNoteDraft: {
+            assessment: string | null;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            authorDoctorProfileId: string;
+            chiefComplaint: string | null;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            encounterId: string;
+            examination: string | null;
+            history: string | null;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            id: string;
+            lastSignedRevision: number | null;
+            plan: string | null;
+            rowVersion: number;
+            schemaVersion: number;
+            sectionSources: components["schemas"]["NoteSectionSource"][];
+            /** @enum {string} */
+            status: "DRAFT" | "SIGNED_LOCKED";
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            updatedAt: string;
+        };
+        EncounterNoteRevision: {
+            assessment: string | null;
+            chiefComplaint: string | null;
+            /** @description Digest of the frozen sections. Lets a reader prove a revision is the one that was signed without anything outside the record holding a copy of the text */
+            contentSha256: string;
+            correctionReason: string | null;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            encounterId: string;
+            examination: string | null;
+            history: string | null;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            id: string;
+            plan: string | null;
+            revision: number;
+            schemaVersion: number;
+            sectionSources: components["schemas"]["NoteSectionSource"][];
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            signedAt: string;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            signedByDoctorProfileId: string;
+            supersedesRevision: number | null;
         };
         EndGuardianshipRequest: {
             expectedRowVersion: number;
@@ -2312,6 +2598,20 @@ export interface components {
             id: string;
             phoneMasked: string | null;
             phoneVerified: boolean;
+        };
+        NoteSectionSource: {
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            aiApprovalId?: string;
+            /** @enum {string} */
+            section: "chiefComplaint" | "history" | "examination" | "assessment" | "plan";
+            /**
+             * @description `ai_approved` is Stage 10; no route in this stage can produce it
+             * @enum {string}
+             */
+            source: "doctor" | "nurse" | "ai_approved";
         };
         OtpRequestRequest: {
             locale?: components["schemas"]["Locale"];
@@ -2800,6 +3100,17 @@ export interface components {
         RowVersionOnlyRequest: {
             expectedRowVersion: number;
         };
+        SaveNoteDraftRequest: {
+            /** @description The draft's row version. A stale save is refused with STALE_VERSION and the current version, so a second tab never overwrites newer text */
+            expectedRowVersion: number;
+            sections: {
+                assessment?: string | null;
+                chiefComplaint?: string | null;
+                examination?: string | null;
+                history?: string | null;
+                plan?: string | null;
+            };
+        };
         ScheduleRule: {
             capacity: number | null;
             /**
@@ -2980,6 +3291,9 @@ export interface components {
              */
             lastSeenAt: string;
         };
+        SignNoteRequest: {
+            expectedRowVersion: number;
+        };
         SkipSerialRequest: {
             expectedRowVersion: number;
             reason: string;
@@ -2993,6 +3307,42 @@ export interface components {
         };
         StepUpVerifyResponse: {
             authnMethods: ("pwd" | "otp")[];
+        };
+        SymptomObservation: {
+            /** @enum {string} */
+            certainty: "CONFIRMED" | "PROVISIONAL" | "DIFFERENTIAL";
+            codeSystem: string | null;
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            createdAt: string;
+            detail: string | null;
+            display: string;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            encounterId: string;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            id: string;
+            normalizedCode: string | null;
+            onset: string | null;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            patientId: string;
+            rowVersion: number;
+            /** @enum {string|null} */
+            severity: "MILD" | "MODERATE" | "SEVERE" | "UNKNOWN" | null;
+            /** @enum {string} */
+            source: "PATIENT_REPORTED" | "CLINICIAN_OBSERVED" | "AI_APPROVED";
+            /** @enum {string} */
+            status: "ACTIVE" | "ENTERED_IN_ERROR";
         };
         UpdateChamberDayPolicyRequest: {
             expectedQueueOrderVersion: number;
@@ -3021,6 +3371,18 @@ export interface components {
             smsDisplayName?: string | null;
             /** @enum {string} */
             status?: "ACTIVE" | "INACTIVE";
+        };
+        UpdateDiagnosisRequest: {
+            /** @enum {string} */
+            certainty?: "CONFIRMED" | "PROVISIONAL" | "DIFFERENTIAL";
+            /** @enum {string} */
+            clinicalStatus?: "ACTIVE" | "RESOLVED" | "RULED_OUT";
+            code?: string | null;
+            codeSystem?: string | null;
+            display?: string;
+            displayBn?: string | null;
+            expectedRowVersion: number;
+            notes?: string | null;
         };
         UpdateMembershipRequest: {
             chamberIds?: string[];
@@ -3067,6 +3429,10 @@ export interface components {
             expectedRowVersion: number;
             /** @enum {string} */
             method: "STAFF_VERIFIED_IN_PERSON" | "STAFF_VERIFIED_DOCUMENT";
+        };
+        VoidDiagnosisRequest: {
+            expectedRowVersion: number;
+            reason: string;
         };
         WithdrawConsentRequest: {
             expectedRowVersion: number;
@@ -7052,6 +7418,213 @@ export interface operations {
             };
         };
     };
+    updateDiagnosis: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateDiagnosisRequest"];
+            };
+        };
+        responses: {
+            /** @description Edits a diagnosis while the encounter note is unsigned (`note.write` + assignment). Once any revision is signed this answers `INVALID_TRANSITION`: the route out is void plus a replacement */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Diagnosis"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    voidDiagnosis: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VoidDiagnosisRequest"];
+            };
+        };
+        responses: {
+            /** @description Withdraws a diagnosis with a reason (`note.write` + assignment). The row stays, marked ENTERED_IN_ERROR and carrying who withdrew it and why */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Diagnosis"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     listCoverages: {
         parameters: {
             query?: never;
@@ -7560,6 +8133,209 @@ export interface operations {
             };
         };
     };
+    listEncounterDiagnoses: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Diagnoses on this encounter, including voided ones (`encounter.read` + assignment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Diagnosis"][];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    addEncounterDiagnosis: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AddDiagnosisRequest"];
+            };
+        };
+        responses: {
+            /** @description Records a diagnosis (`note.write` + assignment). Free text is always allowed; a code is accepted only together with the system that issued it. No code list ships with this stage */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Diagnosis"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     enterEncounterInError: {
         parameters: {
             query?: never;
@@ -7768,6 +8544,515 @@ export interface operations {
             };
         };
     };
+    getEncounterNote: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The working draft (`encounter.read` + assignment). The read is audited as a PHI access; the audit row carries identifiers only, never the text */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["EncounterNoteDraft"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    saveEncounterNoteDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SaveNoteDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Autosave (`note.write` + assignment). Returns the new row version. `STALE_VERSION` when another tab saved first, with the current version attached so the client can offer a choice rather than overwrite. Drafts are not versioned and emit no timeline event */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["EncounterNoteDraft"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    amendEncounterNote: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AmendNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description A new signed revision carrying its reason (`note.sign` + assignment). The revision it corrects stays readable — a signed note is never rewritten in place */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["EncounterNoteRevision"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listEncounterNoteRevisions: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every signed revision, oldest first (`encounter.read` + assignment). Audited as a PHI read */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["EncounterNoteRevision"][];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    signEncounterNote: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SignNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Freezes the draft into revision 1 (`note.sign` + assignment). The revision is append-only and hash-chained per encounter; nothing updates or deletes it afterwards */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["EncounterNoteRevision"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     resumeEncounter: {
         parameters: {
             query?: never;
@@ -7796,6 +9081,209 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["Encounter"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listEncounterSymptoms: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Symptoms recorded on this encounter (`encounter.read` + assignment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SymptomObservation"][];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    addEncounterSymptom: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AddSymptomRequest"];
+            };
+        };
+        responses: {
+            /** @description Records what the patient reported or the doctor observed (`note.write` + assignment) */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SymptomObservation"];
                         meta: components["schemas"]["ResponseMeta"];
                     };
                 };

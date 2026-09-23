@@ -4,8 +4,11 @@ import type { PrismaAuditPort } from '@hmedic/audit';
 import { OutboxPort } from '@hmedic/jobs';
 import { QueueSerialLifecycle, type SerialService } from '@hmedic/queue';
 import { AssignmentPolicy } from './assignment-policy';
+import { ClinicalAccessPolicy } from './clinical-access';
+import { DiagnosisService } from './diagnosis-service';
 import { EncounterService } from './encounter-service';
 import { ClinicalOutbox } from './events';
+import { NoteService } from './note-service';
 
 /**
  * Builds the clinical context and closes the loop with the queue (Stage 6 CLIN-002).
@@ -22,15 +25,23 @@ export function composeClinical(deps: {
   clock?: Clock;
 }) {
   const clock = deps.clock ?? systemClock;
+  // One outbox and one assignment policy across the context: a second policy instance would be a second
+  // place for the coverage window to drift.
+  const outbox = new ClinicalOutbox(new OutboxPort(clock), clock);
+  const assignment = new AssignmentPolicy(deps.prisma, () => clock.now());
+  const access = new ClinicalAccessPolicy(deps.prisma, assignment);
+  const notes = new NoteService(deps.prisma, deps.audit, outbox, access, clock);
   const encounters = new EncounterService(
     deps.prisma,
     deps.audit,
-    new ClinicalOutbox(new OutboxPort(clock), clock),
+    outbox,
     new QueueSerialLifecycle(deps.serials),
-    new AssignmentPolicy(deps.prisma, () => clock.now()),
+    assignment,
     clock,
+    notes,
   );
+  const diagnoses = new DiagnosisService(deps.prisma, deps.audit, outbox, access, clock);
   // Without this, cancelling a serial mid-consultation would leave an encounter that still looks live.
   deps.serials.attachEncounterInterruption(encounters);
-  return { encounters };
+  return { encounters, notes, diagnoses };
 }

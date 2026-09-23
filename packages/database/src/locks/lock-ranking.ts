@@ -42,6 +42,10 @@ export const LOCK_RANKING: Readonly<Record<string, number>> = {
   encounter_participants: 52,
   encounter_notes: 54,
   encounter_note_versions: 56,
+  // Observations hang off the encounter and are written after its note, never the other way round: a
+  // diagnosis is recorded during a consultation whose note the doctor already has open (Stage 6 CLIN-004).
+  symptom_observations: 57,
+  diagnoses: 58,
   // 60 – auth and platform rows
   sessions: 60,
   refresh_tokens: 60,

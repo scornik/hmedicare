@@ -9,6 +9,11 @@ import {
   encounterTransition,
 } from '../domain/encounter-transitions';
 import type { AssignmentPolicy, AssignmentResult } from './assignment-policy';
+
+/** Just enough of the note service for the lifecycle to close the draft, without depending on all of it. */
+export interface NoteDraftLockPort {
+  lockDraftForCompletion(tx: Tx, tenantId: string, encounterId: string, now: Date): Promise<void>;
+}
 import type { ClinicalOutbox } from './events';
 
 type Tx = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
@@ -99,6 +104,11 @@ export class EncounterService {
     private readonly serials: SerialLifecyclePort,
     private readonly assignment: AssignmentPolicy,
     private readonly clock: Clock = systemClock,
+    /**
+     * Set by the composition root. Optional so the lifecycle can be built and tested on its own, which
+     * is how CP6 exercised it before notes existed.
+     */
+    private readonly notes?: NoteDraftLockPort,
   ) {}
 
   private ref(actor: ClinicalActor): QueueActorRef {
@@ -332,6 +342,16 @@ export class EncounterService {
           await this.serials.lockSerialPath(tx, tenantId, before.serialId);
         }
         await lockRow(tx, 'encounters', encounterId, tenantId);
+        // The consultation is over, so the draft stops accepting saves — in the same transaction as the
+        // status change, because a draft still open against a finished encounter is a door left unlocked.
+        //
+        // It happens here rather than after the update, and is keyed on the command rather than on the
+        // resulting status, because `markCompleted` below ends at the day's hash chain (rank 80) and
+        // `encounter_notes` is 54. Locking it afterwards would be a lock-order violation; an invalid
+        // transition further down rolls this back with everything else.
+        if (command === 'complete' || command === 'enter_in_error') {
+          await this.notes?.lockDraftForCompletion(tx, tenantId, encounterId, now);
+        }
         if (o.alsoCompleteSerial) {
           await this.serials.markCompleted(tx, tenantId, before.serialId, {
             actor: this.ref(actor),

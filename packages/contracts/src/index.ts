@@ -8,4 +8,5 @@ export * from './patient-access';
 export * from './scheduling';
 export * from './queue';
 export * from './encounter';
+export * from './clinical';
 export * from './openapi';

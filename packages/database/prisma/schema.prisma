@@ -1466,3 +1466,98 @@ model EncounterNoteVersion {
   @@index([tenantId, noteId], map: "ix_encounter_note_versions_note")
   @@map("encounter_note_versions")
 }
+
+// ---------------------------------------------------------------- 0008 clinical_observations
+// DATABASE-IMPLEMENTATION.md §3.8, clinical half. The catalog half of that section moved to 0019 (C-52):
+// `patient_medications` cannot carry its FK before `medications` exists, and the catalog belongs to the
+// stage that fills it.
+
+/// What the patient reported or the doctor observed. Separate from the note's prose because a symptom is
+/// a fact about the patient that later stages query; the note is the doctor's account of the visit.
+model SymptomObservation {
+  /// @ascii
+  id             String   @id @db.VarChar(36)
+  /// @ascii
+  tenantId       String   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  encounterId    String   @map("encounter_id") @db.VarChar(36)
+  /// @ascii
+  patientId      String   @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  normalizedCode String?  @map("normalized_code") @db.VarChar(64)
+  /// @ascii
+  codeSystem     String?  @map("code_system") @db.VarChar(32)
+  display        String   @db.VarChar(200)
+  detail         String?  @db.VarChar(1000)
+  onset          String?  @db.VarChar(80)
+  /// @ascii
+  severity       String?  @db.VarChar(16)
+  /// @ascii
+  source         String   @db.VarChar(16)
+  /// @ascii
+  certainty      String   @db.VarChar(16)
+  /// @ascii
+  status         String   @db.VarChar(20)
+  createdAt      DateTime @map("created_at") @db.DateTime(3)
+  updatedAt      DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String? @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String? @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion     Int      @default(1) @map("row_version")
+
+  @@unique([tenantId, id], map: "uq_symptom_observations_tenant_id")
+  @@index([tenantId, encounterId], map: "ix_symptom_observations_encounter")
+  @@index([tenantId, patientId, createdAt], map: "ix_symptom_observations_patient")
+  @@map("symptom_observations")
+}
+
+/// A diagnosis belongs to an encounter and is attributable to the doctor who made it. After the note is
+/// signed it is never edited in place: it is voided with a reason, and a corrected one is added beside it.
+model Diagnosis {
+  /// @ascii
+  id                    String   @id @db.VarChar(36)
+  /// @ascii
+  tenantId              String   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  encounterId           String   @map("encounter_id") @db.VarChar(36)
+  /// @ascii
+  patientId             String   @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  authorDoctorProfileId String   @map("author_doctor_profile_id") @db.VarChar(36)
+  /// @ascii
+  codeSystem            String?  @map("code_system") @db.VarChar(32)
+  /// @ascii
+  code                  String?  @db.VarChar(32)
+  display               String   @db.VarChar(300)
+  displayBn             String?  @map("display_bn") @db.VarChar(300)
+  /// @ascii
+  clinicalStatus        String   @map("clinical_status") @db.VarChar(20)
+  /// @ascii
+  certainty             String   @db.VarChar(16)
+  /// `doctor` for everything a human enters. `ai_approved` exists for Stage 10 and no code path can set
+  /// it; a test asserts that.
+  /// @ascii
+  source                String   @db.VarChar(16)
+  notes                 String?  @db.VarChar(1000)
+  /// Required when the row is voided, which is the only way a signed diagnosis changes.
+  voidReason            String?  @map("void_reason") @db.VarChar(500)
+  voidedAt              DateTime? @map("voided_at") @db.DateTime(3)
+  /// @ascii
+  voidedByDoctorProfileId String? @map("voided_by_doctor_profile_id") @db.VarChar(36)
+  /// The diagnosis this one replaces, set when a void is followed by a correction.
+  /// @ascii
+  replacesDiagnosisId   String?  @map("replaces_diagnosis_id") @db.VarChar(36)
+  createdAt             DateTime @map("created_at") @db.DateTime(3)
+  updatedAt             DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId       String?  @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId       String?  @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion            Int      @default(1) @map("row_version")
+
+  @@unique([tenantId, id], map: "uq_diagnoses_tenant_id")
+  @@index([tenantId, encounterId], map: "ix_diagnoses_encounter")
+  @@index([tenantId, patientId, createdAt], map: "ix_diagnoses_patient")
+  @@map("diagnoses")
+}
