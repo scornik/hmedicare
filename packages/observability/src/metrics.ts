@@ -126,6 +126,48 @@ export function createMetrics(app: string) {
       labelNames: ['chain_type'] as const,
       registers: [registry],
     }),
+    // Clinical (Stage 6 §5). Every label below is an enum or a tenant id. No patient, doctor, encounter
+    // or note identifier is ever a label: a metric series is long-lived and widely copied, so a label
+    // made of patient ids would be both a cardinality explosion and PHI leaking into the monitoring
+    // stack, where none of the clinical access rules apply.
+    encounterStartDuration: new Histogram({
+      name: 'encounter_start_duration_seconds',
+      help: 'Time to start a consultation from a called serial',
+      labelNames: ['outcome'] as const,
+      buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5],
+      registers: [registry],
+    }),
+    noteAutosaves: new Counter({
+      name: 'encounter_note_autosaves_total',
+      help: 'Draft saves by outcome; the conflict rate is the conflict count over the total',
+      labelNames: ['outcome'] as const,
+      registers: [registry],
+    }),
+    noteSignDuration: new Histogram({
+      name: 'encounter_note_sign_duration_seconds',
+      help: 'Time to freeze a draft into a signed revision',
+      labelNames: ['kind'] as const,
+      buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5],
+      registers: [registry],
+    }),
+    activeEncounters: new Gauge({
+      name: 'active_encounters',
+      help: 'Encounters currently IN_PROGRESS or INTERRUPTED',
+      labelNames: ['tenant_id', 'status'] as const,
+      registers: [registry],
+    }),
+    coveringDoctorActions: new Counter({
+      name: 'covering_doctor_actions_total',
+      help: 'Clinical actions taken under a coverage grant rather than direct assignment',
+      labelNames: ['action'] as const,
+      registers: [registry],
+    }),
+    phiReads: new Counter({
+      name: 'phi_read_audit_total',
+      help: 'Audited clinical reads. A sudden change in this rate is worth looking at',
+      labelNames: ['resource'] as const,
+      registers: [registry],
+    }),
   };
   return m;
 }

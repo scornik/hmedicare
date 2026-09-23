@@ -2,6 +2,7 @@ import { type Clock, systemClock } from '@hmedic/kernel';
 import type { PrismaClient } from '@hmedic/database';
 import type { PrismaAuditPort } from '@hmedic/audit';
 import { OutboxPort } from '@hmedic/jobs';
+import type { Metrics } from '@hmedic/observability';
 import { QueueSerialLifecycle, type SerialService } from '@hmedic/queue';
 import { AssignmentPolicy } from './assignment-policy';
 import { ClinicalAccessPolicy } from './clinical-access';
@@ -23,6 +24,7 @@ export function composeClinical(deps: {
   audit: PrismaAuditPort;
   serials: SerialService;
   clock?: Clock;
+  metrics?: Metrics;
 }) {
   const clock = deps.clock ?? systemClock;
   // One outbox and one assignment policy across the context: a second policy instance would be a second
@@ -30,7 +32,7 @@ export function composeClinical(deps: {
   const outbox = new ClinicalOutbox(new OutboxPort(clock), clock);
   const assignment = new AssignmentPolicy(deps.prisma, () => clock.now());
   const access = new ClinicalAccessPolicy(deps.prisma, assignment);
-  const notes = new NoteService(deps.prisma, deps.audit, outbox, access, clock);
+  const notes = new NoteService(deps.prisma, deps.audit, outbox, access, clock, deps.metrics);
   const encounters = new EncounterService(
     deps.prisma,
     deps.audit,
@@ -39,8 +41,9 @@ export function composeClinical(deps: {
     assignment,
     clock,
     notes,
+    deps.metrics,
   );
-  const diagnoses = new DiagnosisService(deps.prisma, deps.audit, outbox, access, clock);
+  const diagnoses = new DiagnosisService(deps.prisma, deps.audit, outbox, access, clock, deps.metrics);
   // Without this, cancelling a serial mid-consultation would leave an encounter that still looks live.
   deps.serials.attachEncounterInterruption(encounters);
   return { encounters, notes, diagnoses };

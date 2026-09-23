@@ -83,7 +83,7 @@
 | 0005 | `scheduling` | `chambers` (+ payment modes, Stage 3.2), `doctor_schedule_rules`, `chamber_days`, `appointment_slots`, `appointments` (+ `PENDING_PAYMENT`, hold and waiver columns, Stage 3.2). Created in Stage 5 (`202609191236_0005_scheduling`) |
 | 0006 | `queue` | `serials`, `check_ins`, `queue_events`. Created in Stage 5 (`202609191237_0006_queue`) |
 | 0007 | `encounters` | `encounters`, `encounter_participants`, `encounter_notes`, `encounter_note_versions` |
-| 0008 | `clinical_catalog` | `symptom_observations`, `diagnoses`, `medications`, `medication_generics`, `medication_generic_links`, `medication_manufacturers`, `medication_aliases`, `medication_price_observations`, `medication_usage_stats`, `medication_dataset_imports`, `medication_dataset_gate_attestations`, `patient_medications` (catalog redesigned in Stage 3.2, ADR-020) |
+| 0008 | `clinical_observations` | `symptom_observations`, `diagnoses`. Created in Stage 6 (`202609230524_0008_clinical_observations`). **Split from the catalog in Stage 6 (C-52):** `patient_medications` cannot carry its FK before `medications` exists, and the catalog belongs to the stage that fills it |
 | 0009 | `prescriptions` | `prescriptions`, `prescription_items` |
 | 0010 | `documents_labs` | `documents`, `document_versions`, `upload_sessions`, `upload_session_parts`, `lab_reports`, `lab_results` |
 | 0011 | `timeline_followup` | `timeline_events`, `projection_checkpoints`, `follow_up_plans`, `follow_up_tasks` |
@@ -94,6 +94,7 @@
 | 0016 | `sms` | `sms_balance_snapshots` (Stage 3.2, ADR-018) |
 | 0017 | `payments` | `tenant_payment_settings`, `payment_merchant_accounts`, `fee_schedules`, `payment_intents`, `payment_attempts`, `payment_gateway_events`, `payment_verifications`, `ledger_entries`, `refunds`, `payouts`, `payout_items` (Stage 3.2, ADR-019) |
 | 0018 | `subscriptions` | `subscription_plans`, `subscriptions`, `subscription_invoices` (Stage 3.2, ADR-019) |
+| 0019 | `medication_catalog` | `medications`, `medication_generics`, `medication_generic_links`, `medication_manufacturers`, `medication_aliases`, `medication_price_observations`, `medication_usage_stats`, `medication_dataset_imports`, `medication_dataset_gate_attestations`, `patient_medications` (catalog redesigned in Stage 3.2, ADR-020; split out of 0008 in Stage 6, C-52) |
 
 **Billing:** payments and platform subscriptions are MVP since Stage 3.2 (ADR-019 supersedes audit row S3-13). Insurance, claims and complex invoicing remain Future, with no tables.
 
@@ -413,7 +414,7 @@ Notation: `FK→t(tenant_id,id)` means a composite tenant FK `(tenant_id, <col>)
 - UNIQUE `(tenant_id, encounter_id, revision)`; CHECK `revision = 1 OR correction_reason IS NOT NULL`
 - **Signing:** lock draft → insert version with `revision = IFNULL(last_signed_revision,0)+1` → set draft `last_signed_revision`. The draft stays `DRAFT` for further corrections, or becomes `SIGNED_LOCKED` when the encounter completes and no correction is open. **Signed notes are corrected only by a new signed revision with a reason.**
 
-### 3.8 Clinical and catalog (0008)
+### 3.8 Clinical observations (0008) and the medication catalog (0019)
 
 **`symptom_observations`** (std): `encounter_id FK→encounters(tenant_id,id)`, `patient_id FK→patients(tenant_id,id)`, `normalized_code key(64) NULL`, `code_system key(32) NULL`, `display text(200)`, `detail text(1000) NULL`, `onset text(80) NULL`, `severity code(16) NULL` CHECK `MILD|MODERATE|SEVERE|UNKNOWN`, `source code(16)` CHECK `PATIENT_REPORTED|CLINICIAN_OBSERVED|AI_APPROVED`, `certainty code(16)`, `status code(20)` CHECK `ACTIVE|ENTERED_IN_ERROR`.
 

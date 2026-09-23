@@ -1,6 +1,7 @@
 import { AppError, type Clock, newId, systemClock } from '@hmedic/kernel';
 import { type Prisma, type PrismaClient, lockRow, withTransaction } from '@hmedic/database';
 import { ChainAppender, type PrismaAuditPort } from '@hmedic/audit';
+import type { Metrics } from '@hmedic/observability';
 import { NOTE_SECTIONS, type NoteSection } from '../domain/encounter-transitions';
 import {
   MAX_SECTION_CHARS,
@@ -120,6 +121,8 @@ export class NoteService {
     private readonly outbox: ClinicalOutbox,
     private readonly access: ClinicalAccessPolicy,
     private readonly clock: Clock = systemClock,
+    /** Optional so the service can be built without a metrics registry, as the tests do. */
+    private readonly metrics?: Metrics,
   ) {}
 
   private correlation(actor: ClinicalActor) {
@@ -223,6 +226,7 @@ export class NoteService {
 
     const sections = normalizeSections(input.sections);
     const now = this.clock.now();
+    const counted = (outcome: string) => this.metrics?.noteAutosaves.inc({ outcome });
 
     const row = await withTransaction(
       this.prisma,
@@ -245,6 +249,7 @@ export class NoteService {
         if (draft.rowVersion !== input.expectedRowVersion) {
           // The current version travels with the refusal so the client can fetch and show both sides
           // rather than guessing that it is behind.
+          counted('conflict');
           throw new AppError('STALE_VERSION', undefined, {
             details: { currentRowVersion: draft.rowVersion, lastSignedRevision: draft.lastSignedRevision },
           });
@@ -278,6 +283,7 @@ export class NoteService {
       },
       { ...TX_OPTS, context: 'note:save' },
     );
+    counted('saved');
     return noteDraftView(row);
   }
 
@@ -306,6 +312,7 @@ export class NoteService {
 
     const { requestId, correlationId } = this.correlation(actor);
     const now = this.clock.now();
+    const startedAt = process.hrtime.bigint();
 
     const result = await withTransaction(
       this.prisma,
@@ -450,6 +457,10 @@ export class NoteService {
       },
       { ...TX_OPTS, context: 'note:sign' },
     );
+    this.metrics?.noteSignDuration.observe(
+      { kind: result.revision === 1 ? 'signature' : 'correction' },
+      Number(process.hrtime.bigint() - startedAt) / 1e9,
+    );
 
     return {
       id: result.id,
@@ -494,6 +505,7 @@ export class NoteService {
     encounterId: string,
     metadata: Record<string, string | number | boolean | null>,
   ): Promise<void> {
+    this.metrics?.phiReads.inc({ resource: 'encounter_note' });
     const { requestId, correlationId } = this.correlation(actor);
     await withTransaction(
       this.prisma,

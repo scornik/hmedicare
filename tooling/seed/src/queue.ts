@@ -3,6 +3,7 @@ import type { PrismaClient } from '@hmedic/database';
 import type { PrismaAuditPort } from '@hmedic/audit';
 import { dhakaDate } from '@hmedic/localization';
 import { composeSchedulingAndQueue } from '@hmedic/queue';
+import type { SerialService } from '@hmedic/queue';
 import type { SchedulingActor } from '@hmedic/scheduling';
 
 /**
@@ -24,7 +25,7 @@ export interface QueueSeedDeps {
   report: { created: string[] };
 }
 
-export async function seedQueue(d: QueueSeedDeps): Promise<void> {
+export async function seedQueue(d: QueueSeedDeps): Promise<{ serials: SerialService } | null> {
   const { prisma, tenantA } = d;
   const ctx = composeSchedulingAndQueue({ prisma, audit: d.audit, clock: d.clock });
   const today = dhakaDate(d.clock.now());
@@ -38,21 +39,8 @@ export async function seedQueue(d: QueueSeedDeps): Promise<void> {
     orderBy: { createdAt: 'asc' },
   });
   if (!day) throw new Error('seed: no open chamber day for today; run the chamber seed first');
-  if ((await prisma.serial.count({ where: { chamberDayId: day.id, source: 'WALK_IN' } })) > 0) return;
-
-  const chamber = await prisma.chamber.findFirstOrThrow({ where: { id: day.chamberId } });
-  const doctorProfile = await prisma.doctorProfile.findFirstOrThrow({
-    where: { id: chamber.doctorProfileId },
-    select: { userId: true },
-  });
-  // StartConsultation and CompleteConsultation belong to the doctor of the chamber (ADR-021), not the owner.
-  const doctor = (): SchedulingActor => ({
-    userId: doctorProfile.userId,
-    tenant: { ...tenantA.ownerCtx.tenant },
-    requestId: newId(),
-    correlationId: newId(),
-  });
-  const asDoctor = () => ({ kind: 'staff' as const, actor: doctor() });
+  if ((await prisma.serial.count({ where: { chamberDayId: day.id, source: 'WALK_IN' } })) > 0)
+    return { serials: ctx.serials };
 
   // Patients with no serial on this day, so the walk-ins do not trip the duplicate guard.
   const taken = new Set(
@@ -76,9 +64,11 @@ export async function seedQueue(d: QueueSeedDeps): Promise<void> {
     return id;
   };
 
-  // 1. Three walk-ins. They arrive checked in, and become WAITING unless the policy asks for confirmation.
+  // 1. Five walk-ins. They arrive checked in, and become WAITING unless the policy asks for confirmation.
+  // Five rather than three because the clinical seed takes four of them on to consultations: two
+  // completed, one running and one interrupted, which is what makes a demo board look like a working day.
   const walkIns = [];
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 5; i++) {
     walkIns.push(
       await ctx.queue.issueWalkIn(
         staff(),
@@ -109,7 +99,7 @@ export async function seedQueue(d: QueueSeedDeps): Promise<void> {
   }
 
   // 3. One is called and then skipped (a patient who stepped out), keeping its history on the chain.
-  const toSkip = walkIns[2]!;
+  const toSkip = walkIns[4]!;
   const called = await ctx.queue.call(asStaff(), toSkip.id, {
     expectedRowVersion: toSkip.rowVersion,
   });
@@ -118,25 +108,13 @@ export async function seedQueue(d: QueueSeedDeps): Promise<void> {
     reason: 'DEMO patient stepped out of the waiting room',
   });
 
-  // 4. One is called, seen and completed; another is left mid-consultation.
-  const finish = walkIns[0]!;
-  const calledFinish = await ctx.queue.call(asStaff(), finish.id, {
-    expectedRowVersion: finish.rowVersion,
-  });
-  const started = await ctx.queue.startConsultation(asDoctor(), calledFinish.id, {
-    expectedRowVersion: calledFinish.rowVersion,
-  });
-  await ctx.queue.completeConsultation(asDoctor(), started.id, {
-    expectedRowVersion: started.rowVersion,
-  });
-
-  const inChamber = arrived[0] ?? walkIns[1]!;
-  const calledInChamber = await ctx.queue.call(asStaff(), inChamber.id, {
-    expectedRowVersion: inChamber.rowVersion,
-  });
-  await ctx.queue.startConsultation(asDoctor(), calledInChamber.id, {
-    expectedRowVersion: calledInChamber.rowVersion,
-  });
+  // 4. Two more are called and left there. The queue's job ends at CALLED: from Stage 6 a consultation
+  // is an encounter, so the clinical seed takes these the rest of the way (start, note, sign, complete).
+  // Driving them through the retired ADR-021 transitions would seed the exact shape the backfill
+  // migration exists to remove.
+  for (const s of [walkIns[0]!, walkIns[1]!, walkIns[2]!, arrived[0] ?? walkIns[3]!]) {
+    await ctx.queue.call(asStaff(), s.id, { expectedRowVersion: s.rowVersion });
+  }
 
   // 5. A serial parked in CHECKED_IN. On this day arrival goes straight to WAITING, so the state only
   // exists on a chamber whose policy sets `waitingRequiresConfirmation` — the slotted morning chamber does.
@@ -162,9 +140,10 @@ export async function seedQueue(d: QueueSeedDeps): Promise<void> {
   }
 
   d.report.created.push(
-    "today's queue: walk-ins and a desk arrival; one completed, one in consultation, one skipped, one " +
-      'awaiting confirmation on the slotted chamber, the rest waiting',
+    "today's queue: walk-ins and a desk arrival; four called and handed to the clinical seed, one " +
+      'skipped, one awaiting confirmation on the slotted chamber, the rest waiting',
   );
+  return { serials: ctx.serials };
 }
 
 /** Seed assertions for the queue-active dataset (SEED-DATA §4). */
@@ -176,6 +155,9 @@ export async function verifyQueueSeed(prisma: PrismaClient, tenantAId: string): 
   });
   const statuses = new Set(serials.map((s) => s.status));
   for (const s of ['CHECKED_IN', 'WAITING', 'SKIPPED', 'IN_CONSULTATION', 'COMPLETED']) {
+    // IN_CONSULTATION and COMPLETED are reached by the clinical seed now, through encounters. They are
+    // still asserted here because the property belongs to the queue: a board with no serial in
+    // consultation shows nothing about a working day.
     if (!statuses.has(s)) problems.push(`no serial in status ${s}`);
   }
   if (!serials.some((s) => s.source === 'WALK_IN')) problems.push('no walk-in serial');

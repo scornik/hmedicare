@@ -182,6 +182,7 @@ export async function buildApi(
     audit: runtime.audit,
     serials: context.serials,
     clock: runtime.clock,
+    metrics: runtime.metrics,
   });
   const jobs =
     config.JOB_RUNNER_MODE === 'embedded' || config.JOB_RUNNER_MODE === 'cron'

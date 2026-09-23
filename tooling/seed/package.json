@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@hmedic/audit": "workspace:*",
+    "@hmedic/clinical": "workspace:*",
     "@hmedic/config": "workspace:*",
     "@hmedic/database": "workspace:*",
     "@hmedic/identity-access": "workspace:*",

@@ -20,6 +20,78 @@ class _EncountersClient implements EncountersClient {
   final ParseErrorLogger? errorLogger;
 
   @override
+  Future<PatchApiV1DiagnosesIdResponse> updateDiagnosis({
+    required String id,
+    required String xTenantId,
+    UpdateDiagnosisRequest? body,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    queryParameters.removeWhere((k, v) => v == null);
+    final _headers = <String, dynamic>{r'X-Tenant-ID': xTenantId};
+    _headers.removeWhere((k, v) => v == null);
+    final _data = <String, dynamic>{};
+    _data.addAll(body?.toJson() ?? <String, dynamic>{});
+    final _options = _setStreamType<PatchApiV1DiagnosesIdResponse>(
+      Options(method: 'PATCH', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/api/v1/diagnoses/${id}',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch<Map<String, Object?>>(_options);
+    late PatchApiV1DiagnosesIdResponse _value;
+    try {
+      _value = PatchApiV1DiagnosesIdResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options, response: _result);
+      rethrow;
+    }
+    return _value;
+  }
+
+  @override
+  Future<PostApiV1DiagnosesIdVoidResponse> voidDiagnosis({
+    required String id,
+    required String xTenantId,
+    required String idempotencyKey,
+    VoidDiagnosisRequest? body,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    queryParameters.removeWhere((k, v) => v == null);
+    final _headers = <String, dynamic>{
+      r'X-Tenant-ID': xTenantId,
+      r'Idempotency-Key': idempotencyKey,
+    };
+    _headers.removeWhere((k, v) => v == null);
+    final _data = <String, dynamic>{};
+    _data.addAll(body?.toJson() ?? <String, dynamic>{});
+    final _options = _setStreamType<PostApiV1DiagnosesIdVoidResponse>(
+      Options(method: 'POST', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/api/v1/diagnoses/${id}/void',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch<Map<String, Object?>>(_options);
+    late PostApiV1DiagnosesIdVoidResponse _value;
+    try {
+      _value = PostApiV1DiagnosesIdVoidResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options, response: _result);
+      rethrow;
+    }
+    return _value;
+  }
+
+  @override
   Future<GetApiV1EncountersIdResponse> getEncounter({
     required String id,
     required String xTenantId,
@@ -81,6 +153,75 @@ class _EncountersClient implements EncountersClient {
     late PostApiV1EncountersIdCompleteResponse _value;
     try {
       _value = PostApiV1EncountersIdCompleteResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options, response: _result);
+      rethrow;
+    }
+    return _value;
+  }
+
+  @override
+  Future<GetApiV1EncountersIdDiagnosesResponse> listEncounterDiagnoses({
+    required String id,
+    required String xTenantId,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    final _headers = <String, dynamic>{r'X-Tenant-ID': xTenantId};
+    _headers.removeWhere((k, v) => v == null);
+    const Map<String, dynamic>? _data = null;
+    final _options = _setStreamType<GetApiV1EncountersIdDiagnosesResponse>(
+      Options(method: 'GET', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/api/v1/encounters/${id}/diagnoses',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch<Map<String, Object?>>(_options);
+    late GetApiV1EncountersIdDiagnosesResponse _value;
+    try {
+      _value = GetApiV1EncountersIdDiagnosesResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options, response: _result);
+      rethrow;
+    }
+    return _value;
+  }
+
+  @override
+  Future<PostApiV1EncountersIdDiagnosesResponse> addEncounterDiagnosis({
+    required String id,
+    required String xTenantId,
+    required String idempotencyKey,
+    AddDiagnosisRequest? body,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    queryParameters.removeWhere((k, v) => v == null);
+    final _headers = <String, dynamic>{
+      r'X-Tenant-ID': xTenantId,
+      r'Idempotency-Key': idempotencyKey,
+    };
+    _headers.removeWhere((k, v) => v == null);
+    final _data = <String, dynamic>{};
+    _data.addAll(body?.toJson() ?? <String, dynamic>{});
+    final _options = _setStreamType<PostApiV1EncountersIdDiagnosesResponse>(
+      Options(method: 'POST', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/api/v1/encounters/${id}/diagnoses',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch<Map<String, Object?>>(_options);
+    late PostApiV1EncountersIdDiagnosesResponse _value;
+    try {
+      _value = PostApiV1EncountersIdDiagnosesResponse.fromJson(_result.data!);
     } on Object catch (e, s) {
       errorLogger?.logError(e, s, _options, response: _result);
       rethrow;
@@ -170,6 +311,185 @@ class _EncountersClient implements EncountersClient {
   }
 
   @override
+  Future<GetApiV1EncountersIdNoteResponse> getEncounterNote({
+    required String id,
+    required String xTenantId,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    final _headers = <String, dynamic>{r'X-Tenant-ID': xTenantId};
+    _headers.removeWhere((k, v) => v == null);
+    const Map<String, dynamic>? _data = null;
+    final _options = _setStreamType<GetApiV1EncountersIdNoteResponse>(
+      Options(method: 'GET', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/api/v1/encounters/${id}/note',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch<Map<String, Object?>>(_options);
+    late GetApiV1EncountersIdNoteResponse _value;
+    try {
+      _value = GetApiV1EncountersIdNoteResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options, response: _result);
+      rethrow;
+    }
+    return _value;
+  }
+
+  @override
+  Future<PutApiV1EncountersIdNoteResponse> saveEncounterNoteDraft({
+    required String id,
+    required String xTenantId,
+    SaveNoteDraftRequest? body,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    queryParameters.removeWhere((k, v) => v == null);
+    final _headers = <String, dynamic>{r'X-Tenant-ID': xTenantId};
+    _headers.removeWhere((k, v) => v == null);
+    final _data = <String, dynamic>{};
+    _data.addAll(body?.toJson() ?? <String, dynamic>{});
+    final _options = _setStreamType<PutApiV1EncountersIdNoteResponse>(
+      Options(method: 'PUT', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/api/v1/encounters/${id}/note',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch<Map<String, Object?>>(_options);
+    late PutApiV1EncountersIdNoteResponse _value;
+    try {
+      _value = PutApiV1EncountersIdNoteResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options, response: _result);
+      rethrow;
+    }
+    return _value;
+  }
+
+  @override
+  Future<PostApiV1EncountersIdNoteCorrectionsResponse> amendEncounterNote({
+    required String id,
+    required String xTenantId,
+    required String idempotencyKey,
+    AmendNoteRequest? body,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    queryParameters.removeWhere((k, v) => v == null);
+    final _headers = <String, dynamic>{
+      r'X-Tenant-ID': xTenantId,
+      r'Idempotency-Key': idempotencyKey,
+    };
+    _headers.removeWhere((k, v) => v == null);
+    final _data = <String, dynamic>{};
+    _data.addAll(body?.toJson() ?? <String, dynamic>{});
+    final _options =
+        _setStreamType<PostApiV1EncountersIdNoteCorrectionsResponse>(
+          Options(method: 'POST', headers: _headers, extra: _extra)
+              .compose(
+                _dio.options,
+                '/api/v1/encounters/${id}/note/corrections',
+                queryParameters: queryParameters,
+                data: _data,
+              )
+              .copyWith(
+                baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl),
+              ),
+        );
+    final _result = await _dio.fetch<Map<String, Object?>>(_options);
+    late PostApiV1EncountersIdNoteCorrectionsResponse _value;
+    try {
+      _value = PostApiV1EncountersIdNoteCorrectionsResponse.fromJson(
+        _result.data!,
+      );
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options, response: _result);
+      rethrow;
+    }
+    return _value;
+  }
+
+  @override
+  Future<GetApiV1EncountersIdNoteRevisionsResponse> listEncounterNoteRevisions({
+    required String id,
+    required String xTenantId,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    final _headers = <String, dynamic>{r'X-Tenant-ID': xTenantId};
+    _headers.removeWhere((k, v) => v == null);
+    const Map<String, dynamic>? _data = null;
+    final _options = _setStreamType<GetApiV1EncountersIdNoteRevisionsResponse>(
+      Options(method: 'GET', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/api/v1/encounters/${id}/note/revisions',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch<Map<String, Object?>>(_options);
+    late GetApiV1EncountersIdNoteRevisionsResponse _value;
+    try {
+      _value = GetApiV1EncountersIdNoteRevisionsResponse.fromJson(
+        _result.data!,
+      );
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options, response: _result);
+      rethrow;
+    }
+    return _value;
+  }
+
+  @override
+  Future<PostApiV1EncountersIdNoteSignResponse> signEncounterNote({
+    required String id,
+    required String xTenantId,
+    required String idempotencyKey,
+    SignNoteRequest? body,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    queryParameters.removeWhere((k, v) => v == null);
+    final _headers = <String, dynamic>{
+      r'X-Tenant-ID': xTenantId,
+      r'Idempotency-Key': idempotencyKey,
+    };
+    _headers.removeWhere((k, v) => v == null);
+    final _data = <String, dynamic>{};
+    _data.addAll(body?.toJson() ?? <String, dynamic>{});
+    final _options = _setStreamType<PostApiV1EncountersIdNoteSignResponse>(
+      Options(method: 'POST', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/api/v1/encounters/${id}/note/sign',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch<Map<String, Object?>>(_options);
+    late PostApiV1EncountersIdNoteSignResponse _value;
+    try {
+      _value = PostApiV1EncountersIdNoteSignResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options, response: _result);
+      rethrow;
+    }
+    return _value;
+  }
+
+  @override
   Future<PostApiV1EncountersIdResumeResponse> resumeEncounter({
     required String id,
     required String xTenantId,
@@ -200,6 +520,75 @@ class _EncountersClient implements EncountersClient {
     late PostApiV1EncountersIdResumeResponse _value;
     try {
       _value = PostApiV1EncountersIdResumeResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options, response: _result);
+      rethrow;
+    }
+    return _value;
+  }
+
+  @override
+  Future<GetApiV1EncountersIdSymptomsResponse> listEncounterSymptoms({
+    required String id,
+    required String xTenantId,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    final _headers = <String, dynamic>{r'X-Tenant-ID': xTenantId};
+    _headers.removeWhere((k, v) => v == null);
+    const Map<String, dynamic>? _data = null;
+    final _options = _setStreamType<GetApiV1EncountersIdSymptomsResponse>(
+      Options(method: 'GET', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/api/v1/encounters/${id}/symptoms',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch<Map<String, Object?>>(_options);
+    late GetApiV1EncountersIdSymptomsResponse _value;
+    try {
+      _value = GetApiV1EncountersIdSymptomsResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options, response: _result);
+      rethrow;
+    }
+    return _value;
+  }
+
+  @override
+  Future<PostApiV1EncountersIdSymptomsResponse> addEncounterSymptom({
+    required String id,
+    required String xTenantId,
+    required String idempotencyKey,
+    AddSymptomRequest? body,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    queryParameters.removeWhere((k, v) => v == null);
+    final _headers = <String, dynamic>{
+      r'X-Tenant-ID': xTenantId,
+      r'Idempotency-Key': idempotencyKey,
+    };
+    _headers.removeWhere((k, v) => v == null);
+    final _data = <String, dynamic>{};
+    _data.addAll(body?.toJson() ?? <String, dynamic>{});
+    final _options = _setStreamType<PostApiV1EncountersIdSymptomsResponse>(
+      Options(method: 'POST', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/api/v1/encounters/${id}/symptoms',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch<Map<String, Object?>>(_options);
+    late PostApiV1EncountersIdSymptomsResponse _value;
+    try {
+      _value = PostApiV1EncountersIdSymptomsResponse.fromJson(_result.data!);
     } on Object catch (e, s) {
       errorLogger?.logError(e, s, _options, response: _result);
       rethrow;

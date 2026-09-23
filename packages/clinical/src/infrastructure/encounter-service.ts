@@ -1,6 +1,7 @@
 import { AppError, type Clock, type TenantContext, newId, systemClock } from '@hmedic/kernel';
 import { type PrismaClient, lockRow, withTransaction } from '@hmedic/database';
 import type { PrismaAuditPort } from '@hmedic/audit';
+import type { Metrics } from '@hmedic/observability';
 import type { QueueActorRef } from '@hmedic/scheduling';
 import type { SerialLifecyclePort } from '@hmedic/queue';
 import {
@@ -109,6 +110,7 @@ export class EncounterService {
      * is how CP6 exercised it before notes existed.
      */
     private readonly notes?: NoteDraftLockPort,
+    private readonly metrics?: Metrics,
   ) {}
 
   private ref(actor: ClinicalActor): QueueActorRef {
@@ -154,6 +156,7 @@ export class EncounterService {
     const { requestId, correlationId } = this.correlation(actor);
     const now = this.clock.now();
     const encounterId = newId();
+    const startedAt = process.hrtime.bigint();
 
     const row = await withTransaction(
       this.prisma,
@@ -238,6 +241,13 @@ export class EncounterService {
       },
       { ...TX_OPTS, context: 'encounter:start' },
     );
+    this.metrics?.encounterStartDuration.observe(
+      { outcome: 'started' },
+      Number(process.hrtime.bigint() - startedAt) / 1e9,
+    );
+    // Coverage is worth watching on its own: a clinic where most consultations run under a grant rather
+    // than direct assignment is telling you something about how it is staffed.
+    if (assigned.via === 'coverage') this.metrics?.coveringDoctorActions.inc({ action: 'encounter_start' });
     return encounterView(row);
   }
 

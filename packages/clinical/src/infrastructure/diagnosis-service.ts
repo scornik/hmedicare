@@ -1,6 +1,7 @@
 import { AppError, type Clock, newId, systemClock } from '@hmedic/kernel';
 import { type PrismaClient, lockRow, withTransaction } from '@hmedic/database';
 import type { PrismaAuditPort } from '@hmedic/audit';
+import type { Metrics } from '@hmedic/observability';
 import type { ClinicalAccessPolicy } from './clinical-access';
 import type { ClinicalActor } from './encounter-service';
 import type { ClinicalOutbox } from './events';
@@ -132,6 +133,7 @@ export class DiagnosisService {
     private readonly outbox: ClinicalOutbox,
     private readonly access: ClinicalAccessPolicy,
     private readonly clock: Clock = systemClock,
+    private readonly metrics?: Metrics,
   ) {}
 
   private correlation(actor: ClinicalActor) {
@@ -614,6 +616,7 @@ export class DiagnosisService {
     encounterId: string,
     metadata: Record<string, string | number | boolean | null>,
   ): Promise<void> {
+    this.metrics?.phiReads.inc({ resource: 'diagnosis' });
     const { requestId, correlationId } = this.correlation(actor);
     await withTransaction(
       this.prisma,

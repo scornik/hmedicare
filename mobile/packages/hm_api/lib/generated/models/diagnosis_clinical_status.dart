@@ -1,0 +1,41 @@
+// coverage:ignore-file
+// GENERATED CODE - DO NOT MODIFY BY HAND
+// ignore_for_file: type=lint, unused_import, invalid_annotation_target, unnecessary_import
+
+import 'package:json_annotation/json_annotation.dart';
+
+@JsonEnum()
+enum DiagnosisClinicalStatus {
+  @JsonValue('ACTIVE')
+  active('ACTIVE'),
+  @JsonValue('RESOLVED')
+  resolved('RESOLVED'),
+  @JsonValue('RULED_OUT')
+  ruledOut('RULED_OUT'),
+  @JsonValue('ENTERED_IN_ERROR')
+  enteredInError('ENTERED_IN_ERROR'),
+  /// Default value for all unparsed values, allows backward compatibility when adding new values on the backend.
+  $unknown(null);
+
+  const DiagnosisClinicalStatus(this.json);
+
+  factory DiagnosisClinicalStatus.fromJson(String json) => values.firstWhere(
+        (e) => e.json == json,
+        orElse: () => $unknown,
+      );
+
+  final String? json;
+  String toJson() {
+    final value = json;
+    if (value == null) {
+      throw StateError('Cannot convert enum value with null JSON representation to String. '
+          'This usually happens for \$unknown or @JsonValue(null) entries.');
+    }
+    return value as String;
+  }
+
+  @override
+  String toString() => json?.toString() ?? super.toString();
+  /// Returns all defined enum values excluding the $unknown value.
+  static List<DiagnosisClinicalStatus> get $valuesDefined => values.where((value) => value != $unknown).toList();
+}

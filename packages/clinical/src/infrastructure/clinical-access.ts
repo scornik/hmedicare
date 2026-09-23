@@ -1,4 +1,4 @@
-import { AppError } from '@hmedic/kernel';
+import { AppError, type StaffRole } from '@hmedic/kernel';
 import type { PrismaClient } from '@hmedic/database';
 import type { AssignmentPolicy } from './assignment-policy';
 import type { ClinicalActor } from './encounter-service';
@@ -18,6 +18,21 @@ import type { ClinicalActor } from './encounter-service';
  * Keeping them apart is what lets `sign` demand assignment while `saveDraft` accepts either. Folding them
  * into one flag would quietly let a nurse sign, or lock a nurse out of the chamber they staff.
  */
+
+/**
+ * The roles whose matrix cell grants them clinical *content* on a scope footing, from the "Encounter
+ * notes" and "Diagnoses" rows of AUTHORIZATION-MATRIX §2.
+ *
+ * A receptionist is deliberately absent. They hold `encounter.read` because the Encounters row gives them
+ * "R status only" — where the patient is in the day — and the notes row gives them nothing at all. The
+ * permission and the content are two different questions, and gating a note on `encounter.read` alone
+ * would answer the second with the first: a receptionist would read the consultation.
+ */
+const SCOPED_CLINICAL_ROLES: ReadonlySet<StaffRole> = new Set<StaffRole>([
+  'tenant_owner',
+  'clinic_admin',
+  'nurse',
+]);
 export type ClinicalFooting = 'assigned' | 'scoped';
 
 export interface ClinicalAccess {
@@ -73,7 +88,11 @@ export class ClinicalAccessPolicy {
     // gives their column "(asg)" and the nurse column "(scope)". Letting a doctor fall through to the
     // scope check would hand every unassigned doctor in the tenant the whole clinic's records, because
     // an empty scope list means "everywhere" — which is how most small clinics are configured.
-    if (actor.doctorProfileId === null && (await this.inScope(actor, encounter.chamberId))) {
+    if (
+      actor.doctorProfileId === null &&
+      SCOPED_CLINICAL_ROLES.has(actor.tenant.role) &&
+      (await this.inScope(actor, encounter.chamberId))
+    ) {
       return { footing: 'scoped', encounter };
     }
     throw new AppError('FORBIDDEN');
