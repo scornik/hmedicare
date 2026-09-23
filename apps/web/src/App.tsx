@@ -6,6 +6,7 @@ import { queryClient, setTenant } from './api';
 import { useSignedIn } from './auth/hooks';
 import { onAuthChange, refresh } from './auth/session';
 import { I18nProvider, useI18n } from './i18n/i18n';
+import { ConsultationWorkspacePage } from './pages/ConsultationWorkspacePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ForbiddenPage, NotFoundPage, OfflinePage } from './pages/ErrorPages';
 import { LoginPage } from './pages/LoginPage';
@@ -55,6 +56,7 @@ const router = createBrowserRouter([
           { path: '/patients/merge-cases', element: <MergeCasesPage /> },
           { path: '/patients/:patientId', element: <PatientDetailPage /> },
           { path: '/queue/:chamberDayId', element: <QueueBoardPage /> },
+          { path: '/consultations/:encounterId', element: <ConsultationWorkspacePage /> },
         ],
       },
       { path: '*', element: <NotFoundPage /> },

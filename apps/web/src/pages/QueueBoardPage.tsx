@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Navigate, useParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { ApiError, getTenant, useTenantContext } from '../api';
 import { TopBar } from '../components/TopBar';
 import { useI18n } from '../i18n/i18n';
@@ -142,6 +142,7 @@ function Row({
   const consultation = useConsultationCommand(day);
   const skip = useSkipSerial(day);
   const [stale, setStale] = useState(false);
+  const navigate = useNavigate();
   // Hoisted so the narrowing survives into the click handler.
   const encounterId = entry.encounterId;
 
@@ -197,7 +198,10 @@ function Row({
               setStale(false);
               consultation.mutate(
                 { command: 'start', serialId: entry.serialId, expectedRowVersion: entry.rowVersion },
-                { onError: onConsultationError },
+                {
+                  onError: onConsultationError,
+                  onSuccess: (encounter) => navigate(`/consultations/${encounter.id}`),
+                },
               );
             }}
           >
@@ -205,6 +209,12 @@ function Row({
           </button>
           <SkipButton entry={entry} skip={skip} />
         </>
+      )}
+      {/* Already in the room: back to the note rather than starting again. */}
+      {entry.status === 'IN_CONSULTATION' && encounterId !== null && (
+        <Link to={`/consultations/${encounterId}`} data-testid={`open-${entry.serialId}`}>
+          {t('nav.consultation')}
+        </Link>
       )}
       {entry.status === 'IN_CONSULTATION' && encounterId !== null && (
         <button

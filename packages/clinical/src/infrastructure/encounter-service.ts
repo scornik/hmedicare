@@ -86,6 +86,20 @@ export function encounterView(r: EncounterRow): EncounterView {
   };
 }
 
+/** One line of a patient's history: enough to choose which consultation to open, and no clinical text. */
+export interface EncounterSummary {
+  id: string;
+  startedAt: string;
+  completedAt: string | null;
+  status: EncounterStatus;
+  doctorProfileId: string;
+  chamberId: string;
+  careMode: string;
+  legacyInterim: boolean;
+  /** 0 when nothing was ever signed — an abandoned consultation, or a legacy ADR-021 row. */
+  signedRevisions: number;
+}
+
 const TX_OPTS = { timeout: 15_000, maxWait: 10_000 } as const;
 
 /**
@@ -505,6 +519,80 @@ export class EncounterService {
       correlationId,
       metadata,
     });
+  }
+
+  /**
+   * A patient's past consultations, newest first, for the workspace's history panel.
+   *
+   * Assignment is checked at the *patient* level here, not the encounter level: a doctor treating this
+   * patient today needs to see what happened at the last visit, including consultations another doctor
+   * ran. That is the point of a medical record. Signing and amending stay at encounter level, because
+   * those attach a name to a specific consultation.
+   *
+   * The summary deliberately carries no note text. The workspace asks for a revision by id when the
+   * doctor opens one, and that read is audited on its own.
+   */
+  async listForPatient(
+    actor: ClinicalActor,
+    patientId: string,
+    opts: { limit?: number; excludeEncounterId?: string } = {},
+  ): Promise<EncounterSummary[]> {
+    const tenantId = actor.tenant.tenantId;
+    const patient = await this.prisma.patient.findFirst({
+      where: { tenantId, id: patientId },
+      select: { id: true },
+    });
+    if (!patient) throw new AppError('RESOURCE_NOT_FOUND');
+    const assigned = await this.assignment.isAssignedToPatient(
+      { tenantId, doctorProfileId: actor.doctorProfileId },
+      patientId,
+    );
+    if (!assigned.assigned) throw new AppError('FORBIDDEN');
+
+    const rows = await this.prisma.encounter.findMany({
+      where: {
+        tenantId,
+        patientId,
+        ...(opts.excludeEncounterId ? { id: { not: opts.excludeEncounterId } } : {}),
+      },
+      orderBy: { startedAt: 'desc' },
+      take: Math.min(opts.limit ?? 20, 50),
+    });
+    const signed = await this.prisma.encounterNoteVersion.groupBy({
+      by: ['encounterId'],
+      where: { tenantId, encounterId: { in: rows.map((r) => r.id) } },
+      _max: { revision: true },
+    });
+    const revisions = new Map(signed.map((s) => [s.encounterId, s._max.revision ?? 0]));
+
+    await withTransaction(
+      this.prisma,
+      (tx) =>
+        this.audit.append(tx, {
+          tenantId,
+          actorUserId: actor.userId,
+          actorType: 'USER',
+          action: 'PATIENT_ENCOUNTER_HISTORY_VIEWED',
+          resourceType: 'patient',
+          resourceId: patientId,
+          outcome: 'SUCCESS',
+          ...this.correlation(actor),
+          metadata: { count: rows.length, assignedVia: assigned.via ?? 'none' },
+        }),
+      { ...TX_OPTS, context: 'encounter:history-audit' },
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      startedAt: r.startedAt.toISOString(),
+      completedAt: r.completedAt?.toISOString() ?? null,
+      status: r.status as EncounterStatus,
+      doctorProfileId: r.doctorProfileId,
+      chamberId: r.chamberId,
+      careMode: r.careMode,
+      legacyInterim: r.legacyInterim,
+      signedRevisions: revisions.get(r.id) ?? 0,
+    }));
   }
 
   /** Read one encounter, for the workspace and for tests. Assignment is checked by the caller. */

@@ -572,6 +572,52 @@ describe('who gets in (test 9 over HTTP)', () => {
   });
 });
 
+describe("the patient's history", () => {
+  it('lists earlier consultations and says which carry a signed note', async () => {
+    const c = await consultation('history');
+    const saved = await request(server)
+      .put(`/api/v1/encounters/${c.encounter.id}/note`)
+      .set(c.owner.headers)
+      .send({ expectedRowVersion: c.draft.rowVersion, sections: SECTIONS })
+      .expect(200);
+    await request(server)
+      .post(`/api/v1/encounters/${c.encounter.id}/note/sign`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: saved.body.data.rowVersion })
+      .expect(201);
+
+    const list = await request(server)
+      .get(`/api/v1/patients/${c.patientId}/encounters`)
+      .set(c.owner.headers)
+      .expect(200);
+    expect(list.body.data).toHaveLength(1);
+    expect(list.body.data[0]).toMatchObject({ id: c.encounter.id, signedRevisions: 1 });
+    // The summary is for choosing which consultation to open. Opening one is a separate, audited read,
+    // so no clinical text travels here.
+    expect(JSON.stringify(list.body)).not.toContain(SECTIONS.assessment);
+
+    // The workspace asks for everything except the consultation already on screen.
+    const excluded = await request(server)
+      .get(`/api/v1/patients/${c.patientId}/encounters?excludeEncounterId=${c.encounter.id}`)
+      .set(c.owner.headers)
+      .expect(200);
+    expect(excluded.body.data).toHaveLength(0);
+  });
+
+  it('refuses a doctor with no relationship to the patient, and 404s across tenants', async () => {
+    const c = await consultation('history-authz');
+    const other = await doctor(c.tenantId, 'History Stranger');
+    await request(server).get(`/api/v1/patients/${c.patientId}/encounters`).set(other.headers).expect(403);
+
+    const theirs = await consultation('history-other-tenant');
+    await request(server)
+      .get(`/api/v1/patients/${theirs.patientId}/encounters`)
+      .set(c.owner.headers)
+      .expect(404);
+  });
+});
+
 describe('the clinical record is audited, not logged (test 10)', () => {
   it('records every read and holds none of the text', async () => {
     const c = await consultation('audit');

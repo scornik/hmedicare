@@ -178,3 +178,66 @@ a[role='button'] {
   color: #fff;
   text-decoration: none;
 }
+
+/* Consultation workspace (WEB-002). One column on a phone, two on a desk: a doctor writing the note
+   wants it wide, and the panels beside it are reference rather than work. */
+.workspace {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+@media (min-width: 900px) {
+  .workspace {
+    grid-template-columns: 2fr 1fr;
+    align-items: start;
+  }
+  .workspace > header,
+  .workspace > section:nth-of-type(1) {
+    grid-column: 1 / -1;
+  }
+}
+.workspace .field {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.workspace textarea {
+  width: 100%;
+  font: inherit;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  resize: vertical;
+}
+.workspace textarea:disabled {
+  background: #f6f6f6;
+}
+[data-testid='save-state'] {
+  font-size: 0.9em;
+}
+/* The states that mean "your text is not yet safe" are the ones that have to catch the eye. */
+[data-testid='save-state'][data-state='unsaved'],
+[data-testid='save-state'][data-state='failed'],
+[data-testid='save-state'][data-state='conflict'] {
+  color: #a4400a;
+  font-weight: 600;
+}
+.conflict {
+  border: 2px solid #a4400a;
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+.conflict pre {
+  flex: 1;
+  white-space: pre-wrap;
+  background: #fafafa;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  margin: 0;
+  min-width: 0;
+}
+.strike {
+  text-decoration: line-through;
+}

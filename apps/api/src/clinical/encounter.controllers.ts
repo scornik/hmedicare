@@ -1,4 +1,15 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { createZodDto } from 'nestjs-zod';
 import { AppError, type ActorContext, type TenantContext } from '@hmedic/kernel';
@@ -6,12 +17,13 @@ import {
   EnterEncounterInErrorRequest,
   InterruptEncounterRequest,
   RowVersionOnly,
+  ListPatientEncountersQuery,
   StartEncounterRequest,
 } from '@hmedic/contracts';
 import { Idempotent } from '@hmedic/http-kit';
 import { CurrentActor, CurrentTenant, RequirePermission } from '@hmedic/identity-access/nest';
 import { CLINICAL_SERVICES, type ClinicalServices } from '@hmedic/clinical/nest';
-import type { ClinicalActor, EncounterView } from '@hmedic/clinical';
+import type { ClinicalActor, EncounterSummary, EncounterView } from '@hmedic/clinical';
 import { HTTP_RUNTIME, type HttpRuntime } from '@hmedic/http-kit';
 import { clinicalActor, idempotencyKey } from './actor';
 
@@ -19,6 +31,7 @@ class StartEncounterDto extends createZodDto(StartEncounterRequest) {}
 class RowVersionOnlyDto extends createZodDto(RowVersionOnly) {}
 class InterruptEncounterDto extends createZodDto(InterruptEncounterRequest) {}
 class EnterInErrorDto extends createZodDto(EnterEncounterInErrorRequest) {}
+class ListPatientEncountersDto extends createZodDto(ListPatientEncountersQuery) {}
 
 /**
  * Encounters (API §3.7, Stage 6 CLIN-002). These replace the ADR-021 interim transitions, which now
@@ -116,6 +129,36 @@ export class EncounterController {
     return this.svc.encounters.enterInError(await this.actor(actor, tenant, req), id, dto, {
       idempotencyKey: idempotencyKey(req),
     });
+  }
+}
+
+/**
+ * A patient's consultation history, which the workspace shows beside the one in progress.
+ *
+ * It hangs off the patient because that is what it is about, and it is authorized at patient level: a
+ * doctor seeing this patient today needs the last visit even when a colleague ran it.
+ */
+@Controller('patients')
+export class PatientEncounterController {
+  constructor(
+    @Inject(CLINICAL_SERVICES) private readonly svc: ClinicalServices,
+    @Inject(HTTP_RUNTIME) private readonly runtime: HttpRuntime,
+  ) {}
+
+  @Get(':id/encounters')
+  @RequirePermission('encounter.read')
+  async list(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe()) patientId: string,
+    @Query() query: ListPatientEncountersDto,
+    @Req() req: FastifyRequest,
+  ): Promise<EncounterSummary[]> {
+    return this.svc.encounters.listForPatient(
+      await clinicalActor(this.runtime, actor, tenant, req),
+      patientId,
+      { limit: query.limit, excludeEncounterId: query.excludeEncounterId },
+    );
   }
 }
 

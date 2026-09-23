@@ -97,6 +97,52 @@ registry.registerPath({
   },
 });
 
+/** The history panel asks for a page of the patient's consultations, minus the one already on screen. */
+export const ListPatientEncountersQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+  excludeEncounterId: Uuid.optional(),
+});
+
+export const EncounterSummary = registry.register(
+  'EncounterSummary',
+  z.object({
+    id: Uuid,
+    startedAt: Timestamp,
+    completedAt: Timestamp.nullable(),
+    status: EncounterStatus,
+    doctorProfileId: Uuid,
+    chamberId: Uuid,
+    careMode: CareMode,
+    legacyInterim: z.boolean(),
+    signedRevisions: z.number().int().min(0).openapi({
+      description: '0 when nothing was ever signed: an abandoned consultation, or a legacy ADR-021 row',
+    }),
+  }),
+);
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/patients/{id}/encounters',
+  operationId: 'listPatientEncounters',
+  tags: ['encounters'],
+  security: secured,
+  request: {
+    headers: tenantHeaders,
+    params: idParam,
+    query: ListPatientEncountersQuery,
+  },
+  responses: {
+    200: ok(
+      z.array(EncounterSummary),
+      "The patient's consultations, newest first (`encounter.read` + assignment to the **patient**). " +
+        'A doctor treating this patient needs to see the last visit even when another doctor ran it; ' +
+        'signing and amending stay at encounter level. Carries no note text — open a revision to read one, ' +
+        'which is audited separately',
+    ),
+    ...errorResponses,
+  },
+});
+
 registry.registerPath({
   method: 'get',
   path: '/api/v1/encounters/{id}',

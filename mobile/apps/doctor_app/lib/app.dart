@@ -7,6 +7,7 @@ import 'package:hm_design/hm_design.dart';
 import 'package:hm_localization/hm_localization.dart';
 
 import 'days_screen.dart';
+import 'encounter_screen.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
 import 'queue_screen.dart';
@@ -43,6 +44,10 @@ class _DoctorAppState extends ConsumerState<DoctorApp> {
       GoRoute(
         path: '/queue/:chamberDayId',
         builder: (_, state) => DoctorQueueScreen(chamberDayId: state.pathParameters['chamberDayId']!),
+      ),
+      GoRoute(
+        path: '/consultations/:encounterId',
+        builder: (_, state) => DoctorEncounterScreen(encounterId: state.pathParameters['encounterId']!),
       ),
     ],
   );

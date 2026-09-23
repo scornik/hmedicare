@@ -46,7 +46,11 @@ import {
   ScheduleRuleController,
 } from './scheduling/scheduling.controllers';
 import { MySerialsController, QueueBoardController, SerialController } from './scheduling/queue.controllers';
-import { EncounterController, SerialEncounterController } from './clinical/encounter.controllers';
+import {
+  EncounterController,
+  PatientEncounterController,
+  SerialEncounterController,
+} from './clinical/encounter.controllers';
 import { DiagnosisController, EncounterNoteController } from './clinical/note.controllers';
 import { ConsentController, MergeCaseController, PatientController } from './patient/patient.controllers';
 import {
@@ -117,6 +121,7 @@ export class ApiModule {
         MySerialsController,
         EncounterController,
         SerialEncounterController,
+        PatientEncounterController,
         EncounterNoteController,
         DiagnosisController,
         ...(devInbox ? [DevInboxController] : []),

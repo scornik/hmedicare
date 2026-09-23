@@ -35,6 +35,7 @@ const entry = (id: string, serialNumber: number, status: string, position: numbe
   recallDeadlineAt: null,
   remoteReady: false,
   duplicateOverride: false,
+  encounterId: null,
   rowVersion,
 });
 
