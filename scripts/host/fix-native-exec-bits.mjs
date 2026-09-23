@@ -5,9 +5,13 @@
 //
 //   Error: spawn .../@turbo/linux-64/bin/turbo EACCES        — the build could not start
 //   /health/ready -> {"db":"fail"}, with nothing logged      — Prisma could not dlopen its query engine
+//   Error: Schema engine exited. Command failed with EACCES  — the deploy could not migrate, so it 503ed
 //
 // The second was the quieter failure. `ping()` swallows the error and reports `fail`, so a query engine
 // that cannot be loaded looks identical to a database that is down.
+//
+// The third hid for longer. The schema engine is spawned only when there is a migration to apply, so every
+// deploy with nothing pending looked healthy, and the one that finally had work to do took the site down.
 //
 // Only files that are already missing the bit are touched, and only inside `bin/` directories or matching
 // a query-engine name, so this cannot make something executable that was meant to be data. It is a no-op
@@ -15,16 +19,13 @@
 import { chmodSync, existsSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isNativeBinary } from './native-binaries.mjs';
 
 if (process.platform === 'win32') process.exit(0);
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const pnpmDir = path.join(root, 'node_modules', '.pnpm');
 if (!existsSync(pnpmDir)) process.exit(0);
-
-/** A compiled engine or launcher, as opposed to the JavaScript and metadata around it. */
-const isNativeBinary = (file) =>
-  file === 'turbo' || /^(lib)?query[-_]engine.*\.node$/.test(file) || file.endsWith('.so.node');
 
 const fixed = [];
 
@@ -51,6 +52,10 @@ try {
       // Generated clients land in `.prisma/client`; the CLI keeps its own copies alongside.
       fixDir(path.join(pkg, '.prisma', 'client'));
       fixDir(path.join(pkg, 'prisma'));
+    }
+    if (entry.startsWith('@prisma+engines@')) {
+      // Where `prisma migrate deploy` looks for the schema engine it spawns.
+      fixDir(path.join(pkg, '@prisma', 'engines'));
     }
   }
 } catch (error) {

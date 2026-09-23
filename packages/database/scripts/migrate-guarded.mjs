@@ -186,4 +186,26 @@ async function main() {
   }
 }
 
-main().catch((e) => fail('MIGRATION_ERROR', e && e.code ? String(e.code) : 'unexpected error (see stderr)'));
+/**
+ * Everything the failure actually said, with any connection string scrubbed out.
+ *
+ * `prisma migrate deploy` runs with its output piped, so its diagnosis lands on the thrown error rather
+ * than on this process's stderr. Reporting only `e.code` threw that away and printed "see stderr" pointing
+ * at a stream nothing had written: a deploy died with `EACCES` on the schema engine and the operator was
+ * told nothing at all. The detail is worth more than the tidiness of a one-line failure.
+ */
+function describe(e) {
+  if (!e) return 'unknown error';
+  const parts = [e.code ? String(e.code) : null, e.message ? String(e.message) : String(e)];
+  for (const stream of ['stderr', 'stdout']) {
+    const v = e[stream];
+    if (v && v.length) parts.push(`${stream}: ${Buffer.isBuffer(v) ? v.toString('utf8') : String(v)}`);
+  }
+  return parts
+    .filter(Boolean)
+    .join(' | ')
+    .replace(/\b(mysql|mariadb):\/\/[^\s"']+/gi, '$1://<redacted>')
+    .slice(0, 4000);
+}
+
+main().catch((e) => fail('MIGRATION_ERROR', describe(e)));

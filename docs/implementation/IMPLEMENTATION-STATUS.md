@@ -237,6 +237,7 @@ patient who cannot be reached is not a patient who can be treated.
 
 | ID | Deviation | Reason | Follow-up |
 |---|---|---|---|
+| D-27 | The deploy host unpacks packages as `0644`, and `fix-native-exec-bits.mjs` did not cover `@prisma/engines`. The first deploy with a migration to apply died on `EACCES` spawning the schema engine, the API refused to boot behind it, and production served 503 (2026-09-23) | the schema engine is spawned **only when a migration is pending**, so every earlier deploy looked healthy and the gap stayed invisible until it mattered. The predicate now lives in `scripts/host/native-binaries.mjs` and is tested by filename (16 cases). The guarded migration also reported `unexpected error (see stderr)` while holding the real message in the exception it discarded, telling the operator nothing; it now prints the child's stderr with connection strings scrubbed | — |
 | D-01 | ~~Pre-migration dump is a manual gate (`PRE_MIGRATION_DUMP_CONFIRMED=<APP_VERSION>`)~~ **RESOLVED** in Stage 6 (DEPLOY-002): the deploy takes the dump, verifies it and refuses to migrate if it fails | it cost a production outage — the Stage 5 merge added three migrations, the guard refused, and Passenger restart-looped on a 503 until someone set a variable by hand | — |
 | D-02 | `MIGRATION_APPLIED` is written by api/worker on startup, not by migrate-guarded | avoids a `database → audit` cycle | — |
 | D-03 | Migration 0014 creates only `integrity_chain_checkpoints` | `backup_runs`/`restore_drills` belong to OPS | later OPS migration |
