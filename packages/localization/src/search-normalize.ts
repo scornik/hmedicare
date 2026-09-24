@@ -250,3 +250,28 @@ export function skeletonSimilarity(a: readonly string[], b: readonly string[]): 
   for (const x of sa) if (sb.has(x)) inter++;
   return inter / (sa.size + sb.size - inter);
 }
+
+/**
+ * Medication catalog search key (DATABASE-IMPLEMENTATION.md §3.8, ADR-020; MEDDATA-001).
+ *
+ * NFKC → lowercase → Bangla digits to ASCII → punctuation and whitespace runs collapsed to one space.
+ *
+ * Deliberately *not* `foldLatin`. That one folds everything to `[a-z0-9]` for patient-name matching, which
+ * would erase a Bangla brand name entirely — and `brand_bn_search_key` exists precisely so a doctor can
+ * type the brand as it appears on the packet. This keeps every script and only normalizes the things that
+ * vary without meaning: width, case, digit system, and punctuation a person would not think about when
+ * typing "Napa-500" versus "napa 500".
+ */
+export function medicationSearchKey(input: string | null | undefined): string {
+  if (!input) return '';
+  return (
+    toLatinDigits(input.normalize('NFKC'))
+      .toLowerCase()
+      // `\p{M}` matters: Bangla vowel signs and the hasant are combining marks, not letters, so a class of
+      // letters and numbers alone tears "ন্যাপা" into "ন য প" — three disconnected consonants that would
+      // never match what a doctor typed. The class keeps marks attached to the letters they belong to.
+      .replace(/[^\p{L}\p{N}\p{M}]+/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
+}

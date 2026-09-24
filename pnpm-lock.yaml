@@ -793,7 +793,32 @@ importers:
 
   packages/payments: {}
 
-  packages/prescriptions: {}
+  packages/prescriptions:
+    dependencies:
+      '@hmedic/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@hmedic/database':
+        specifier: workspace:*
+        version: link:../database
+      '@hmedic/jobs':
+        specifier: workspace:*
+        version: link:../jobs
+      '@hmedic/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@hmedic/localization':
+        specifier: workspace:*
+        version: link:../localization
+      '@hmedic/observability':
+        specifier: workspace:*
+        version: link:../observability
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
+      ajv-formats:
+        specifier: 3.0.1
+        version: 3.0.1(ajv@8.20.0)
 
   packages/provider-credentials:
     dependencies:
