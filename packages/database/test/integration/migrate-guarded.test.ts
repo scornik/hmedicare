@@ -59,7 +59,23 @@ afterAll(async () => {
   }
 });
 
-describe('migrate-guarded (DEPLOYMENT.md §4.1)', () => {
+/**
+ * These are the slowest tests in the suite and the timeout has to say so.
+ *
+ * Each one spawns the real guarded-migration script, which runs `mysqldump` over the whole schema,
+ * verifies the dump and then applies migrations through the Prisma migration engine — 31 s and 40 s on an
+ * idle machine. Against the project default of 60 s that is barely 1.5x of headroom, and a full
+ * `checkpoint-verify` run has two MariaDB containers, a Playwright browser and the mobile toolchain
+ * competing for the same cores. The result was a gate that failed on a different test in this file each
+ * time while every one of them passed when run alone.
+ *
+ * Three minutes is not a looser assertion — nothing about what these tests check has changed. It is the
+ * difference between a timeout that measures the machine's spare capacity and one that measures whether
+ * the script finished.
+ */
+const SLOW_MIGRATION_TIMEOUT_MS = 180_000;
+
+describe('migrate-guarded (DEPLOYMENT.md §4.1)', { timeout: SLOW_MIGRATION_TIMEOUT_MS }, () => {
   it('takes and verifies a pre-migration dump itself in staging (DEPLOY-002)', async () => {
     // A database with something in it and migrations pending — the case the dump exists for. A first
     // deploy migrates an empty schema, which is the other case and is covered below.
