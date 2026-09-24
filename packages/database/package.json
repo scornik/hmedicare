@@ -20,7 +20,8 @@
     "db:migration:new": "node scripts/migration-new.mjs",
     "db:migration:lint": "node scripts/migration-lint.mjs",
     "db:migrate:guarded": "node scripts/migrate-guarded.mjs",
-    "db:reset": "node scripts/reset.mjs"
+    "db:reset": "node scripts/reset.mjs",
+    "restore-drill": "node scripts/restore-drill.mjs"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",

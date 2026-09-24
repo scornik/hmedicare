@@ -20,7 +20,8 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
-    "platform-operator": "tsc -b && node dist/cli/platform-operator.js"
+    "platform-operator": "tsc -b && node dist/cli/platform-operator.js",
+    "reset-owner-password": "node dist/cli/reset-owner-password.js"
   },
   "dependencies": {
     "@hmedic/audit": "workspace:*",

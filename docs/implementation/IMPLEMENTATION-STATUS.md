@@ -222,10 +222,10 @@ Conditions outstanding before it can be turned on:
 
 | # | Condition | Why it blocks real data |
 |---|---|---|
-| G-1 | A password recovery path exists | D-18: the deployed reset notifier is a no-op, so the reset endpoint answers `202` and delivers nothing. A locked-out owner today cannot get back in, and a real record would be stranded with them |
+| G-1 | A password recovery path exists | D-18: the deployed reset notifier is a no-op, so the reset endpoint answers `202` and delivers nothing. **Partly addressed in Stage 7 (OPS-001):** `pnpm ops:reset-owner-password` is a break-glass CLI — two invocations with a confirmation token, refuses without a dump from the last 24 h, revokes every session, writes an audit row (runbook: `RUNBOOK-RECOVERY.md`). **The gate stays open.** It asks for a recovery path a *user* can reach; this one needs SSH and a person who already has database access. Whether that is sufficient for this installation is the owner's call, not the agent's |
 | G-2 | HOST-005 recorded | `JOB_RUNNER_MODE` for a deployed worker is still a guess between `worker` and `cron`; reminders and no-show processing depend on it |
 | G-3 | HOST-006…013 recorded | Backup, restore, storage and egress behaviour on the plan are unverified |
-| G-4 | A restore drill completed | A backup nobody has restored is not a backup. DEPLOY-002 automates the dump; the drill proves it can be read back |
+| G-4 | A restore drill completed | A backup nobody has restored is not a backup. DEPLOY-002 automates the dump; the drill proves it can be read back. **Mechanism built in Stage 7 (OPS-002):** `pnpm ops:restore-drill` restores into a throwaway database and checks tables, rows and migration state against the dump manifest, verified against a real dump. **The gate stays open:** a drill against a *production* dump is the evidence, and that is a human action (H-6) |
 | G-5 | The single-app profile deployed and observed | DEPLOY-001 changes the process model; real data should not be the first traffic through it. **Deployed 2026-09-23** and serving the client at `/` with the API under `/api/v1`; the observation window is what remains |
 
 The config refuses the flag outside production, and refuses it while `SMS_PROVIDER=mock`, because a
@@ -244,7 +244,7 @@ patient who cannot be reached is not a patient who can be treated.
 | H-7 | Native-speaker review of the Bangla UI strings (web `messages.ts`, mobile `strings.dart`) | copy quality | — |
 | H-8 | ~~Set `WEB_DIST_DIR` on the production app to the **absolute** release path~~ **DONE** (2026-09-23): set to the absolute release path (`/home/<user>/hbuilds/current/apps/web/dist`), not `apps/web/dist` | Passenger runs with the home directory as cwd, so a relative path finds nothing. DEPLOY-001 is built but not serving the web bundle until this is set | DEPLOY-001 deployment |
 | H-10 | Run `scripts/ops/verify-clinical-loop.mjs` against production to close CP8's deployed-walkthrough condition. `HM_BASE_URL=https://hmedicare.hakeemify.com HM_EMAIL=<owner> HM_PASSWORD=<owner password> HM_DOCTOR_PROFILE_ID=<tenants.owner_doctor_profile_id> node scripts/ops/verify-clinical-loop.mjs` | the script walks queue → encounter → note → sign → diagnosis → amend → complete and checks the properties, not just the status codes. It needs a login, which this agent does not hold | CP8 acceptance |
-| H-11 | Production has one user and no recovery path: if that password is lost nobody can sign in at all. Either record it somewhere durable or build `ops:reset-owner-password` | gate G-1 (D-18) already blocks real patient data on exactly this; it is also an operational single point of failure today | G-1, real-data gate |
+| H-11 | ~~Production has one user and no recovery path~~ **TOOLING DONE** (2026-09-24, OPS-001): `pnpm ops:reset-owner-password` exists and is documented. What remains is a decision, not code — either record the owner password durably, or accept the CLI as the recovery path and close G-1 | the CLI needs SSH, so it is a break-glass path rather than a user-facing one | G-1 |
 | H-9 | ~~Delete the two retired ADR-021 routes one release after Stage 6~~ **DONE** (2026-09-24, Stage 7): the routes, the `QueueService` methods behind them and the 410 tests are gone; 109 operations | — | — |
 
 ## 6. Deviations

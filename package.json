@@ -43,6 +43,8 @@
     "verify-audit-chain": "pnpm --filter @hmedic/audit run verify-audit-chain",
     "ops:record-risk-decision": "pnpm --filter @hmedic/secrets run record-risk-decision",
     "ops:platform-operator": "pnpm --filter @hmedic/identity-access run platform-operator",
+    "ops:reset-owner-password": "pnpm --filter @hmedic/identity-access run reset-owner-password",
+    "ops:restore-drill": "pnpm --filter @hmedic/database run restore-drill",
     "ops:bootstrap-tenant": "pnpm --filter @hmedic/tenant-org run bootstrap-tenant",
     "dev": "node scripts/dev.mjs",
     "dev:api": "pnpm --filter @hmedic/api run dev",
