@@ -39,6 +39,7 @@
     "db:migration:check-immutable": "node scripts/ci/check-applied-migrations.mjs",
     "db:seed": "pnpm --filter @hmedic/seed run seed",
     "db:seed:verify": "pnpm --filter @hmedic/seed run seed:verify",
+    "meddata:import": "pnpm --filter @hmedic/prescriptions run meddata:import",
     "db:reset": "pnpm --filter @hmedic/database run db:reset && pnpm db:seed",
     "verify-audit-chain": "pnpm --filter @hmedic/audit run verify-audit-chain",
     "ops:record-risk-decision": "pnpm --filter @hmedic/secrets run record-risk-decision",

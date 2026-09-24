@@ -11,6 +11,7 @@ export * from './claims/outbox';
 export * from './engine/engine-info';
 export * from './raw/retention';
 export * from './raw/dump';
+export * from './raw/bulk-upsert';
 export * from './enums';
 export * from './row-version';
 export * from './engine/session-mode';
