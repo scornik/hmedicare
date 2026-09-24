@@ -1,5 +1,5 @@
 import type { ChainSource } from '@hmedic/audit';
-import { GATE_CHAIN_KEY, gateAttestationHashInput } from '../application/medication-catalog-admin';
+import { GATE_CHAIN_KEY, gateAttestationHashInput } from './medication-catalog-admin';
 
 /**
  * Chain source for `VerifyAppendOnlyChains` (MEDDATA-003).

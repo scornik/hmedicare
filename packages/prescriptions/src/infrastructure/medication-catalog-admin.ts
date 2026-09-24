@@ -3,17 +3,22 @@ import { type PrismaClient, withTransaction } from '@hmedic/database';
 import type { AuditPort } from '@hmedic/audit';
 import { ChainAppender } from '@hmedic/audit';
 import type { JobPort } from '@hmedic/jobs';
-import { IMPORT_MEDICATION_DATASET } from '../infrastructure/medication-import/jobs';
+import { IMPORT_MEDICATION_DATASET } from './medication-import/jobs';
 import {
   DATASET_VERSION_RE,
   type StagedDatasetConfig,
   type StagedDatasetError,
   stagedDatasetDir,
-} from '../infrastructure/medication-import/staged-datasets';
-import { DatasetReader } from '../infrastructure/medication-import/dataset-reader';
+} from './medication-import/staged-datasets';
+import { DatasetReader } from './medication-import/dataset-reader';
 
 /**
  * The platform-operator surface for the medication catalog (MEDDATA-003, ADR-020 §2–§3).
+ *
+ * In `infrastructure/` rather than `application/`, and the dependency rules are right about that: it
+ * holds a Prisma client, reads a dataset off the disk to verify it, and enqueues a job. A use case that
+ * needs all three is not a use case, it is a service — which is where every comparable one in this
+ * repository lives.
  *
  * Three things an operator can do: ask for a staged dataset to be imported, record one of the four
  * dataset-card gate attestations, and read what an import did. Everything here runs behind

@@ -1,6 +1,6 @@
 // NestJS module of the prescriptions context. Controllers live in apps/api (REPOSITORY-STRUCTURE §2.2).
 import { type DynamicModule, Global, Module } from '@nestjs/common';
-import type { MedicationCatalogAdminService } from '../application/medication-catalog-admin';
+import type { MedicationCatalogAdminService } from '../infrastructure/medication-catalog-admin';
 import type { MedicationSearchService } from '../infrastructure/medication-search';
 
 export * from './worker-module';

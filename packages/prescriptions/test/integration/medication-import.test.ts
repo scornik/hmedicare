@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Database } from '@hmedic/database';
 import { openTestDatabase, rawConnection } from '../../../../tests/support/db';
@@ -17,7 +16,7 @@ import { MedicationSearchService } from '../../src/infrastructure/medication-sea
  * No attestation is recorded by any test in this file. `medicine-dataset-20260917-4` is UNVERIFIED with
  * all four gates open, and test 10 asserts the refusal rather than arranging its way past it.
  */
-const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), '../fixtures');
+const FIXTURES = path.resolve(__dirname, '../fixtures');
 const V1 = 'meddata-mini-20260924-1';
 const V2 = 'meddata-mini-20260924-2';
 

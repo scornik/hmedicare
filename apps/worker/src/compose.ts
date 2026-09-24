@@ -15,7 +15,7 @@ import {
   sessionModeCheck,
 } from '@hmedic/http-kit';
 import { composeSchedulingAndQueue, registerQueueJobs } from '@hmedic/queue';
-import { registerPrescriptionJobs } from '@hmedic/prescriptions/nest';
+import { registerPrescriptionJobs } from '@hmedic/prescriptions/worker';
 
 /**
  * Worker composition root (API-IMPLEMENTATION §2): health, metrics and the cron kick only. Context job

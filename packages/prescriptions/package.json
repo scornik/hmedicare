@@ -11,6 +11,11 @@
       "types": "./dist/public/index.d.ts",
       "default": "./dist/public/index.js"
     },
+    "./worker": {
+      "development": "./src/nest/worker-module.ts",
+      "types": "./dist/nest/worker-module.d.ts",
+      "default": "./dist/nest/worker-module.js"
+    },
     "./nest": {
       "development": "./src/nest/index.ts",
       "types": "./dist/nest/index.d.ts",
