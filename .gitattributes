@@ -3,3 +3,8 @@
 *.jpg binary
 *.ttf binary
 *.woff2 binary
+
+# `meddata-mini` is checksum-pinned: its own `checksums.sha256` covers every file, and the importer
+# refuses the dataset if one byte moves. Line-ending normalization would do exactly that, so git is told
+# to leave these files alone.
+packages/prescriptions/test/fixtures/meddata-mini-*/** -text

@@ -9,6 +9,7 @@ import {
   sha256Hex,
   toMoney,
 } from '../../domain/medication-mapping';
+import { IMPORTED_FILES, type ImportedFile } from './accepted-schemas';
 import { DatasetError, type DatasetReader } from './dataset-reader';
 
 /**
@@ -35,6 +36,36 @@ export const IMPORT_BATCH_SIZE = 500;
 /** Rejected records tolerated before the run is called a failure rather than a report. */
 export const REJECT_THRESHOLD_RATIO = 0.02;
 
+/**
+ * What one dataset file contributed.
+ *
+ * `updated` and `unchanged` are present only for `medications.jsonl`. That is the one table carrying an
+ * `updated_at` the writer can compare before and after, so it is the only file where the difference
+ * between "rewritten with new values" and "already identical" is a thing this importer knows rather than
+ * guesses. Reporting a made-up split for the other four would be worse than reporting none.
+ *
+ * `updated` means a stored column differs, which includes `dataset_version`. Importing a *new* version of
+ * a dataset therefore reports every row it still mentions as updated, because every row now records a
+ * different version as the last one to have named it. That is the honest reading and the one the
+ * idempotence property needs: re-importing the *same* version changes no column, so `updated` is zero.
+ */
+// A `type` rather than an `interface` on purpose: only type aliases get an implicit index signature, and
+// without one Prisma's `InputJsonValue` refuses this shape when the counts are written to the import row.
+export type FileCounts = {
+  /** Non-blank lines consumed. Lower than the file's length on a resumed run. */
+  read: number;
+  /** Rows whose key was not in the table before this batch. */
+  inserted: number;
+  /** Rows whose key was already present and was written again. */
+  existing: number;
+  updated?: number;
+  unchanged?: number;
+  /** Lines the schema refused. */
+  rejected: number;
+  /** Valid lines deliberately not written: veterinary products, unresolvable targets, unusable prices. */
+  skipped: number;
+};
+
 export interface ImportCounts {
   read: number;
   inserted: number;
@@ -45,6 +76,13 @@ export interface ImportCounts {
   rejectedSchema: number;
   rejectedPricePrecision: number;
   rejectedUnresolvedTarget: number;
+  /**
+   * Per file, keyed by dataset filename. The counters above stay as they were — medication-shaped totals
+   * plus every rejection from every file — because that is what the threshold check and the existing
+   * reports read. This is the breakdown underneath them, so a run that imports fifty thousand medications
+   * and silently drops most of the alias file can be told apart from one that does not.
+   */
+  files: Record<string, FileCounts>;
 }
 
 export interface ImportOptions {
@@ -86,6 +124,14 @@ const REQUIRED_GATES = [
   'IMPORT_SAFEGUARDS_VERIFIED',
 ] as const;
 
+const emptyFileCounts = (): FileCounts => ({
+  read: 0,
+  inserted: 0,
+  existing: 0,
+  rejected: 0,
+  skipped: 0,
+});
+
 const emptyCounts = (): ImportCounts => ({
   read: 0,
   inserted: 0,
@@ -96,6 +142,9 @@ const emptyCounts = (): ImportCounts => ({
   rejectedSchema: 0,
   rejectedPricePrecision: 0,
   rejectedUnresolvedTarget: 0,
+  // Seeded for every imported file so a file that contributed nothing shows zeros rather than
+  // disappearing from the report — an absent key reads as "not attempted", which is a different fact.
+  files: Object.fromEntries(IMPORTED_FILES.map((f) => [f, emptyFileCounts()])),
 });
 
 export class MedicationImporter {
@@ -227,6 +276,11 @@ export class MedicationImporter {
     }
 
     if (options.dryRun) {
+      // Nothing was read line by line, so the only honest `read` is the one preflight counted. The rest
+      // of each file's counters stay at zero: a dry run has no idea what it would have inserted.
+      for (const [name, lines] of Object.entries(preflight.lineCounts)) {
+        this.fileCounts(counts, name as ImportedFile).read = lines;
+      }
       await this.finish(importId, 'SUCCEEDED', counts, null);
       return {
         importId,
@@ -245,13 +299,27 @@ export class MedicationImporter {
       await this.importAliases(options, counts);
       await this.importPrices(options, counts);
 
-      const rejected = counts.rejectedSchema + counts.rejectedUnresolvedTarget;
-      if (counts.read > 0 && rejected / counts.read > REJECT_THRESHOLD_RATIO) {
-        throw new DatasetError(
-          'MEDDATA_TOO_MANY_REJECTIONS',
-          `${rejected} of ${counts.read} records were rejected, over the ` +
-            `${(REJECT_THRESHOLD_RATIO * 100).toFixed(0)}% threshold`,
-        );
+      // The threshold is per file, and counts only schema rejections.
+      //
+      // Both halves of that were wrong before the `meddata-mini` fixture made the scale small enough to
+      // see. It compared every rejection from every file against the number of *medication* lines, so an
+      // alias file could push a medication file over a limit it had nothing to do with. And it counted
+      // deliberate skips — a veterinary product excluded by policy, an alias whose target that exclusion
+      // removed, a price with more precision than the column holds — as if they were corruption. Those
+      // are the importer working, and on a dataset with many veterinary products they can be most of the
+      // alias file. They are reported per file as `skipped`; they do not fail a run.
+      //
+      // What the threshold is actually for is a file this importer cannot read: a schema drift, a
+      // truncated download, a generator bug. That is `rejected`, against the lines of its own file.
+      for (const [name, f] of Object.entries(counts.files)) {
+        if (f.read === 0) continue;
+        if (f.rejected / f.read > REJECT_THRESHOLD_RATIO) {
+          throw new DatasetError(
+            'MEDDATA_TOO_MANY_REJECTIONS',
+            `${name}: ${f.rejected} of ${f.read} records failed schema validation, over the ` +
+              `${(REJECT_THRESHOLD_RATIO * 100).toFixed(0)}% threshold`,
+          );
+        }
       }
 
       // One SUCCEEDED row per version is a database guarantee, so a forced re-run replaces the earlier
@@ -300,10 +368,20 @@ export class MedicationImporter {
     });
   }
 
+  /** The per-file counters, created on demand so a caller-supplied counts object need not pre-seed them. */
+  private fileCounts(counts: ImportCounts, name: ImportedFile): FileCounts {
+    const existing = counts.files[name];
+    if (existing) return existing;
+    const fresh = emptyFileCounts();
+    counts.files[name] = fresh;
+    return fresh;
+  }
+
   // ---------------------------------------------------------------- manufacturers and generics
 
   private async importManufacturers(options: ImportOptions, counts: ImportCounts): Promise<void> {
     const now = this.clock.now();
+    const file = this.fileCounts(counts, 'manufacturers.jsonl');
     let batch: Array<Record<string, unknown>> = [];
     const flush = async () => {
       if (batch.length === 0) return;
@@ -311,8 +389,17 @@ export class MedicationImporter {
       batch = [];
       await withTransaction(
         this.prisma,
-        (tx) =>
-          bulkUpsert(tx, {
+        async (tx) => {
+          // Present-before, so the report can say what this file added rather than only how much of it
+          // was read. Unlike `medications`, this table carries no `updated_at`, so a row that already
+          // existed is counted as existing and nothing claims to know whether its values moved.
+          const keys = rows.map((r) => String(r.manufacturer_key_sha256));
+          const before = await tx.medicationManufacturer.count({
+            where: { manufacturerKeySha256: { in: keys } },
+          });
+          file.inserted += rows.length - before;
+          file.existing += before;
+          return bulkUpsert(tx, {
             table: 'medication_manufacturers',
             columns: [
               'id',
@@ -326,14 +413,17 @@ export class MedicationImporter {
             ],
             updateColumns: ['manufacturer_key', 'name', 'aliases', 'dataset_version', 'active'],
             rows,
-          }),
+          });
+        },
         { context: 'meddata:manufacturers' },
       );
     };
 
     for await (const item of this.reader.read('manufacturers.jsonl')) {
+      file.read += 1;
       if (item.error) {
         counts.rejectedSchema += 1;
+        file.rejected += 1;
         continue;
       }
       const r = item.record as { id: string; key: string; name: string; aliases?: unknown[] };
@@ -354,6 +444,7 @@ export class MedicationImporter {
   }
 
   private async importGenerics(options: ImportOptions, counts: ImportCounts): Promise<void> {
+    const file = this.fileCounts(counts, 'generics.jsonl');
     let batch: Array<Record<string, unknown>> = [];
     const flush = async () => {
       if (batch.length === 0) return;
@@ -361,8 +452,12 @@ export class MedicationImporter {
       batch = [];
       await withTransaction(
         this.prisma,
-        (tx) =>
-          bulkUpsert(tx, {
+        async (tx) => {
+          const keys = rows.map((r) => String(r.generic_key_sha256));
+          const before = await tx.medicationGeneric.count({ where: { genericKeySha256: { in: keys } } });
+          file.inserted += rows.length - before;
+          file.existing += before;
+          return bulkUpsert(tx, {
             table: 'medication_generics',
             columns: [
               'id',
@@ -386,14 +481,17 @@ export class MedicationImporter {
               'active',
             ],
             rows,
-          }),
+          });
+        },
         { context: 'meddata:generics' },
       );
     };
 
     for await (const item of this.reader.read('generics.jsonl')) {
+      file.read += 1;
       if (item.error) {
         counts.rejectedSchema += 1;
+        file.rejected += 1;
         continue;
       }
       const r = item.record as {
@@ -430,6 +528,7 @@ export class MedicationImporter {
     checkpoint: { file: string; line: number } | null,
   ): Promise<void> {
     const now = this.clock.now();
+    const file = this.fileCounts(counts, 'medications.jsonl');
     const resumeLine = checkpoint?.file === 'medications.jsonl' ? checkpoint.line : 0;
 
     // Manufacturer and generic ids, resolved once. Two lookups of a few hundred and a few thousand rows
@@ -550,6 +649,10 @@ export class MedicationImporter {
           counts.inserted += inserted;
           counts.updated += updated;
           counts.unchanged += prior.size - updated;
+          file.inserted += inserted;
+          file.existing += prior.size;
+          file.updated = (file.updated ?? 0) + updated;
+          file.unchanged = (file.unchanged ?? 0) + (prior.size - updated);
 
           // Links are replaced rather than merged: a product whose formulation changed between dataset
           // versions must not keep an ingredient it no longer contains.
@@ -594,13 +697,16 @@ export class MedicationImporter {
     for await (const item of this.reader.read('medications.jsonl', resumeLine)) {
       lastLine = item.line;
       counts.read += 1;
+      file.read += 1;
       if (item.error) {
         counts.rejectedSchema += 1;
+        file.rejected += 1;
         continue;
       }
       const record = item.record as MedicationRecord;
       if (excludeVeterinary && isVeterinary(record)) {
         counts.excludedVeterinary += 1;
+        file.skipped += 1;
         continue;
       }
       const m = mapMedication(record);
@@ -683,6 +789,7 @@ export class MedicationImporter {
       ),
     );
 
+    const file = this.fileCounts(counts, 'aliases.jsonl');
     let batch: Array<Record<string, unknown>> = [];
     const flush = async () => {
       if (batch.length === 0) return;
@@ -690,8 +797,12 @@ export class MedicationImporter {
       batch = [];
       await withTransaction(
         this.prisma,
-        (tx) =>
-          bulkUpsert(tx, {
+        async (tx) => {
+          const keys = rows.map((r) => String(r.alias_identity_sha256));
+          const before = await tx.medicationAlias.count({ where: { aliasIdentitySha256: { in: keys } } });
+          file.inserted += rows.length - before;
+          file.existing += before;
+          return bulkUpsert(tx, {
             table: 'medication_aliases',
             columns: [
               'id',
@@ -710,14 +821,17 @@ export class MedicationImporter {
             ],
             updateColumns: ['alias_search_key', 'sources', 'dataset_version', 'active'],
             rows,
-          }),
+          });
+        },
         { context: 'meddata:aliases' },
       );
     };
 
     for await (const item of this.reader.read('aliases.jsonl')) {
+      file.read += 1;
       if (item.error) {
         counts.rejectedSchema += 1;
+        file.rejected += 1;
         continue;
       }
       const a = item.record as {
@@ -736,6 +850,7 @@ export class MedicationImporter {
         // rather than failed: the alias is meaningless without its target, and dropping it silently would
         // hide how much of the alias file the veterinary exclusion takes with it.
         counts.rejectedUnresolvedTarget += 1;
+        file.skipped += 1;
         continue;
       }
       batch.push({
@@ -764,6 +879,7 @@ export class MedicationImporter {
   }
 
   private async importPrices(options: ImportOptions, counts: ImportCounts): Promise<void> {
+    const file = this.fileCounts(counts, 'prices_observed.jsonl');
     const medications = new Map(
       (await this.prisma.medication.findMany({ select: { id: true, datasetRecordId: true } })).map((m) => [
         m.datasetRecordId,
@@ -789,12 +905,22 @@ export class MedicationImporter {
       batch = [];
       // `skipDuplicates` rather than an upsert: an observation is a fact about a moment, and the same
       // source at the same instant cannot have observed a different price.
-      await this.prisma.medicationPriceObservation.createMany({ data: rows, skipDuplicates: true });
+      //
+      // This is the one writer that can report insertions straight from the database: `createMany` with
+      // `skipDuplicates` returns rows actually written, not rows matched.
+      const written = await this.prisma.medicationPriceObservation.createMany({
+        data: rows,
+        skipDuplicates: true,
+      });
+      file.inserted += written.count;
+      file.existing += rows.length - written.count;
     };
 
     for await (const item of this.reader.read('prices_observed.jsonl')) {
+      file.read += 1;
       if (item.error) {
         counts.rejectedSchema += 1;
+        file.rejected += 1;
         continue;
       }
       const p = item.record as {
@@ -810,6 +936,7 @@ export class MedicationImporter {
       const medicationId = medications.get(p.medication_id);
       if (!medicationId) {
         counts.rejectedUnresolvedTarget += 1;
+        file.skipped += 1;
         continue;
       }
       const unit = p.unit_price_bdt === undefined ? null : toMoney(p.unit_price_bdt);
@@ -820,10 +947,12 @@ export class MedicationImporter {
       ) {
         // Rounding would invent a price nobody published. Skipped and counted instead.
         counts.rejectedPricePrecision += 1;
+        file.skipped += 1;
         continue;
       }
       if (unit === null && pack === null) {
         counts.rejectedPricePrecision += 1;
+        file.skipped += 1;
         continue;
       }
       batch.push({

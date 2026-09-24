@@ -1,0 +1,5 @@
+{"alias":"জেনটাক্সিল","script":"bengali","kind":"brand_bn","alias_origin":"source","target_type":"medication","target_id":"md-01","sources":["src-mini-1"]}
+{"alias":"Jentaxil","script":"latin","kind":"banglish","alias_origin":"generated","target_type":"medication","target_id":"md-01","sources":["src-mini-1"]}
+{"alias":"Corvexa+","script":"latin","kind":"brand_variant","alias_origin":"source","target_type":"medication","target_id":"md-04","sources":["src-mini-1"]}
+{"alias":"Paracetamoxine","script":"latin","kind":"generic_variant","alias_origin":"source","target_type":"generic","target_id":"gn-01","sources":["src-mini-1"]}
+{"alias":"Vetrizol Inj","script":"latin","kind":"brand_variant","alias_origin":"source","target_type":"medication","target_id":"md-05","sources":["src-mini-1"]}

@@ -1,0 +1,4 @@
+{"medication_id":"md-01","unit_price_bdt":1.2,"is_official_mrp":true,"price_label":"MRP per tablet","record_key":"md-01|price","source_id":"src-mini-1","source_url":"https://catalog.example.invalid/md-01","observed_at":"2026-09-24T00:00:00Z"}
+{"medication_id":"md-02","pack_price_bdt":35,"is_official_mrp":true,"price_label":"MRP per bottle","record_key":"md-02|price","source_id":"src-mini-1","source_url":"https://catalog.example.invalid/md-02","observed_at":"2026-09-24T00:00:00Z"}
+{"medication_id":"md-03","unit_price_bdt":8.75,"is_official_mrp":false,"record_key":"md-03|price","source_id":"src-mini-1","source_url":"https://catalog.example.invalid/md-03","observed_at":"2026-09-24T00:00:00Z"}
+{"medication_id":"md-04","unit_price_bdt":12.345,"is_official_mrp":false,"record_key":"md-04|price","source_id":"src-mini-1","source_url":"https://catalog.example.invalid/md-04","observed_at":"2026-09-24T00:00:00Z"}

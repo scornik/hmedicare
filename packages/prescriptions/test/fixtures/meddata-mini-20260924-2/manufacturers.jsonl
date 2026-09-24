@@ -1,0 +1,3 @@
+{"id":"mf-01","key":"zenoria-labs","name":"Zenoria Laboratories Ltd.","aliases":[{"raw":"Zenoria Laboratories Ltd.","rule":"verbatim","sources":["src-mini-1"]}],"product_count":3,"source_ids":["src-mini-1"]}
+{"id":"mf-02","key":"briskcura-pharma","name":"Briskcura Pharma PLC","aliases":[{"raw":"Briskcura Pharma PLC","rule":"verbatim","sources":["src-mini-1"]}],"product_count":2,"source_ids":["src-mini-1"]}
+{"id":"mf-03","key":"zenoria-labs-veterinary","name":"Zenoria Laboratories Ltd. (Veterinary)","aliases":[{"raw":"Zenoria Laboratories Ltd. (Veterinary)","rule":"verbatim","sources":["src-mini-1"]}],"product_count":1,"source_ids":["src-mini-1"]}

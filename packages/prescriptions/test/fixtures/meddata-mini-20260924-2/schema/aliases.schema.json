@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "alias": {
+      "type": "string"
+    },
+    "script": {
+      "type": "string",
+      "enum": [
+        "latin",
+        "bengali"
+      ]
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "brand_bn",
+        "banglish",
+        "brand_variant",
+        "generic_variant"
+      ]
+    },
+    "alias_origin": {
+      "type": "string",
+      "enum": [
+        "source",
+        "generated"
+      ]
+    },
+    "target_type": {
+      "type": "string",
+      "enum": [
+        "medication",
+        "generic"
+      ]
+    },
+    "target_id": {
+      "type": "string"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "alias",
+    "script",
+    "kind",
+    "alias_origin",
+    "target_type",
+    "target_id",
+    "sources"
+  ],
+  "additionalProperties": false
+}
