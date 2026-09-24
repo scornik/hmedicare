@@ -183,7 +183,7 @@ Column **Apps** lists the Hostinger apps that need the variable (`api`, `worker`
 |---|---|---|---|---|
 | `MEDICATION_IMPORT_PRODUCTION_ALLOWED` | OPT | api, worker | **`false`** | production also needs four attestations |
 | `MEDICATION_DATASET_STORAGE_PREFIX` | OPT | worker | `platform/medicine-datasets/` | |
-| `MEDICATION_IMPORT_BATCH_SIZE` | OPT | worker, CLI | 500 | |
+| `MEDICATION_IMPORT_BATCH_SIZE` | — | — | 500 | **Not read from the environment.** Fixed as `IMPORT_BATCH_SIZE` in the importer: the value trades transaction size against lock duration, and the safe range is narrow enough that a deployment-time knob would mostly be a way to get it wrong |
 | `MEDICATION_IMPORT_EXCLUDE_VETERINARY` | OPT | worker, CLI | `true` | |
 
 ## 7. Backups

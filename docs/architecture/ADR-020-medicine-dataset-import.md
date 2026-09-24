@@ -91,8 +91,29 @@
 
 | Environment | How |
 |---|---|
-| local / dev | CLI `pnpm meddata:import --dir <dataset dir> [--dry-run]` in `packages/prescriptions/src/infrastructure/medication-import/cli.ts`. It runs the importer in-process against `DATABASE_URL`. The dataset is read as **data files**; `tools/` code is never imported. |
+| local / dev | CLI `pnpm meddata:import --dir <dataset dir> [--dry-run] [--force]` (`packages/prescriptions/src/cli/meddata-import.ts`). It runs the importer in-process against `DATABASE_URL`. The dataset is read as **data files**; `tools/` code is never imported. |
 | staging / production | 1. The operator stages files under the storage prefix `platform/medicine-datasets/<version>/`: `pnpm meddata:stage --dir … --env staging` for the S3 adapter, or SFTP into `<STORAGE_DISK_ROOT>/platform/medicine-datasets/<version>/` for the disk adapter (write access verified by MEDDATA-003 / HOST-007). 2. A platform operator calls `POST /admin/medications/imports {datasetVersion}`. 3. The worker job `ImportMedicationDataset` streams the JSONL through `ObjectStoragePort` line by line, bounded by memory (ADR-013 budget). |
+
+### As built (Stage 7 MEDDATA-003)
+
+The execution paths above are built with one deliberate substitution, recorded here rather than left to
+be discovered:
+
+- **The job reads from the disk path, not `ObjectStoragePort`.** That port arrives with file storage in
+  Stage 8 and does not exist yet. Building a throwaway abstraction for one caller — and then replacing it
+  a stage later — buys nothing that a shared `stagedDatasetDir()` does not, and the layout it computes is
+  the same `<STORAGE_DISK_ROOT>/<prefix><version>/` an operator reaches over SFTP. When the port lands,
+  the reader behind that path changes and the job does not.
+- **`pnpm meddata:stage` is the disk-adapter form**: it verifies the dataset, copies it, re-verifies the
+  copy where it landed, and refuses a destination inside a web root, a version already staged (without
+  `--force`) or a version name that is not a plain token. The S3 form follows the port.
+- **The job runs on its own `catalog` queue** with a 900-second lease. The runner's claim lease is the
+  longest lease of any type on a queue, so a long job sharing a queue would stretch every other job's
+  lease with it.
+- **`GATE-MEDDATA-PROD` remains OPEN.** No attestation has been recorded for
+  `medicine-dataset-20260917-4`, and production refuses it. The attestation chain is verified alongside
+  the audit and platform-gate chains, so the four rows that would open the gate cannot be edited after
+  the fact without the verifier noticing.
 
 ### 4. Search and prescribing
 

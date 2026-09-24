@@ -220,8 +220,11 @@ export class MedicationImporter {
       select: { id: true, datasetVersion: true },
     });
     if (active) {
+      // The same code the HTTP layer raises for this condition. Two spellings for one fact is how a
+      // caller ends up handling one of them and being surprised by the other, and this code travels: it
+      // is stored as the import row's `error_class` and read back by whoever asks what went wrong.
       throw new DatasetError(
-        'MEDDATA_IMPORT_IN_FLIGHT',
+        'MEDDATA_IMPORT_IN_PROGRESS',
         `an import of ${active.datasetVersion} is already running (${active.id})`,
       );
     }

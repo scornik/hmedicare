@@ -51,6 +51,12 @@ export interface MedicationImportJobDeps {
   environment: string;
   /** `MEDICATION_IMPORT_PRODUCTION_ALLOWED`. */
   productionAllowed: boolean;
+  /**
+   * `MEDICATION_IMPORT_EXCLUDE_VETERINARY`, the deployment's default. A request may state its own, which
+   * is why this is a default rather than a policy: an operator importing a veterinary catalog on a
+   * veterinary installation is a decision, not a mistake to be prevented from the environment file.
+   */
+  excludeVeterinary?: boolean;
   staging: StagedDatasetConfig;
   logger?: Logger;
 }
@@ -99,7 +105,7 @@ export function registerMedicationImportJobs(
       executionPath: 'JOB',
       requestedBy: payload.requestedBy,
       dryRun: payload.dryRun ?? false,
-      excludeVeterinary: payload.excludeVeterinary ?? true,
+      excludeVeterinary: payload.excludeVeterinary ?? deps.excludeVeterinary ?? true,
       productionAllowed: deps.productionAllowed,
       // The runner aborts this when the lease heartbeat fails. The importer checks it between batches,
       // so losing the lease stops the run at a committed checkpoint instead of leaving a second worker

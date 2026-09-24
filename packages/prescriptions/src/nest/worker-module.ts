@@ -10,6 +10,8 @@ export interface PrescriptionWorkerDeps {
   environment: string;
   /** `MEDICATION_IMPORT_PRODUCTION_ALLOWED`. */
   productionAllowed: boolean;
+  /** `MEDICATION_IMPORT_EXCLUDE_VETERINARY`, the default a request may override. */
+  excludeVeterinary?: boolean;
   staging: StagedDatasetConfig;
   logger?: Logger;
 }

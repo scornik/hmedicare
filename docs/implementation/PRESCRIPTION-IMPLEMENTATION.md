@@ -37,6 +37,12 @@ render_status:    NOT_REQUESTED -> QUEUED -> RENDERING -> AVAILABLE
     5. generic name prefix;
     6. generated aliases (`alias_origin=generated`), always ranked **lowest**.
   - **Ranking:** tier from the list above, then tenant boost (`medication_usage_stats.prescribed_count` in the last 180 days, log-scaled, capped so it never lifts a lower tier above a higher one), then brand alphabetical.
+
+    > **As built (Stage 7 CP9).** Two deliberate divergences, both narrowing rather than widening what the ranking can do:
+    >
+    > - **No arithmetic cap.** The boost is not a score that is clamped; results are sorted by `(tier, usage desc, brand)`, so a lower tier *cannot* be lifted above a higher one by construction. There is no constant anyone can tune until a generated alias outranks a real brand name.
+    > - **The 180 days are a cut-off, not a window.** `medication_usage_stats` holds a cumulative `prescribed_count` and a `last_prescribed_at`; it has no per-period buckets. So a row whose last prescription is older than 180 days stops boosting entirely rather than decaying, and a row inside the window boosts by its lifetime count. A true rolling window is a schema change (per-period counters) and an owner decision; approximating one and presenting it as the real thing would be worse than saying this.
+
   - **Excluded:** inactive and veterinary rows (never imported). Synthetic rows appear only where seeded (`is_synthetic`).
   - **Results show:** brand, generics, strength, dosage form (with a "form not mapped" badge for `unmapped`), manufacturer, and a **catalog source indicator**: dataset version, `review_status` badge ("Unverified catalog"), DGDA match badge, and a "synthetic demo" badge where `is_synthetic`.
   - **Optional observed prices** (tenant setting `showObservedPrices`, default `false`) are labelled **"observed price, may differ"**, with source and date. They are never labelled MRP unless `is_official_mrp=1`.

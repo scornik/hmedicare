@@ -212,6 +212,7 @@ export async function buildApi(
     prisma: runtime.prisma,
     environment: config.APP_ENV,
     productionAllowed: config.MEDICATION_IMPORT_PRODUCTION_ALLOWED,
+    excludeVeterinary: config.MEDICATION_IMPORT_EXCLUDE_VETERINARY,
     staging: catalogStaging,
     logger: runtime.logger,
   };

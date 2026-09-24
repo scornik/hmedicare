@@ -68,6 +68,7 @@ export async function buildWorker(
       prisma: runtime.prisma,
       environment: config.APP_ENV,
       productionAllowed: config.MEDICATION_IMPORT_PRODUCTION_ALLOWED,
+      excludeVeterinary: config.MEDICATION_IMPORT_EXCLUDE_VETERINARY,
       staging: {
         root: config.STORAGE_DISK_ROOT,
         prefix: config.MEDICATION_DATASET_STORAGE_PREFIX,
