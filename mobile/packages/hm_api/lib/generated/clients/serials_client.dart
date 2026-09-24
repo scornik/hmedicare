@@ -77,15 +77,6 @@ abstract class SerialsClient {
     @Body() CheckInRequest? body,
   });
 
-  @Deprecated('This method is marked as deprecated')
-  @POST('/api/v1/serials/{id}/complete')
-  Future<void> completeConsultation({
-    @Path('id') required String id,
-    @Header('X-Tenant-ID') required String xTenantId,
-    @Header('Idempotency-Key') required String idempotencyKey,
-    @Body() RowVersionOnlyRequest? body,
-  });
-
   @POST('/api/v1/serials/{id}/confirm')
   Future<PostApiV1SerialsIdConfirmResponse> confirmSerial({
     @Path('id') required String id,
@@ -143,14 +134,5 @@ abstract class SerialsClient {
     @Header('X-Tenant-ID') required String xTenantId,
     @Header('Idempotency-Key') required String idempotencyKey,
     @Body() SkipSerialRequest? body,
-  });
-
-  @Deprecated('This method is marked as deprecated')
-  @POST('/api/v1/serials/{id}/start-consultation')
-  Future<void> startConsultation({
-    @Path('id') required String id,
-    @Header('X-Tenant-ID') required String xTenantId,
-    @Header('Idempotency-Key') required String idempotencyKey,
-    @Body() RowVersionOnlyRequest? body,
   });
 }

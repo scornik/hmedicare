@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { Database } from '@hmedic/database';
+import { type Database, withTransaction } from '@hmedic/database';
 import { newId, systemClock } from '@hmedic/kernel';
 import { OutboxPort } from '@hmedic/jobs';
 import { dhakaDate } from '@hmedic/localization';
@@ -13,7 +13,7 @@ import {
   weeklyEveningRules,
 } from '../../../../tests/support/scheduling';
 import { openTestDatabase, truncateAll } from '../../../../tests/support/db';
-import { QueueOutbox, QueueService, SerialService } from '../../src/public/index';
+import { QueueOutbox, QueueSerialLifecycle, QueueService, SerialService } from '../../src/public/index';
 
 /**
  * Queue-active lifecycle (QUEUE §3.2 walk-in and arrival rows, §4.1 positions, §4.2 the patient view,
@@ -287,34 +287,44 @@ describe('call, skip and recall (QUEUE §3.2)', () => {
     );
   });
 
-  it('the interim consultation transitions belong to the chamber doctor (ADR-021)', async () => {
+  it('refuses to close a chamber day while a consultation is running', async () => {
     const { dayId } = await openDay();
     const s = await walkIn(dayId, 'Consulting Patient');
-    const called = await queue.call({ kind: 'staff', actor: t.actor }, s.id, {
-      expectedRowVersion: s.rowVersion,
-    });
-    // The seeded staff actor is the clinic admin, not the chamber's doctor.
-    await expect(
-      queue.startConsultation({ kind: 'staff', actor: t.actor }, s.id, {
-        expectedRowVersion: called.rowVersion,
-      }),
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await queue.call({ kind: 'staff', actor: t.actor }, s.id, { expectedRowVersion: s.rowVersion });
 
-    const doctor = await db.prisma.doctorProfile.findFirstOrThrow({ where: { id: t.doctorProfileId } });
-    const doctorActor = { ...t.actor, userId: doctor.userId };
-    const started = await queue.startConsultation({ kind: 'staff', actor: doctorActor }, s.id, {
-      expectedRowVersion: called.rowVersion,
-    });
-    expect(started).toMatchObject({ status: 'IN_CONSULTATION', queuePosition: 1 });
+    // Through the lifecycle port, which is how the clinical context moves a serial since ADR-021 was
+    // retired. The queue no longer has a consultation command of its own: starting one is an encounter.
+    const lifecycle = new QueueSerialLifecycle(serials);
+    await withTransaction(
+      db.prisma,
+      (tx) =>
+        lifecycle.markInConsultation(tx, t.tenantId, s.id, {
+          actor: { userId: t.actor.userId, actorType: 'USER' },
+          correlationId: newId(),
+          requestId: null,
+        }),
+      { context: 'test:in-consultation' },
+    );
+    const inChamber = await db.prisma.serial.findFirstOrThrow({ where: { id: s.id } });
+    expect(inChamber).toMatchObject({ status: 'IN_CONSULTATION', queuePosition: 1 });
 
+    // The property this test exists for: a day cannot be closed with a patient still in the room.
     const day = await h.days.get(t.actor, dayId);
     await expect(h.days.close(t.actor, dayId, { expectedRowVersion: day.rowVersion })).rejects.toMatchObject({
       code: 'CHAMBER_DAY_HAS_ACTIVE_CONSULTATION',
     });
 
-    const completed = await queue.completeConsultation({ kind: 'staff', actor: doctorActor }, s.id, {
-      expectedRowVersion: started.rowVersion,
-    });
+    await withTransaction(
+      db.prisma,
+      (tx) =>
+        lifecycle.markCompleted(tx, t.tenantId, s.id, {
+          actor: { userId: t.actor.userId, actorType: 'USER' },
+          correlationId: newId(),
+          requestId: null,
+        }),
+      { context: 'test:complete' },
+    );
+    const completed = await db.prisma.serial.findFirstOrThrow({ where: { id: s.id } });
     expect(completed.status).toBe('COMPLETED');
     expect(completed.completedAt).not.toBeNull();
     await h.days.close(t.actor, dayId, { expectedRowVersion: day.rowVersion });

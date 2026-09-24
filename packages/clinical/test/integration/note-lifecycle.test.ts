@@ -791,14 +791,14 @@ describe('events (test 15)', () => {
     expect(names).toContain('EncounterNoteDraftSaved');
     expect(names).toContain('EncounterNoteSigned');
     expect(names).toContain('DiagnosisRecorded');
-    expect(names).toContain('DiagnosisStatusChanged');
+    // A withdrawal has its own name (ADR-024), so it cannot be flattened into an ordinary status move.
+    expect(names).toContain('DiagnosisVoided');
+    expect(names).not.toContain('DiagnosisStatusChanged');
 
-    // The signed event says which revision it was, because the documented catalogue has no separate
-    // amend event and a projector has to be able to tell the two apart (audit row C-53).
     const signed = events.find((e) => e.eventName === 'EncounterNoteSigned');
     expect(signed?.payload).toMatchObject({ revision: 1, amended: false });
 
-    const voided = events.find((e) => e.eventName === 'DiagnosisStatusChanged');
+    const voided = events.find((e) => e.eventName === 'DiagnosisVoided');
     expect(voided?.payload).toMatchObject({ to: 'ENTERED_IN_ERROR', voided: true });
 
     // Not a word of clinical content anywhere on the bus. An event stream that carried note text would
@@ -807,6 +807,39 @@ describe('events (test 15)', () => {
     for (const text of Object.values(SECTIONS)) expect(serialized).not.toContain(text);
     expect(serialized).not.toContain('viral fever');
     expect(serialized).not.toContain('wrong patient');
+  });
+
+  it('names an amendment as an amendment, not a second signature (ADR-024)', async () => {
+    const c = await consultation('amend-event');
+    let draft = await notes.saveDraft(c.actor, c.encounter.id, {
+      expectedRowVersion: c.draft.rowVersion,
+      sections: SECTIONS,
+    });
+    await notes.sign(c.actor, c.encounter.id, { expectedRowVersion: draft.rowVersion });
+    draft = await notes.getDraft(c.actor, c.encounter.id);
+    await notes.sign(c.actor, c.encounter.id, {
+      expectedRowVersion: draft.rowVersion,
+      correctionReason: 'SYNTHETIC: corrected after review',
+    });
+
+    const names = (
+      await db.prisma.outboxEvent.findMany({
+        where: { tenantId: c.tenantId },
+        orderBy: { occurredAt: 'asc' },
+      })
+    ).map((e) => e.eventName);
+    // Two signatures, two different names. A projector that routed on `EncounterNoteSigned` alone and
+    // ignored the payload would show the correction as the doctor's original account of the visit and
+    // report no error at all — which is why the name carries the distinction rather than a flag.
+    expect(names.filter((n) => n === 'EncounterNoteSigned')).toHaveLength(1);
+    expect(names.filter((n) => n === 'EncounterNoteAmended')).toHaveLength(1);
+
+    const amended = await db.prisma.outboxEvent.findFirstOrThrow({
+      where: { tenantId: c.tenantId, eventName: 'EncounterNoteAmended' },
+    });
+    expect(amended.payload).toMatchObject({ revision: 2, amended: true });
+    // And still no clinical text on the bus.
+    expect(stringify(amended)).not.toContain('corrected after review');
   });
 
   it('emits nothing when the action rolls back', async () => {

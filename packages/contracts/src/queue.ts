@@ -340,31 +340,6 @@ for (const [action, operationId, headers, description] of [
     responses: { 200: ok(Serial, description), ...errorResponses },
   });
 }
-// ADR-021's own exit clause: the two interim consultation transitions are retired by Stage 6, answer
-// `410 ENDPOINT_RETIRED`, and are deleted one release later. They existed because Stage 5 had to run a
-// full chamber day with no clinical model; `POST /encounters` and `POST /encounters/{id}/complete` do the
-// same work properly, and they enforce the covering-doctor rule these two could not (AUTHORIZATION §3).
-for (const [action, operationId, replacement] of [
-  ['start-consultation', 'startConsultation', 'POST /api/v1/serials/{id}/encounter'],
-  ['complete', 'completeConsultation', 'POST /api/v1/encounters/{id}/complete'],
-] as const) {
-  registry.registerPath({
-    method: 'post',
-    path: `/api/v1/serials/{id}/${action}`,
-    operationId,
-    tags: ['serials'],
-    deprecated: true,
-    security: secured,
-    request: { headers: tenantIdemHeaders, params: idParam, body: { content: json(RowVersionOnlyRequest) } },
-    responses: {
-      410: {
-        description: `Retired (ADR-021 exit, Stage 6). Use \`${replacement}\`. Deleted one release later`,
-      },
-      ...errorResponses,
-    },
-  });
-}
-
 registry.registerPath({
   method: 'post',
   path: '/api/v1/serials/{id}/check-in',

@@ -129,7 +129,7 @@ Legend: **Tx** = transaction (RC = READ COMMITTED with locks; RR = default). **I
 | **`POST /serials/{id}/no-show`** | MarkNoShow | `serial.manage` | RC | ✓ |
 | **`POST /serials/{id}/cancel`** | CancelSerial | `serial.manage` / patient context (BOOKED/CONFIRMED only) | RC | ✓ |
 | **`POST /serials/{id}/reschedule`** | RescheduleSerial | `appointment.write` / patient context `BOOK_APPOINTMENTS` | RC both days | ✓ |
-| ~~`POST /serials/{id}/start-consultation`~~ · ~~`POST /serials/{id}/complete`~~ (retired 2026-09-23; ADR-021, C-42) | — answer `410 ENDPOINT_RETIRED` with `details.replacement`; deleted one release after Stage 6 | — | — | — |
+| ~~`POST /serials/{id}/start-consultation`~~ · ~~`POST /serials/{id}/complete`~~ | **Deleted 2026-09-24** (Stage 7, H-9) after one release answering `410`. Use `POST /serials/{id}/encounter` and `POST /encounters/{id}/complete` | — | — | — |
 | `POST /appointments/{id}/payment-override` | WaiveAppointmentPayment (`PENDING_PAYMENT` → `BOOKED`, serial issued; reason required) | `appointment.write` | RC | ✓ |
 
 ### 3.6 Clinical

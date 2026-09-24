@@ -245,7 +245,7 @@ patient who cannot be reached is not a patient who can be treated.
 | H-8 | ~~Set `WEB_DIST_DIR` on the production app to the **absolute** release path~~ **DONE** (2026-09-23): set to the absolute release path (`/home/<user>/hbuilds/current/apps/web/dist`), not `apps/web/dist` | Passenger runs with the home directory as cwd, so a relative path finds nothing. DEPLOY-001 is built but not serving the web bundle until this is set | DEPLOY-001 deployment |
 | H-10 | Run `scripts/ops/verify-clinical-loop.mjs` against production to close CP8's deployed-walkthrough condition. `HM_BASE_URL=https://hmedicare.hakeemify.com HM_EMAIL=<owner> HM_PASSWORD=<owner password> HM_DOCTOR_PROFILE_ID=<tenants.owner_doctor_profile_id> node scripts/ops/verify-clinical-loop.mjs` | the script walks queue → encounter → note → sign → diagnosis → amend → complete and checks the properties, not just the status codes. It needs a login, which this agent does not hold | CP8 acceptance |
 | H-11 | Production has one user and no recovery path: if that password is lost nobody can sign in at all. Either record it somewhere durable or build `ops:reset-owner-password` | gate G-1 (D-18) already blocks real patient data on exactly this; it is also an operational single point of failure today | G-1, real-data gate |
-| H-9 | Delete the two retired ADR-021 routes one release after Stage 6 ships | they answer `410 ENDPOINT_RETIRED` today so Stage 5 clients get a clear answer; the ADR says they go after one release | — |
+| H-9 | ~~Delete the two retired ADR-021 routes one release after Stage 6~~ **DONE** (2026-09-24, Stage 7): the routes, the `QueueService` methods behind them and the 410 tests are gone; 109 operations | — | — |
 
 ## 6. Deviations
 

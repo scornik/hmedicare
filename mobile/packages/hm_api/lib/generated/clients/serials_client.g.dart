@@ -240,36 +240,6 @@ class _SerialsClient implements SerialsClient {
   }
 
   @override
-  Future<void> completeConsultation({
-    required String id,
-    required String xTenantId,
-    required String idempotencyKey,
-    RowVersionOnlyRequest? body,
-  }) async {
-    final _extra = <String, dynamic>{};
-    final queryParameters = <String, dynamic>{};
-    queryParameters.removeWhere((k, v) => v == null);
-    final _headers = <String, dynamic>{
-      r'X-Tenant-ID': xTenantId,
-      r'Idempotency-Key': idempotencyKey,
-    };
-    _headers.removeWhere((k, v) => v == null);
-    final _data = <String, dynamic>{};
-    _data.addAll(body?.toJson() ?? <String, dynamic>{});
-    final _options = _setStreamType<void>(
-      Options(method: 'POST', headers: _headers, extra: _extra)
-          .compose(
-            _dio.options,
-            '/api/v1/serials/${id}/complete',
-            queryParameters: queryParameters,
-            data: _data,
-          )
-          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
-    );
-    await _dio.fetch<void>(_options);
-  }
-
-  @override
   Future<PostApiV1SerialsIdConfirmResponse> confirmSerial({
     required String id,
     required String xTenantId,
@@ -539,36 +509,6 @@ class _SerialsClient implements SerialsClient {
       rethrow;
     }
     return _value;
-  }
-
-  @override
-  Future<void> startConsultation({
-    required String id,
-    required String xTenantId,
-    required String idempotencyKey,
-    RowVersionOnlyRequest? body,
-  }) async {
-    final _extra = <String, dynamic>{};
-    final queryParameters = <String, dynamic>{};
-    queryParameters.removeWhere((k, v) => v == null);
-    final _headers = <String, dynamic>{
-      r'X-Tenant-ID': xTenantId,
-      r'Idempotency-Key': idempotencyKey,
-    };
-    _headers.removeWhere((k, v) => v == null);
-    final _data = <String, dynamic>{};
-    _data.addAll(body?.toJson() ?? <String, dynamic>{});
-    final _options = _setStreamType<void>(
-      Options(method: 'POST', headers: _headers, extra: _extra)
-          .compose(
-            _dio.options,
-            '/api/v1/serials/${id}/start-consultation',
-            queryParameters: queryParameters,
-            data: _data,
-          )
-          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
-    );
-    await _dio.fetch<void>(_options);
   }
 
   RequestOptions _setStreamType<T>(RequestOptions requestOptions) {

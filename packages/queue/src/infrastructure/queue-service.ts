@@ -723,47 +723,6 @@ export class QueueService {
     });
   }
 
-  /**
-   * StartConsultation / CompleteConsultation (ADR-021, audit C-42): the interim pre-clinical transitions of
-   * Stage 5. `encounter_id` stays null and both are retired when Stage 6 introduces encounters.
-   */
-  startConsultation(
-    actor: SerialActor,
-    serialId: string,
-    input: { expectedRowVersion: number },
-    opts: { idempotencyKey?: string | null } = {},
-  ): Promise<SerialView> {
-    return this.serials.transitionSerial(actor, serialId, input.expectedRowVersion, 'start_consultation', {
-      idempotencyKey: opts.idempotencyKey ?? null,
-      guardAsync: (tx, _s, day) => this.assertChamberDoctor(tx, actor, day),
-    });
-  }
-
-  completeConsultation(
-    actor: SerialActor,
-    serialId: string,
-    input: { expectedRowVersion: number },
-    opts: { idempotencyKey?: string | null } = {},
-  ): Promise<SerialView> {
-    return this.serials.transitionSerial(actor, serialId, input.expectedRowVersion, 'complete', {
-      idempotencyKey: opts.idempotencyKey ?? null,
-      guardAsync: (tx, _s, day) => this.assertChamberDoctor(tx, actor, day),
-    });
-  }
-
-  /**
-   * ADR-021: only the doctor of the chamber may run the interim consultation transitions. The covering
-   * doctor rule (AUTHORIZATION-MATRIX §3) arrives with the encounter use cases in Stage 6.
-   */
-  private async assertChamberDoctor(tx: Tx, actor: SerialActor, day: ChamberDayFacts): Promise<void> {
-    if (actor.kind !== 'staff') throw new AppError('FORBIDDEN');
-    const profile = await tx.doctorProfile.findFirst({
-      where: { tenantId: day.tenantId, id: day.doctorProfileId },
-      select: { userId: true },
-    });
-    if (!profile || profile.userId !== actor.actor.userId) throw new AppError('FORBIDDEN');
-  }
-
   // ---------------------------------------------------------------- reorder (QUEUE §5.3)
 
   async reorder(

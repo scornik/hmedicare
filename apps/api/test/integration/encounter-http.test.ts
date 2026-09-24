@@ -361,39 +361,3 @@ describe('encounters over HTTP', () => {
     expect(['STALE_VERSION', 'INVALID_TRANSITION', 'CONFLICT']).toContain(second.body.code);
   });
 });
-
-describe('ADR-021 retirement', () => {
-  it('answers 410 on both interim routes, naming the replacement', async () => {
-    const s = await calledSerial('retired');
-    for (const [action, replacement] of [
-      ['start-consultation', 'POST /api/v1/serials/{id}/encounter'],
-      ['complete', 'POST /api/v1/encounters/{id}/complete'],
-    ] as const) {
-      const res = await request(server)
-        .post(`/api/v1/serials/${s.serial.id}/${action}`)
-        .set(s.owner.headers)
-        .set('idempotency-key', idem())
-        .send({ expectedRowVersion: s.serial.rowVersion });
-      expect(res.status, action).toBe(410);
-      expect(res.body.code, action).toBe('ENDPOINT_RETIRED');
-      // A client on the old model is told where to go, not left guessing.
-      expect(res.body.details?.replacement, action).toBe(replacement);
-    }
-  });
-
-  it('leaves the serial untouched when an old client calls a retired route', async () => {
-    const s = await calledSerial('retired-noop');
-    await request(server)
-      .post(`/api/v1/serials/${s.serial.id}/start-consultation`)
-      .set(s.owner.headers)
-      .set('idempotency-key', idem())
-      .send({ expectedRowVersion: s.serial.rowVersion })
-      .expect(410);
-    const serial = await request(server)
-      .get(`/api/v1/serials/${s.serial.id}`)
-      .set(s.admin.headers)
-      .expect(200);
-    expect(serial.body.data.status).toBe('CALLED');
-    expect(await api.runtime.prisma.encounter.count({ where: { tenantId: s.tenantId } })).toBe(0);
-  });
-});

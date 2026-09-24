@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { type Database, createDatabase } from '@hmedic/database';
+import { type Database, createDatabase, withTransaction } from '@hmedic/database';
 import { newId, systemClock } from '@hmedic/kernel';
 import { OutboxPort } from '@hmedic/jobs';
 import { addDays, dhakaDate } from '@hmedic/localization';
@@ -13,7 +13,7 @@ import {
   weeklyEveningRules,
 } from '../../../../tests/support/scheduling';
 import { openTestDatabase, rawConnection, testDatabaseUrl, truncateAll } from '../../../../tests/support/db';
-import { QueueOutbox, QueueService, SerialService } from '../../src/public/index';
+import { QueueOutbox, QueueSerialLifecycle, QueueService, SerialService } from '../../src/public/index';
 
 /**
  * Mandatory concurrency and invariant suite (Stage 5 prompt §4, QUEUE-CONCURRENCY-DESIGN §2–§7). Every case
@@ -487,12 +487,19 @@ describe('§4.8 illegal transitions are rejected for every pair outside the tabl
     await expect(
       clients[0]!.queue.recall({ kind: 'staff', actor: t.actor }, s.id, { expectedRowVersion: s.rowVersion }),
     ).rejects.toMatchObject({ code: 'INVALID_TRANSITION' });
-    const doctor = await db.prisma.doctorProfile.findFirstOrThrow({ where: { id: t.doctorProfileId } });
+    // `complete` now arrives through the clinical context's lifecycle port rather than a queue command
+    // (ADR-021 retired), and the transition table refuses it from WAITING just the same.
+    const lifecycle = new QueueSerialLifecycle(clients[0]!.serials);
     await expect(
-      clients[0]!.queue.completeConsultation(
-        { kind: 'staff', actor: { ...t.actor, userId: doctor.userId } },
-        s.id,
-        { expectedRowVersion: s.rowVersion },
+      withTransaction(
+        db.prisma,
+        (tx) =>
+          lifecycle.markCompleted(tx, t.tenantId, s.id, {
+            actor: { userId: t.actor.userId, actorType: 'USER' },
+            correlationId: newId(),
+            requestId: null,
+          }),
+        { context: 'test:complete-from-waiting' },
       ),
     ).rejects.toMatchObject({ code: 'INVALID_TRANSITION' });
     expect(await db.prisma.queueEvent.count({ where: { serialId: s.id } })).toBe(3); // issued, checked in, waiting

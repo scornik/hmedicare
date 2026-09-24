@@ -13,6 +13,10 @@ type Tx = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
  *
  * Payloads carry identifiers only. No note text, no diagnosis wording, nothing a subscriber could log or
  * forward that would turn an event bus into a second copy of the medical record.
+ *
+ * A correction and a withdrawal carry their own names (ADR-024): `EncounterNoteAmended` rather than a
+ * signed event with a flag, and `DiagnosisVoided` rather than a general status change. A consumer that
+ * overlooked the flag would show an amendment as the doctor's original account and report no error.
  */
 export type ClinicalEventName =
   | 'EncounterStarted'
@@ -22,9 +26,11 @@ export type ClinicalEventName =
   | 'EncounterEnteredInError'
   | 'EncounterNoteDraftSaved'
   | 'EncounterNoteSigned'
+  | 'EncounterNoteAmended'
   | 'SymptomRecorded'
   | 'DiagnosisRecorded'
-  | 'DiagnosisStatusChanged';
+  | 'DiagnosisStatusChanged'
+  | 'DiagnosisVoided';
 
 /** Emitted but never projected, per EVENT-ARCHITECTURE §3. */
 export const NOT_PROJECTED: ReadonlySet<ClinicalEventName> = new Set<ClinicalEventName>([

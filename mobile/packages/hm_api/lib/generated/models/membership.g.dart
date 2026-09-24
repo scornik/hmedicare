@@ -14,6 +14,7 @@ Membership _$MembershipFromJson(Map<String, dynamic> json) => Membership(
       .map((e) => e as String)
       .toList(),
   displayName: json['displayName'] as String?,
+  doctorProfileId: json['doctorProfileId'] as String?,
   email: json['email'] as String?,
   id: json['id'] as String,
   permissions: MembershipPermissionOverrides.fromJson(
@@ -30,6 +31,7 @@ Map<String, dynamic> _$MembershipToJson(Membership instance) =>
       'chamberIds': instance.chamberIds,
       'clinicIds': instance.clinicIds,
       'displayName': ?instance.displayName,
+      'doctorProfileId': ?instance.doctorProfileId,
       'email': ?instance.email,
       'id': instance.id,
       'permissions': instance.permissions,

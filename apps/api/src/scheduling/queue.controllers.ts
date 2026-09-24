@@ -261,32 +261,6 @@ export class SerialController {
   }
 
   /** ADR-021: interim, pre-clinical. Both are retired when Stage 6 introduces encounters. */
-  /**
-   * ADR-021's own exit clause. These two transitions existed because Stage 5 had to run a full chamber
-   * day with no clinical model; they checked only that the caller was the chamber's doctor, which is one
-   * of the five assignment rules and meant a doctor covering a sick colleague could not see the patient
-   * in front of them. `POST /encounters` does the same work and applies the whole rule.
-   *
-   * 410 rather than a silent redirect: a client calling this is written against a model that no longer
-   * exists, and should be told so rather than quietly given different behaviour. Deleted one release later.
-   */
-  @Post(':id/start-consultation')
-  @RequirePermission('encounter.start')
-  startConsultation(): never {
-    throw new AppError('ENDPOINT_RETIRED', undefined, {
-      details: { replacement: 'POST /api/v1/serials/{id}/encounter', adr: 'ADR-021' },
-    });
-  }
-
-  /** Retired with `start-consultation` above; `POST /encounters/{id}/complete` replaces it. */
-  @Post(':id/complete')
-  @RequirePermission('encounter.complete')
-  complete(): never {
-    throw new AppError('ENDPOINT_RETIRED', undefined, {
-      details: { replacement: 'POST /api/v1/encounters/{id}/complete', adr: 'ADR-021' },
-    });
-  }
-
   @Post(':id/no-show')
   @HttpCode(200)
   @Idempotent()

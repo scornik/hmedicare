@@ -1,6 +1,6 @@
 # ADR-021 — Pre-clinical consultation transitions (Stage 5 queue without encounters)
 
-**Status:** Superseded (2026-09-23, Stage 6 / CLIN-002). Accepted 2026-09-19 (Stage 5).
+**Status:** Superseded (2026-09-23, Stage 6 / CLIN-002) and **fully retired** (2026-09-24, Stage 7 / H-9: both routes and the service methods behind them are deleted). Accepted 2026-09-19 (Stage 5).
 **Resolves:** audit row C-42.
 **Superseded by:** the encounter routes (`POST /serials/{id}/encounter` and friends). See "Outcome" and audit row C-51.
 
@@ -39,8 +39,10 @@ Retired as planned by CLIN-002, with two deliberate departures from the exit pla
    payments are unbuilt, and it will start working. A retired route says the opposite: it will not come
    back, change the client. Conflating the two would have told a Stage 5 client to retry forever.
    `ENDPOINT_RETIRED` carries `details.replacement` and `details.adr`, so an old client is pointed at
-   `POST /api/v1/serials/{id}/encounter` rather than left guessing. Both routes stay registered, `deprecated: true`,
-   for one release, and are deleted after it.
+   `POST /api/v1/serials/{id}/encounter` rather than left guessing. Both routes stayed registered,
+   `deprecated: true`, for one release. **Deleted in Stage 7 (2026-09-24)**, together with the
+   `QueueService` methods behind them: the queue has no consultation command of its own any more, and a
+   serial reaches `IN_CONSULTATION` only through the clinical context's lifecycle port.
 2. **Decision 4 was reversed: Stage 5 serials *were* backfilled** (migration `0007_adr021_backfill`).
    This ADR said Stage 6 would "never backfill fake encounters" and would leave `encounter_id` NULL
    forever. The Stage 6 model makes that untenable: `IN_CONSULTATION` and `COMPLETED` serials without an

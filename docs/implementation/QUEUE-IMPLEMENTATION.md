@@ -28,8 +28,7 @@ Every command carries `tenantId`, `actor`, `correlationId`, `idempotencyKey` (re
 | `ExpireRecallDeadlines` | job (`queue` queue, every minute via runner) | — | system |
 | `ApplyNoShowPolicy` | job (every 5 min) | — | system |
 | `CancelChamberDay` | `POST /chamber-days/{id}/cancel` (Stage 5, audit C-43; §3.3) | `expectedRowVersion` | `schedule.manage` |
-| ~~`StartConsultation`~~ (retired 2026-09-23; ADR-021) | `POST /serials/{id}/start-consultation` | — | answers `410 ENDPOINT_RETIRED`; use `POST /serials/{id}/encounter` |
-| ~~`CompleteConsultation`~~ (retired 2026-09-23; ADR-021) | `POST /serials/{id}/complete` | — | answers `410 ENDPOINT_RETIRED`; use `POST /encounters/{id}/complete` |
+| ~~`StartConsultation`~~ · ~~`CompleteConsultation`~~ (ADR-021) | — | — | **Deleted 2026-09-24** (Stage 7, H-9). The queue has no consultation command: a serial reaches `IN_CONSULTATION` only through the clinical context, via `SerialLifecyclePort` |
 | `StartEncounter` | `POST /serials/{id}/encounter` (clinical) | `expectedRowVersion` | `encounter.start` |
 | `InterruptEncounter` / `CompleteEncounter` | `POST /encounters/{id}/interrupt` · `/complete` | encounter `expectedRowVersion` | `encounter.manage` / `encounter.complete` |
 

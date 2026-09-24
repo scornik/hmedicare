@@ -16,6 +16,7 @@ class Membership {
     required this.chamberIds,
     required this.clinicIds,
     required this.displayName,
+    required this.doctorProfileId,
     required this.email,
     required this.id,
     required this.permissions,
@@ -30,6 +31,9 @@ class Membership {
   final List<String> chamberIds;
   final List<String> clinicIds;
   final String? displayName;
+
+  /// The member's active doctor profile, or null for anyone who is not a doctor. Creating a chamber asks for a profile rather than a user, so this is what a doctor picker binds to (C-56)
+  final String? doctorProfileId;
   final String? email;
   final String id;
   final MembershipPermissionOverrides permissions;

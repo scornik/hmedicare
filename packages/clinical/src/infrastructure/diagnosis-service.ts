@@ -459,7 +459,9 @@ export class DiagnosisService {
         });
         await this.outbox.emit(tx, {
           tenantId,
-          name: 'DiagnosisStatusChanged',
+          // Withdrawal is not a status move like RESOLVED or RULED_OUT; it says the diagnosis should
+          // never have stood. ADR-024 gives it its own name so a consumer cannot flatten the two.
+          name: 'DiagnosisVoided',
           aggregateType: 'diagnosis',
           aggregateId: diagnosisId,
           payload: {

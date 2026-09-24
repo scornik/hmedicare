@@ -435,7 +435,9 @@ export class NoteService {
 
         await this.outbox.emit(tx, {
           tenantId,
-          name: 'EncounterNoteSigned',
+          // The name is the contract (ADR-024). A projector routing on it cannot render a correction as
+          // the doctor's original account by forgetting to read a flag.
+          name: revision === 1 ? 'EncounterNoteSigned' : 'EncounterNoteAmended',
           aggregateType: 'encounter_note',
           aggregateId: locked.id,
           payload: {

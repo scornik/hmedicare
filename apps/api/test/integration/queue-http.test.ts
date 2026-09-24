@@ -482,37 +482,6 @@ describe('the serial lifecycle over HTTP', () => {
     expect(exhausted.body.details).toMatchObject({ recallCount: 2, recallLimit: 2 });
   });
 
-  it('answers 410 on the retired ADR-021 transitions, and leaves the serial alone', async () => {
-    const s = await chamberSetup('consult');
-    const day = await chamberDay(s);
-    const p = await patient(s.admin.headers, 'Consult');
-    const serial = await walkIn(s.admin.headers, day.id, p.id);
-    const called = await command(s.admin.headers, serial.id, 'call')
-      .send({ expectedRowVersion: serial.rowVersion })
-      .expect(200);
-    const body = { expectedRowVersion: called.body.data.rowVersion };
-
-    // ADR-021's own exit clause: the interim routes answer 410 for one release, then go. Consultations
-    // belong to `/encounters` now, where the covering-doctor rule and the clinical record live; the
-    // encounter suite covers the replacement path.
-    for (const action of ['start-consultation', 'complete'] as const) {
-      const res = await command(s.doctor.headers, serial.id, action).send(body);
-      expect(res.status, action).toBe(410);
-      expect(res.body.code, action).toBe('ENDPOINT_RETIRED');
-      expect(res.body.details?.adr, action).toBe('ADR-021');
-    }
-
-    // The serial is exactly where it was: a retired route is not a half-applied command.
-    const after = await request(server).get(`/api/v1/serials/${serial.id}`).set(s.admin.headers).expect(200);
-    expect(after.body.data).toMatchObject({ status: 'CALLED', rowVersion: called.body.data.rowVersion });
-
-    const board = await request(server)
-      .get(`/api/v1/chamber-days/${day.id}/queue`)
-      .set(s.admin.headers)
-      .expect(200);
-    expect(board.body.data.counts).toMatchObject({ completed: 0, totalSerials: 1 });
-  });
-
   it('confirms, checks in and marks waiting when the policy asks for confirmation', async () => {
     const s = await chamberSetup('arrival', { waitingRequiresConfirmation: true });
     const reception = await staff(s.tenantId, 'receptionist');
