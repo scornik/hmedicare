@@ -67,6 +67,13 @@ const TABLES = [
   'sms_balance_snapshots',
   'provider_credentials',
   'platform_gate_decisions',
+  // Append-only in the application and hash-chained, like `platform_gate_decisions` beside it — and
+  // cleared here for the same reason: the rows reference `users`, and a suite that left them behind made
+  // the next file's `DELETE FROM users` fail on the foreign key. That is what happened: the MEDDATA-001
+  // schema suite writes attestations, nothing removed them, and the breakage surfaced only once a new
+  // test file changed the order files run in. Resetting a database between tests is the one place
+  // deleting these is right; no application path can.
+  'medication_dataset_gate_attestations',
   'platform_operators',
   'integrity_chain_checkpoints',
   'push_devices',
