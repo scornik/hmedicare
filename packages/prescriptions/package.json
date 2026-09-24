@@ -20,7 +20,8 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
-    "meddata:import": "node dist/cli/meddata-import.js"
+    "meddata:import": "node dist/cli/meddata-import.js",
+    "meddata:stage": "node dist/cli/meddata-stage.js"
   },
   "dependencies": {
     "@hmedic/audit": "workspace:*",
