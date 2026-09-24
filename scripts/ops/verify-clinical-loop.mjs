@@ -95,19 +95,14 @@ async function main() {
 
   const clinic = await call('POST', '/api/v1/clinics', { name: `${label} Clinic` });
 
-  // The doctor profile to run the chamber under.
-  //
-  // No route tells a signed-in doctor their own profile id (audit row C-56): the server resolves it per
-  // request, which is all the clinical routes need, so nothing exposes it. This takes it from an existing
-  // chamber, or from the environment on a tenant that has none yet.
-  const existing = await call('GET', '/api/v1/chambers');
-  const chambers = Array.isArray(existing) ? existing : (existing?.items ?? []);
-  const doctorProfileId = process.env.HM_DOCTOR_PROFILE_ID ?? chambers[0]?.doctorProfileId;
+  // The doctor profile to run the chamber under. Memberships carry it since C-56 was settled; the
+  // environment override stays for an installation that has not deployed that yet.
+  const staff = await call('GET', '/api/v1/memberships');
+  const members = Array.isArray(staff) ? staff : (staff?.items ?? []);
+  const doctorProfileId =
+    process.env.HM_DOCTOR_PROFILE_ID ?? members.find((m) => m.doctorProfileId)?.doctorProfileId;
   if (!doctorProfileId) {
-    throw new Error(
-      'no doctor profile available: this tenant has no chamber yet and HM_DOCTOR_PROFILE_ID is not set. ' +
-        'Read owner_doctor_profile_id from the tenants row and pass it in.',
-    );
+    throw new Error('no active doctor profile on this tenant; a chamber needs one to run under');
   }
 
   const chamber = await call('POST', '/api/v1/chambers', {

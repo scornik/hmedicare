@@ -32,6 +32,11 @@ const SELF_REFERENCING: Readonly<Record<string, string>> = {
 
 /** Tables owned by Stage 4/5 migrations, in delete-safe order (children first). */
 const TABLES = [
+  // 0019 medication_catalog. The global catalog tables are not truncated between tests: they hold no
+  // tenant data, they are expensive to rebuild, and a suite that wiped them would be testing against an
+  // empty catalog by accident. Only the tenant-scoped rows that point into them go.
+  'patient_medications',
+  'medication_usage_stats',
   // 0008 clinical_observations: children of encounters, so they go before them.
   'symptom_observations',
   'diagnoses',

@@ -2548,6 +2548,12 @@ export interface components {
             chamberIds: string[];
             clinicIds: string[];
             displayName: string | null;
+            /**
+             * Format: uuid
+             * @description The member's active doctor profile, or null for anyone who is not a doctor. Creating a chamber asks for a profile rather than a user, so this is what a doctor picker binds to (C-56)
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            doctorProfileId: string | null;
             email: string | null;
             /**
              * Format: uuid

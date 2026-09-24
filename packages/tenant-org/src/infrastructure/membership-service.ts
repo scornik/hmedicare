@@ -28,6 +28,8 @@ export interface MembershipView {
   userId: string;
   displayName: string | null;
   email: string | null;
+  /** The staff member's active doctor profile, or null for anyone who is not a doctor. */
+  doctorProfileId: string | null;
   role: StaffRole;
   status: string;
   permissions: PermissionOverrides;
@@ -94,7 +96,15 @@ export class MembershipService {
       select: { id: true, displayName: true, email: true },
     });
     const byId = new Map(users.map((u) => [u.id, u]));
-    return rows.map((m) => this.view(m, byId.get(m.userId)));
+    // A doctor's clinical identity is their profile, not their membership, and creating a chamber asks
+    // for the profile. Without this a tenant could list its doctors and still have no way to name one
+    // (audit row C-56), which is how a fresh installation ended up unable to create its first chamber.
+    const profiles = await this.prisma.doctorProfile.findMany({
+      where: { tenantId, userId: { in: rows.map((r) => r.userId) }, status: 'ACTIVE' },
+      select: { id: true, userId: true },
+    });
+    const profileByUser = new Map(profiles.map((p) => [p.userId, p.id]));
+    return rows.map((m) => this.view(m, byId.get(m.userId), profileByUser.get(m.userId) ?? null));
   }
 
   private view(
@@ -109,12 +119,14 @@ export class MembershipService {
       rowVersion: number;
     },
     u?: { displayName: string | null; email: string | null },
+    doctorProfileId: string | null = null,
   ): MembershipView {
     return {
       id: m.id,
       userId: m.userId,
       displayName: u?.displayName ?? null,
       email: u?.email ?? null,
+      doctorProfileId,
       role: m.role as StaffRole,
       status: m.status,
       permissions: overridesOf(m.permissions),

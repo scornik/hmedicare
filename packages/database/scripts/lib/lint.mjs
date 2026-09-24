@@ -17,6 +17,21 @@ const FORBIDDEN = [
  * @param {Array<{ name: string, sql: string }>} migrations in apply order
  * @returns {string[]} problems
  */
+/**
+ * Columns that end in `_id` but hold somebody else's identifier rather than one of ours.
+ *
+ * Every id this system mints is a UUIDv7 in `VARCHAR(36) ascii_bin`, and the rule above exists to catch
+ * the one that is not. These are the deliberate exceptions: a key identifier from a KEK, and identifiers
+ * that arrive inside an imported dataset and must be stored exactly as that dataset issued them. Widening
+ * the rule to allow any length would give up the check that makes it useful, so the exceptions are named.
+ */
+const FOREIGN_ID_COLUMNS = new Set([
+  'key_id',
+  // Stage M dataset record ids (`med_<16 hex>`, `syn_<16 hex>`) and price source ids, per DATABASE §3.8.
+  'dataset_record_id',
+  'source_id',
+]);
+
 export function lintMigrations(migrations) {
   const problems = [];
   const tenantTables = new Set();
@@ -34,7 +49,7 @@ export function lintMigrations(migrations) {
       if (/^\s+`tenant_id` /m.test(body)) tenantTables.add(table);
       for (const col of body.matchAll(/^\s+`((?:[a-z0-9_]+_)?id)` VARCHAR\((\d+)\)([^,\n]*)/gm)) {
         const [, colName, len, rest] = col;
-        if (colName === 'key_id') continue; // KEK key identifier, not an entity id
+        if (FOREIGN_ID_COLUMNS.has(colName)) continue;
         if (len !== '36') problems.push(`${name}: ${table}.${colName} id columns must be VARCHAR(36)`);
         if (!/ascii_bin/.test(rest))
           problems.push(`${name}: ${table}.${colName} id columns must be ascii_bin`);

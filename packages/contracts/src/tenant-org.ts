@@ -21,6 +21,11 @@ export const Membership = registry.register(
     userId: Uuid,
     displayName: z.string().nullable(),
     email: z.string().nullable(),
+    doctorProfileId: Uuid.nullable().openapi({
+      description:
+        "The member's active doctor profile, or null for anyone who is not a doctor. Creating a chamber " +
+        'asks for a profile rather than a user, so this is what a doctor picker binds to (C-56)',
+    }),
     role: StaffRole,
     status: z.enum(['INVITED', 'ACTIVE', 'SUSPENDED', 'REMOVED']),
     permissions: Overrides,

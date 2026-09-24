@@ -1561,3 +1561,306 @@ model Diagnosis {
   @@index([tenantId, patientId, createdAt], map: "ix_diagnoses_patient")
   @@map("diagnoses")
 }
+
+// ---------------------------------------------------------------- 0019 medication_catalog
+// DATABASE-IMPLEMENTATION.md §3.8, catalog half (ADR-020). Split out of section 0008 in Stage 6 (C-52):
+// `patient_medications` cannot carry its FK before `medications` exists, and the catalog belongs to the
+// stage that fills it.
+//
+// These tables are **global**: no `tenant_id`. A medication is the same medicine in every clinic, and a
+// per-tenant copy would mean the same brand drifting apart across installations.
+//
+// Nothing here is ever invented. Rows arrive from a Stage M dataset import or from the synthetic seed,
+// which marks itself: `is_synthetic = 1`, brands prefixed `DEMO-`, canonical keys prefixed `synthetic:`.
+// A catalog that quietly contains a made-up medicine is worse than an empty one, because a doctor cannot
+// tell the difference.
+
+/// One marketed product: a brand, its generics, a strength and a form.
+model Medication {
+  /// @ascii
+  id                       String    @id @db.VarChar(36)
+  /// The dataset's `record_key`, up to 540 bytes in `medicine-dataset-20260917-4`. Compared by its hash
+  /// rather than directly, because the value is too long for a unique index.
+  canonicalKey             String    @map("canonical_key") @db.VarChar(1024)
+  /// @ascii
+  canonicalKeySha256       String    @map("canonical_key_sha256") @db.VarChar(64)
+  /// @ascii
+  datasetRecordId          String    @map("dataset_record_id") @db.VarChar(32)
+  /// @ascii
+  datasetVersion           String    @map("dataset_version") @db.VarChar(64)
+  /// @ascii
+  firstSeenVersion         String    @map("first_seen_version") @db.VarChar(64)
+  /// @ascii
+  deactivatedInVersion     String?   @map("deactivated_in_version") @db.VarChar(64)
+  brandName                String    @map("brand_name") @db.VarChar(200)
+  brandSearchKey           String    @map("brand_search_key") @db.VarChar(200)
+  brandNameBn              String?   @map("brand_name_bn") @db.VarChar(200)
+  brandBnSearchKey         String?   @map("brand_bn_search_key") @db.VarChar(200)
+  /// Generic names joined with " + ", which is how a combination product reads on a prescription.
+  genericDisplay           String    @map("generic_display") @db.VarChar(500)
+  genericSetKey            String    @map("generic_set_key") @db.VarChar(500)
+  strengthText             String?   @map("strength_text") @db.VarChar(300)
+  strengthParsed           Json      @map("strength_parsed")
+  /// The dataset's own vocabulary, including `unmapped`. Deliberately not a CHECK list: a form nobody
+  /// anticipated must import as itself rather than be rejected or silently reshaped.
+  /// @ascii
+  dosageForm               String    @map("dosage_form") @db.VarChar(40)
+  dosageFormRaw            Json      @map("dosage_form_raw")
+  /// @ascii
+  route                    String?   @db.VarChar(32)
+  /// @ascii
+  manufacturerId           String?   @map("manufacturer_id") @db.VarChar(36)
+  manufacturerDisplay      String    @map("manufacturer_display") @db.VarChar(200)
+  /// @ascii
+  registrationNumber       String?   @map("registration_number") @db.VarChar(40)
+  registrationAlternatives Json?     @map("registration_alternatives")
+  /// @ascii
+  dgdaMatch                String    @map("dgda_match") @db.VarChar(16)
+  /// @ascii
+  reviewStatus             String    @map("review_status") @db.VarChar(20)
+  /// A link, never a copy: the monograph text belongs to whoever published it.
+  monographSourceUrl       String?   @map("monograph_source_url") @db.VarChar(500)
+  sourceIds                Json      @map("source_ids")
+  /// `{field: {sources, agreementCount}}`, capped at 16 KB. What the importer believed, and why.
+  fieldProvenance          Json      @map("field_provenance")
+  active                   Boolean   @default(true)
+  isSynthetic              Boolean   @default(false) @map("is_synthetic")
+  importedAt               DateTime  @map("imported_at") @db.DateTime(3)
+  updatedAt                DateTime  @map("updated_at") @db.DateTime(3)
+
+  @@unique([canonicalKeySha256], map: "uq_medications_canonical")
+  @@unique([datasetRecordId], map: "uq_medications_dataset_record")
+  @@index([manufacturerId], map: "ix_medications_manufacturer")
+  @@map("medications")
+}
+
+/// A generic (active ingredient), which is what a doctor usually searches by.
+model MedicationGeneric {
+  /// @ascii
+  id               String  @id @db.VarChar(36)
+  genericKey       String  @map("generic_key") @db.VarChar(300)
+  /// @ascii
+  genericKeySha256 String  @map("generic_key_sha256") @db.VarChar(64)
+  name             String  @db.VarChar(300)
+  nameSearchKey    String  @map("name_search_key") @db.VarChar(300)
+  aliases          Json
+  saltForms        Json    @map("salt_forms")
+  /// @ascii
+  datasetRecordId  String  @map("dataset_record_id") @db.VarChar(32)
+  /// @ascii
+  datasetVersion   String  @map("dataset_version") @db.VarChar(64)
+  active           Boolean @default(true)
+
+  @@unique([genericKeySha256], map: "uq_medication_generics_key")
+  @@unique([datasetRecordId], map: "uq_medication_generics_dataset_record")
+  @@map("medication_generics")
+}
+
+/// Which generics a product contains, and in what order they read.
+model MedicationGenericLink {
+  /// @ascii
+  medicationId String @map("medication_id") @db.VarChar(36)
+  /// @ascii
+  genericId    String @map("generic_id") @db.VarChar(36)
+  position     Int    @db.SmallInt
+
+  @@id([medicationId, genericId])
+  @@index([genericId], map: "ix_medication_generic_links_generic")
+  @@map("medication_generic_links")
+}
+
+model MedicationManufacturer {
+  /// @ascii
+  id                    String  @id @db.VarChar(36)
+  manufacturerKey       String  @map("manufacturer_key") @db.VarChar(200)
+  /// @ascii
+  manufacturerKeySha256 String  @map("manufacturer_key_sha256") @db.VarChar(64)
+  name                  String  @db.VarChar(200)
+  /// Raw name, the rule that normalized it, and the sources it came from.
+  aliases               Json
+  /// @ascii
+  datasetRecordId       String  @map("dataset_record_id") @db.VarChar(32)
+  /// @ascii
+  datasetVersion        String  @map("dataset_version") @db.VarChar(64)
+  active                Boolean @default(true)
+
+  @@unique([manufacturerKeySha256], map: "uq_medication_manufacturers_key")
+  @@unique([datasetRecordId], map: "uq_medication_manufacturers_dataset_record")
+  @@map("medication_manufacturers")
+}
+
+/// Search-only spellings: Bangla brand names, Banglish transliterations, variants.
+///
+/// A doctor types what they say, not what the packet prints, so the catalog has to meet them there. The
+/// `alias_origin` split matters: a generated transliteration ranks below a spelling the source actually
+/// published, because one is evidence and the other is a guess.
+model MedicationAlias {
+  /// @ascii
+  id                  String  @id @db.VarChar(36)
+  /// @ascii
+  targetType          String  @map("target_type") @db.VarChar(12)
+  /// @ascii
+  medicationId        String? @map("medication_id") @db.VarChar(36)
+  /// @ascii
+  genericId           String? @map("generic_id") @db.VarChar(36)
+  alias               String  @db.VarChar(200)
+  aliasSearchKey      String  @map("alias_search_key") @db.VarChar(200)
+  /// @ascii
+  script              String  @db.VarChar(8)
+  /// @ascii
+  kind                String  @db.VarChar(24)
+  /// @ascii
+  aliasOrigin         String  @map("alias_origin") @db.VarChar(16)
+  sources             Json
+  /// @ascii
+  datasetVersion      String  @map("dataset_version") @db.VarChar(64)
+  active              Boolean @default(true)
+  /// SHA-256 of target type, target id, alias and kind: the same spelling cannot be recorded twice.
+  /// @ascii
+  aliasIdentitySha256 String  @map("alias_identity_sha256") @db.VarChar(64)
+
+  @@unique([aliasIdentitySha256], map: "uq_medication_aliases_identity")
+  @@index([medicationId], map: "ix_medication_aliases_medication")
+  @@index([genericId], map: "ix_medication_aliases_generic")
+  @@map("medication_aliases")
+}
+
+/// A price somebody observed somewhere, with the somewhere attached.
+///
+/// Shown as "observed price, may differ" unless `is_official_mrp`. Retail prices here vary by pharmacy
+/// and by pack, and a number presented as authoritative when it is not is worse than no number: a patient
+/// who walks away because the price on screen was wrong has been failed by the software.
+model MedicationPriceObservation {
+  /// @ascii
+  id             String   @id @db.VarChar(36)
+  /// @ascii
+  medicationId   String   @map("medication_id") @db.VarChar(36)
+  /// @ascii
+  datasetVersion String   @map("dataset_version") @db.VarChar(64)
+  /// @ascii
+  sourceId       String   @map("source_id") @db.VarChar(48)
+  sourceUrl      String   @map("source_url") @db.VarChar(500)
+  unitPrice      Decimal? @map("unit_price") @db.Decimal(12, 2)
+  packPrice      Decimal? @map("pack_price") @db.Decimal(12, 2)
+  priceLabel     String?  @map("price_label") @db.VarChar(80)
+  isOfficialMrp  Boolean  @default(false) @map("is_official_mrp")
+  observedAt     DateTime @map("observed_at") @db.DateTime(3)
+
+  @@unique([medicationId, sourceId, observedAt], map: "uq_medication_price_observations")
+  @@map("medication_price_observations")
+}
+
+/// How often this tenant prescribes this medication. Used only to boost search for the clinic that
+/// actually prescribes it — never shown, never shared between tenants.
+model MedicationUsageStat {
+  /// @ascii
+  tenantId         String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  medicationId     String    @map("medication_id") @db.VarChar(36)
+  prescribedCount  Int       @default(0) @map("prescribed_count") @db.UnsignedInt
+  lastPrescribedAt DateTime? @map("last_prescribed_at") @db.DateTime(3)
+
+  @@id([tenantId, medicationId])
+  @@map("medication_usage_stats")
+}
+
+/// One run of the dataset importer, with everything needed to say what it did and whether to trust it.
+model MedicationDatasetImport {
+  /// @ascii
+  id             String    @id @db.VarChar(36)
+  /// @ascii
+  datasetVersion String    @map("dataset_version") @db.VarChar(64)
+  /// @ascii
+  datasetStatus  String    @map("dataset_status") @db.VarChar(16)
+  /// @ascii
+  environment    String    @db.VarChar(16)
+  /// @ascii
+  executionPath  String    @map("execution_path") @db.VarChar(8)
+  /// @ascii
+  status         String    @db.VarChar(16)
+  /// @ascii
+  refusalReason  String?   @map("refusal_reason") @db.VarChar(48)
+  /// Operator user id, or the CLI's OS user. Someone is accountable for every import.
+  /// @ascii
+  requestedBy    String    @map("requested_by") @db.VarChar(128)
+  fileChecksums  Json      @map("file_checksums")
+  schemaHashes   Json      @map("schema_hashes")
+  /// Per file: read, inserted, updated, unchanged, deactivated, excluded_veterinary, rejected_schema,
+  /// rejected_price_precision. A silent import is an unreviewable one.
+  counts         Json
+  checkpoint     Json?
+  /// @ascii
+  errorClass     String?   @map("error_class") @db.VarChar(64)
+  startedAt      DateTime? @map("started_at") @db.DateTime(3)
+  finishedAt     DateTime? @map("finished_at") @db.DateTime(3)
+  createdAt      DateTime  @map("created_at") @db.DateTime(3)
+
+  @@map("medication_dataset_imports")
+}
+
+/// The four gates a dataset must clear before it can be trusted in production (ADR-020).
+///
+/// Append-only and hash-chained on `meddata:platform`, for the same reason a signed note is: an
+/// attestation that someone reviewed the data is worth nothing if it can be added after the fact.
+model MedicationDatasetGateAttestation {
+  /// @ascii
+  id               String   @id @db.VarChar(36)
+  seq              BigInt   @db.UnsignedBigInt
+  /// @ascii
+  datasetVersion   String   @map("dataset_version") @db.VarChar(64)
+  /// @ascii
+  gateCode         String   @map("gate_code") @db.VarChar(32)
+  evidenceRef      String   @map("evidence_ref") @db.VarChar(500)
+  /// Sample size and error rate, for example. The claim without its basis is not an attestation.
+  summary          String   @db.VarChar(1000)
+  /// @ascii
+  recordedByUserId String   @map("recorded_by_user_id") @db.VarChar(36)
+  recordedAt       DateTime @map("recorded_at") @db.DateTime(3)
+  /// @ascii
+  prevRowHash      String?  @map("prev_row_hash") @db.VarChar(64)
+  /// @ascii
+  rowHash          String   @map("row_hash") @db.VarChar(64)
+
+  @@unique([seq], map: "uq_meddata_gate_attestations_seq")
+  @@unique([datasetVersion, gateCode], map: "uq_meddata_gate_attestations_gate")
+  @@map("medication_dataset_gate_attestations")
+}
+
+/// What a patient is already taking, whether or not this clinic prescribed it.
+///
+/// `medication_id` is nullable and `free_text_name` sits beside it because a patient arrives with a strip
+/// of tablets and a name that is in no catalog. Refusing to record that would lose the most clinically
+/// important thing in the room.
+model PatientMedication {
+  /// @ascii
+  id                   String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId             String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  patientId            String    @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  medicationId         String?   @map("medication_id") @db.VarChar(36)
+  freeTextName         String?   @map("free_text_name") @db.VarChar(200)
+  doseText             String?   @map("dose_text") @db.VarChar(200)
+  instructions         String?   @db.VarChar(500)
+  startDate            DateTime? @map("start_date") @db.Date
+  endDate              DateTime? @map("end_date") @db.Date
+  /// @ascii
+  status               String    @db.VarChar(16)
+  /// @ascii
+  sourcePrescriptionId String?   @map("source_prescription_id") @db.VarChar(36)
+  /// @ascii
+  sourceEncounterId    String?   @map("source_encounter_id") @db.VarChar(36)
+  createdAt            DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt            DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId      String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId      String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion           Int       @default(1) @map("row_version")
+
+  @@unique([tenantId, id], map: "uq_patient_medications_tenant_id")
+  @@index([tenantId, patientId, status], map: "ix_patient_medications_patient")
+  @@index([medicationId], map: "ix_patient_medications_medication")
+  @@map("patient_medications")
+}
