@@ -102,6 +102,16 @@ export interface ImportOptions {
   /** Production only: set by `MEDICATION_IMPORT_PRODUCTION_ALLOWED`. */
   productionAllowed?: boolean;
   onProgress?: (info: { file: string; line: number; counts: ImportCounts }) => void;
+  /**
+   * Aborted when the caller can no longer guarantee it is the only importer running — in the job path,
+   * when the lease heartbeat fails (`JobContext.signal`).
+   *
+   * Checked at batch boundaries rather than mid-transaction. A batch that has begun finishes and commits
+   * its checkpoint; stopping between batches is what makes the abort safe, because the next run resumes
+   * from a line that was genuinely written. An importer that tore out mid-batch would leave the
+   * checkpoint describing work the transaction rolled back.
+   */
+  signal?: AbortSignal;
 }
 
 export interface ImportResult {
@@ -692,6 +702,14 @@ export class MedicationImporter {
       );
       this.lastCheckpoint = { file: 'medications.jsonl', line: upToLine };
       options.onProgress?.({ file: 'medications.jsonl', line: upToLine, counts });
+      if (options.signal?.aborted) {
+        // Thrown, not returned: this leaves the run FAILED with its checkpoint intact, which is exactly
+        // what a resume needs. A run that reported success here would claim a catalog it did not finish.
+        throw new DatasetError(
+          'MEDDATA_IMPORT_ABORTED',
+          `aborted after ${upToLine} medication lines; the checkpoint is committed and a later run resumes from it`,
+        );
+      }
     };
 
     for await (const item of this.reader.read('medications.jsonl', resumeLine)) {

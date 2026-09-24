@@ -317,6 +317,7 @@ Codes are stable strings. HTTP status is shown. The single source is `packages/k
 | **`MEDDATA_CHECKSUM_MISMATCH`** | 422 | dataset file checksum mismatch |
 | **`MEDDATA_SCHEMA_UNSUPPORTED`** | 422 | dataset schema hash not accepted by this importer |
 | **`MEDDATA_IMPORT_IN_PROGRESS`** | 409 | another import is queued or running |
+| **`MEDDATA_GATE_ALREADY_ATTESTED`** | 409 | that dataset-card gate is already attested for that version; attestations are append-only |
 | **`PLATFORM_CONTEXT_REQUIRED`** | 400 | missing or conflicting `X-Platform-Context` |
 | `DATA_INTEGRITY_ERROR` | 500 | JSON column/chain validation failure (alerted) |
 | `INTERNAL_ERROR` | 500 | |

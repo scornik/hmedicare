@@ -21,6 +21,7 @@
     "@hmedic/localization": "workspace:*",
     "@hmedic/observability": "workspace:*",
     "@hmedic/patient": "workspace:*",
+    "@hmedic/prescriptions": "workspace:*",
     "@hmedic/queue": "workspace:*",
     "@hmedic/scheduling": "workspace:*",
     "@nestjs/common": "11.2.5",

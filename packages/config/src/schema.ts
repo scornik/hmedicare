@@ -201,6 +201,20 @@ export const smsSection = {
   ZAMANIT_MAX_SENDS_PER_MINUTE: int(30, 1),
 };
 
+/**
+ * The medication catalog (ADR-020 §2–§3, ENVIRONMENT-CONTRACT.md).
+ *
+ * `MEDICATION_IMPORT_PRODUCTION_ALLOWED` defaults to false, so no deployment imports a catalog into
+ * production by forgetting to set something. It is also not sufficient on its own: the importer still
+ * requires all four dataset-card gates attested for that exact version.
+ */
+export const medicationCatalogSection = {
+  MEDICATION_IMPORT_PRODUCTION_ALLOWED: bool(false),
+  STORAGE_DISK_ROOT: z.string().min(1).optional(),
+  MEDICATION_DATASET_STORAGE_PREFIX: z.string().min(1).default('platform/medicine-datasets/'),
+  MEDICATION_IMPORT_EXCLUDE_VETERINARY: bool(true),
+};
+
 export const observabilitySection = {
   OTEL_ENABLED: bool(false),
   OTEL_EXPORTER_OTLP_ENDPOINT: url.optional(),
@@ -216,8 +230,24 @@ export const LOCAL_ONLY: Record<string, (value: string) => boolean> = {
 };
 
 export const SECTIONS_BY_APP: Record<AppName, Array<Record<string, z.ZodTypeAny>>> = {
-  api: [runtimeSection, databaseSection, jobsSection, authSection, smsSection, observabilitySection],
-  worker: [runtimeSection, databaseSection, jobsSection, authSection, smsSection, observabilitySection],
+  api: [
+    runtimeSection,
+    databaseSection,
+    jobsSection,
+    authSection,
+    smsSection,
+    medicationCatalogSection,
+    observabilitySection,
+  ],
+  worker: [
+    runtimeSection,
+    databaseSection,
+    jobsSection,
+    authSection,
+    smsSection,
+    medicationCatalogSection,
+    observabilitySection,
+  ],
   seed: [runtimeSection, databaseSection, authSection],
   cli: [databaseSection],
   'host-probe': [],

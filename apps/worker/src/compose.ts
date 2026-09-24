@@ -15,6 +15,7 @@ import {
   sessionModeCheck,
 } from '@hmedic/http-kit';
 import { composeSchedulingAndQueue, registerQueueJobs } from '@hmedic/queue';
+import { registerPrescriptionJobs } from '@hmedic/prescriptions/nest';
 
 /**
  * Worker composition root (API-IMPLEMENTATION §2): health, metrics and the cron kick only. Context job
@@ -60,9 +61,21 @@ export async function buildWorker(
     audit: runtime.audit,
     clock: runtime.clock,
   });
-  const jobs = composePlatformJobs(runtime, sms, ({ registry, runner }) =>
-    registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger }),
-  );
+  const jobs = composePlatformJobs(runtime, sms, ({ registry, runner }) => {
+    // The medication import runs here and only here: it is minutes of streaming and batched writes on
+    // its own queue, and the API process should never be the thing holding that work.
+    registerPrescriptionJobs(registry, runner, {
+      prisma: runtime.prisma,
+      environment: config.APP_ENV,
+      productionAllowed: config.MEDICATION_IMPORT_PRODUCTION_ALLOWED,
+      staging: {
+        root: config.STORAGE_DISK_ROOT,
+        prefix: config.MEDICATION_DATASET_STORAGE_PREFIX,
+      },
+      logger: runtime.logger,
+    });
+    return registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger });
+  });
   runtime.smsDiagnostics = config.DIAGNOSTICS_ENABLED ? createSmsDiagnostics(runtime, sms) : null;
   runtime.runnerLoop = jobs?.loop ?? null;
   runtime.readinessChecks.push(sessionModeCheck(runtime), jobLagCheck(runtime));

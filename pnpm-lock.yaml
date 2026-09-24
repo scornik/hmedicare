@@ -304,6 +304,9 @@ importers:
       '@hmedic/patient':
         specifier: workspace:*
         version: link:../../packages/patient
+      '@hmedic/prescriptions':
+        specifier: workspace:*
+        version: link:../../packages/prescriptions
       '@hmedic/queue':
         specifier: workspace:*
         version: link:../../packages/queue
@@ -429,6 +432,9 @@ importers:
       '@hmedic/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@hmedic/prescriptions':
+        specifier: workspace:*
+        version: link:../../packages/prescriptions
       '@hmedic/queue':
         specifier: workspace:*
         version: link:../../packages/queue
@@ -635,6 +641,9 @@ importers:
       '@hmedic/observability':
         specifier: workspace:*
         version: link:../observability
+      '@hmedic/prescriptions':
+        specifier: workspace:*
+        version: link:../prescriptions
       '@hmedic/provider-credentials':
         specifier: workspace:*
         version: link:../provider-credentials
@@ -813,12 +822,18 @@ importers:
       '@hmedic/observability':
         specifier: workspace:*
         version: link:../observability
+      '@nestjs/common':
+        specifier: 11.2.5
+        version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2)
       ajv:
         specifier: 8.20.0
         version: 8.20.0
       ajv-formats:
         specifier: 3.0.1
         version: 3.0.1(ajv@8.20.0)
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
 
   packages/provider-credentials:
     dependencies:

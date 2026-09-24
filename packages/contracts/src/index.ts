@@ -9,4 +9,5 @@ export * from './scheduling';
 export * from './queue';
 export * from './encounter';
 export * from './clinical';
+export * from './prescriptions';
 export * from './openapi';

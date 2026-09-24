@@ -16,6 +16,7 @@
     "@hmedic/jobs": "workspace:*",
     "@hmedic/kernel": "workspace:*",
     "@hmedic/observability": "workspace:*",
+    "@hmedic/prescriptions": "workspace:*",
     "@hmedic/queue": "workspace:*",
     "@nestjs/common": "11.2.5",
     "@nestjs/core": "11.2.5",

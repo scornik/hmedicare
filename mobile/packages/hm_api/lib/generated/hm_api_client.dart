@@ -4,6 +4,7 @@
 
 import 'package:dio/dio.dart';
 
+import 'clients/platform_client.dart';
 import 'clients/appointments_client.dart';
 import 'clients/auth_client.dart';
 import 'clients/care_team_client.dart';
@@ -17,8 +18,8 @@ import 'clients/tenant_client.dart';
 import 'clients/guardianships_client.dart';
 import 'clients/me_client.dart';
 import 'clients/serials_client.dart';
+import 'clients/prescriptions_client.dart';
 import 'clients/patient_accounts_client.dart';
-import 'clients/platform_client.dart';
 import 'clients/health_client.dart';
 
 /// HMedic API `v1.0.0`.
@@ -36,6 +37,7 @@ class HmApiClient {
 
   static String get version => '1.0.0';
 
+  PlatformClient? _platform;
   AppointmentsClient? _appointments;
   AuthClient? _auth;
   CareTeamClient? _careTeam;
@@ -49,9 +51,11 @@ class HmApiClient {
   GuardianshipsClient? _guardianships;
   MeClient? _me;
   SerialsClient? _serials;
+  PrescriptionsClient? _prescriptions;
   PatientAccountsClient? _patientAccounts;
-  PlatformClient? _platform;
   HealthClient? _health;
+
+  PlatformClient get platform => _platform ??= PlatformClient(_dio, baseUrl: _baseUrl);
 
   AppointmentsClient get appointments => _appointments ??= AppointmentsClient(_dio, baseUrl: _baseUrl);
 
@@ -79,9 +83,9 @@ class HmApiClient {
 
   SerialsClient get serials => _serials ??= SerialsClient(_dio, baseUrl: _baseUrl);
 
-  PatientAccountsClient get patientAccounts => _patientAccounts ??= PatientAccountsClient(_dio, baseUrl: _baseUrl);
+  PrescriptionsClient get prescriptions => _prescriptions ??= PrescriptionsClient(_dio, baseUrl: _baseUrl);
 
-  PlatformClient get platform => _platform ??= PlatformClient(_dio, baseUrl: _baseUrl);
+  PatientAccountsClient get patientAccounts => _patientAccounts ??= PatientAccountsClient(_dio, baseUrl: _baseUrl);
 
   HealthClient get health => _health ??= HealthClient(_dio, baseUrl: _baseUrl);
 }

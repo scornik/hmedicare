@@ -11,6 +11,7 @@ import {
 } from '@hmedic/jobs';
 import { VerifyAppendOnlyChains, auditChainSource, registerChainVerification } from '@hmedic/audit';
 import { gateChainSource } from '@hmedic/secrets';
+import { medicationGateChainSource } from '@hmedic/prescriptions';
 import type { HttpRuntime, ReadinessCheck } from './runtime';
 
 export interface JobComposition {
@@ -54,7 +55,14 @@ export function composeJobs(
     ...registerChainVerification(
       registry,
       runner,
-      new VerifyAppendOnlyChains(prisma, [auditChainSource, gateChainSource], { clock, logger, metrics }),
+      // The medication gate chain is verified alongside the others: four attestations are the only
+      // reason a production catalog import is permitted, so "nobody edited them afterwards" has to be a
+      // checked claim rather than a promise.
+      new VerifyAppendOnlyChains(prisma, [auditChainSource, gateChainSource, medicationGateChainSource], {
+        clock,
+        logger,
+        metrics,
+      }),
     ),
     ...extend({ registry, subscriptions, runner }),
   ];

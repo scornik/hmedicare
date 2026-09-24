@@ -134,6 +134,8 @@ enum ErrorCode {
   meddataSchemaUnsupported('MEDDATA_SCHEMA_UNSUPPORTED'),
   @JsonValue('MEDDATA_IMPORT_IN_PROGRESS')
   meddataImportInProgress('MEDDATA_IMPORT_IN_PROGRESS'),
+  @JsonValue('MEDDATA_GATE_ALREADY_ATTESTED')
+  meddataGateAlreadyAttested('MEDDATA_GATE_ALREADY_ATTESTED'),
   @JsonValue('PLATFORM_CONTEXT_REQUIRED')
   platformContextRequired('PLATFORM_CONTEXT_REQUIRED'),
   @JsonValue('DATA_INTEGRITY_ERROR')

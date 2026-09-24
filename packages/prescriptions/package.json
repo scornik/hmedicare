@@ -31,6 +31,8 @@
     "@hmedic/localization": "workspace:*",
     "@hmedic/observability": "workspace:*",
     "ajv": "8.20.0",
+    "@nestjs/common": "11.2.5",
+    "zod": "3.25.76",
     "ajv-formats": "3.0.1"
   }
 }

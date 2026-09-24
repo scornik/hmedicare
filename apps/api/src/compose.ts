@@ -34,7 +34,13 @@ import { composeSchedulingAndQueue, registerQueueJobs } from '@hmedic/queue';
 import { QueueWriteModule, type QueueServices } from '@hmedic/queue/nest';
 import { composeClinical } from '@hmedic/clinical';
 import { ClinicalWriteModule, type ClinicalServices } from '@hmedic/clinical/nest';
-import { OutboxPort } from '@hmedic/jobs';
+import { MedicationCatalogAdminService, MedicationSearchService } from '@hmedic/prescriptions';
+import {
+  PrescriptionWriteModule,
+  type PrescriptionServices,
+  registerPrescriptionJobs,
+} from '@hmedic/prescriptions/nest';
+import { JobPort, JobRegistry, OutboxPort } from '@hmedic/jobs';
 import {
   AppointmentController,
   ChamberDayController,
@@ -52,6 +58,10 @@ import {
   SerialEncounterController,
 } from './clinical/encounter.controllers';
 import { DiagnosisController, EncounterNoteController } from './clinical/note.controllers';
+import {
+  MedicationImportAdminController,
+  MedicationSearchController,
+} from './prescriptions/medication-catalog.controllers';
 import { ConsentController, MergeCaseController, PatientController } from './patient/patient.controllers';
 import {
   CareTeamController,
@@ -83,6 +93,7 @@ export class ApiModule {
     scheduling: SchedulingServices,
     queue: QueueServices,
     clinical: ClinicalServices,
+    prescriptions: PrescriptionServices,
   ): DynamicModule {
     const mode = runtime.config.JOB_RUNNER_MODE;
     const devInbox = identity.mockOtp !== null || identity.mockReset !== null;
@@ -96,6 +107,7 @@ export class ApiModule {
         SchedulingWriteModule.forRoot(scheduling),
         QueueWriteModule.forRoot(queue),
         ClinicalWriteModule.forRoot(clinical),
+        PrescriptionWriteModule.forRoot(prescriptions),
       ],
       controllers: [
         AuthController,
@@ -124,6 +136,8 @@ export class ApiModule {
         PatientEncounterController,
         EncounterNoteController,
         DiagnosisController,
+        MedicationImportAdminController,
+        MedicationSearchController,
         ...(devInbox ? [DevInboxController] : []),
       ],
     };
@@ -153,6 +167,7 @@ export interface ApiInstance {
   scheduling: SchedulingServices;
   queue: QueueServices;
   clinical: ClinicalServices;
+  prescriptions: PrescriptionServices;
   jobs: JobComposition | null;
   close(): Promise<void>;
 }
@@ -189,13 +204,42 @@ export async function buildApi(
     clock: runtime.clock,
     metrics: runtime.metrics,
   });
+  const catalogStaging = {
+    root: config.STORAGE_DISK_ROOT,
+    prefix: config.MEDICATION_DATASET_STORAGE_PREFIX,
+  };
+  const catalogJobDeps = {
+    prisma: runtime.prisma,
+    environment: config.APP_ENV,
+    productionAllowed: config.MEDICATION_IMPORT_PRODUCTION_ALLOWED,
+    staging: catalogStaging,
+    logger: runtime.logger,
+  };
   const jobs =
     config.JOB_RUNNER_MODE === 'embedded' || config.JOB_RUNNER_MODE === 'cron'
-      ? composePlatformJobs(runtime, sms, ({ registry, runner }) =>
-          registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger }),
-        )
+      ? composePlatformJobs(runtime, sms, ({ registry, runner }) => {
+          registerPrescriptionJobs(registry, runner, catalogJobDeps);
+          return registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger });
+        })
       : null;
   runtime.runnerLoop = jobs?.loop ?? null;
+  // The API must be able to *enqueue* an import whatever the runner mode, and in `worker` and `off` modes
+  // there is no job composition here at all. So it keeps a registry of its own in that case and registers
+  // the type with a null runner: that gives payload validation and enqueueing, and leaves this process
+  // with no way to execute an import even by accident.
+  const enqueueRegistry = jobs?.registry ?? new JobRegistry();
+  if (!jobs) registerPrescriptionJobs(enqueueRegistry, null, catalogJobDeps);
+  const prescriptions: PrescriptionServices = {
+    catalogAdmin: new MedicationCatalogAdminService({
+      prisma: runtime.prisma,
+      jobs: new JobPort(runtime.prisma, enqueueRegistry, runtime.clock),
+      audit: runtime.audit,
+      environment: config.APP_ENV,
+      staging: catalogStaging,
+      clock: runtime.clock,
+    }),
+    search: new MedicationSearchService(runtime.prisma, runtime.clock),
+  };
   const identity = createIdentityServices(runtime, sms.otpDelivery ? { otpDelivery: sms.otpDelivery } : {});
   const tenantOrg: TenantOrgServices = {
     clinics: new ClinicService(runtime.prisma, runtime.audit, runtime.clock),
@@ -209,7 +253,7 @@ export async function buildApi(
     await patient.access.autoLinkOnOtpVerify(userId, phoneE164);
   };
   const app = await createHttpApp(
-    ApiModule.forRoot(runtime, identity, tenantOrg, patient, scheduling, queue, clinical),
+    ApiModule.forRoot(runtime, identity, tenantOrg, patient, scheduling, queue, clinical, prescriptions),
     runtime,
     { cors: true },
   );
@@ -223,6 +267,7 @@ export async function buildApi(
     scheduling,
     queue,
     clinical,
+    prescriptions,
     jobs,
     async close() {
       if (closed) return;
