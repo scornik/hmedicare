@@ -3,3 +3,4 @@ export * from '../domain/medication-mapping';
 export * from '../infrastructure/medication-import/accepted-schemas';
 export * from '../infrastructure/medication-import/dataset-reader';
 export * from '../infrastructure/medication-import/importer';
+export * from '../infrastructure/medication-search';
