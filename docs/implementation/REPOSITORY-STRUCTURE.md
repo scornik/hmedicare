@@ -96,7 +96,7 @@
 ├── prettier.config.mjs
 ├── pnpm-workspace.yaml               # apps/*, packages/*, packages/*-adapters/*   (mobile/ and tools/ excluded)
 ├── turbo.json
-├── package.json                      # packageManager pnpm@12.4.2, engines node >=24 <25, root scripts
+├── package.json                      # packageManager pnpm@11.8.0, engines node >=24 <25, root scripts
 ├── .nvmrc                            # 24.21.0
 └── Makefile                          # optional thin wrapper around pnpm scripts only
 ```

@@ -10,7 +10,7 @@
 | Area | Decision | Pinned version | Evidence / reason |
 |---|---|---|---|
 | Node.js | Node **24** LTS everywhere: hPanel "24.x", `.nvmrc`, `engines`, CI, Docker dev images | `.nvmrc` `24.21.0`; `engines.node` `">=24.0.0 <25"` | Newest LTS Hostinger supports (18/20/22/24, HOSTING-VERIFICATION #13). Node 24 Active LTS until 2026-10-20, maintenance until 2028-04-30. Fallback Node 22 (EOL 2027-04-30) if HOST-002 fails |
-| Package manager | **pnpm** via Corepack (`packageManager` field) | `pnpm@12.4.2` | Hostinger detects pnpm from the lockfile (HOST-008 confirms the lockfile version is accepted; fallback: `pnpm deploy` + an npm-installable artifact branch) |
+| Package manager | **pnpm** via Corepack (`packageManager` field) | `pnpm@11.8.0` (lowered from 12.4.2 on 2026-09-26: the deploy image's corepack 0.34.0 cannot invoke pnpm 12 — DEPLOYMENT §4) | Hostinger detects pnpm from the lockfile (HOST-008 confirms the lockfile version is accepted; fallback: `pnpm deploy` + an npm-installable artifact branch) |
 | Task runner | **Turborepo** | `turbo@2.10.13` | Cached `build`/`lint`/`test`/`typecheck` pipelines |
 | Dart workspace | **Melos on Dart pub workspaces** (Melos ≥ 7 requires pub workspaces; one decision covers both) | `melos 8.7.0`; Dart SDK `^3.9.0` (Flutter stable pinned by FVM at MOB-001 to a release bundling Dart ≥ 3.9) | pub.dev 2026-09-09; the Melos migration guide requires Dart ≥ 3.9 for reliable pub workspaces |
 | Language | **TypeScript** | `typescript@5.9.3` | `typescript-eslint@8.70.0` supports `<6.1.0`. TypeScript 7 (native port) is excluded until typescript-eslint and NestJS decorator support are confirmed |

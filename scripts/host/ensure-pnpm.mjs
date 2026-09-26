@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // Activates the pnpm version this repository pins, before any `pnpm` command runs.
 //
-// Hostinger's Node.js build invokes pnpm through corepack, and the corepack on the build image carries an
-// older pnpm (11.8.x at the time of writing). That pnpm reads `packageManager: pnpm@12.4.2` from
-// package.json and refuses to continue, because pnpm does not self-switch when corepack launched it:
+// Corepack does not switch pnpm versions once it has launched one, so a shell that starts with the wrong
+// pnpm stays on it. This runs `corepack prepare <pinned> --activate` first, which is the same step every
+// CI job runs (.github/actions/pnpm-install), expressed so a build command or a developer can run it.
 //
-//   ERROR: This project is configured to use 12.4.2 of pnpm. Your current pnpm is v11.8.0
-//
-// CI does not hit this: every workflow job runs `corepack prepare pnpm@12.4.2 --activate` first
-// (.github/workflows/ci.yml). This script is that same step, expressed so a build command can run it.
+// It cannot help Hostinger's build, where dependency installation happens before any command of ours —
+// that is why `packageManager` is pinned to a version the deploy image's corepack can actually invoke
+// (DEPLOYMENT.md §4). It is still what a developer without admin rights needs, since `corepack enable`
+// wants to write into the Node installation directory.
 //
 // The version is read from `packageManager` rather than hard-coded, so bumping that field is still the one
 // place a pnpm upgrade happens.

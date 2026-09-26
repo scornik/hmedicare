@@ -100,7 +100,7 @@
 
 ## 5. Technology decisions (final)
 
-- **Runtime and build:** Node 24.21.0 · pnpm 12.4.2 · turbo 2.10.13 · TypeScript 5.9.3.
+- **Runtime and build:** Node 24.21.0 · pnpm 11.8.0 · turbo 2.10.13 · TypeScript 5.9.3.
 - **API:** NestJS 11.2.5 + Fastify · zod 3.25.76 + nestjs-zod 5.5.0 · zod-to-openapi 7.3.4 (OpenAPI 3.1 + 3.0).
 - **Database:** Prisma 7.10.0 + `@prisma/adapter-mariadb` 7.10.0 + mariadb 3.5.4 on **MariaDB**. Jobs use the **DB queue** (ADR-015).
 - **Storage:** S3-compatible and private-disk adapters (ADR-016).
