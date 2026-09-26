@@ -1,4 +1,4 @@
-# Implementation Status — Stages 4 (Foundation + Tenant/Identity), 5 (Patient, Scheduling, Queue) and 6 (Consultation & Encounter)
+# Implementation Status — Stages 4 (Foundation + Tenant/Identity), 5 (Patient, Scheduling, Queue), 6 (Consultation & Encounter) and 7 (Prescriptions & Medication Catalog)
 
 Living document (BUILD-CONTRACT; Stage 4 prompt §8, Stage 5 prompt §10, Stage 6 prompt §10). Updated after every merged task.
 Legend:
@@ -19,6 +19,7 @@ Legend:
 | CP6 Encounter core (Stage 6) | DEPLOY-001…004, TEST-001, CLIN-001/002: the single-app profile, the automated verified pre-migration dump, the `sql_mode` guarantee, the real-data gate, HTTP coverage for the 19 uncovered routes, migration 0007, the encounter lifecycle and the ADR-021 retirement with its backfill | **PASS** — `checkpoint-verify.mjs` 20/20 at `5135a91`, both MariaDB series. Mandatory tests 1–3 flake-free over 10 runs per series | `stage6-cp6-encounter` |
 | CP7 Notes & diagnoses (Stage 6) | CLIN-003/004: migration 0008, the note draft with autosave, signing into a hash-chained revision, amendments with a mandatory reason, diagnoses and symptoms, the clinical access policy, the §5 metrics and the clinical seed | **PASS** — `checkpoint-verify.mjs` 20/20 at `5b36412`, both series. Mandatory tests 4–7, 9, 10, 11, 13, 14 and 15 green | `stage6-cp7-notes` |
 | CP8 Consultation workspace (Stage 6) | WEB-002, MOB-004 and `GET /patients/{id}/encounters`: the web workspace, the doctor app's encounter screen and the history panel behind them, plus the deployed single-app build | **PASS** — `checkpoint-verify.mjs` 20/20 at `54b087d`, both series. The deployed end-to-end walkthrough is scripted and outstanding (H-10) | `stage6-cp8-workspace` |
+| CP9 Medication catalog (Stage 7) | RX-000, OPS-001/002, ADR-024 (C-53), H-9, MEDDATA-001…004: migration 0019, the Stage M dataset reader with pinned schema hashes, the importer, `pnpm meddata:stage`, the `ImportMedicationDataset` job, the platform-operator import and attestation routes, the hash-chained gate attestations with chain verification, and catalog search over the six match tiers | **PASS** — `checkpoint-verify.mjs` 20/20 at `1bc3a1d`, both series (395 integration each). Mandatory tests 5–10 green on the synthetic `meddata-mini` fixture; tests 8 and 9 are covered as far as CP9 reaches (see the task notes) | `stage7-cp9-catalog` |
 
 ### Why CP3 and CP4 are scope markers
 
@@ -121,13 +122,44 @@ Still open in Stage 5: HOST-005. Out of scope: encounters, clinical, prescriptio
 | WEB-002 consultation workspace | DONE | `83c1e62` | e2e 8 | one screen: patient header, note editor with autosave and a visible save state, diagnoses, the patient's earlier consultations, sign and complete. A stale save stops and shows both versions rather than picking one. No clinical text in `localStorage` or `sessionStorage`, asserted by reading every key back after a save. Later-stage panels labelled and empty |
 | MOB-004 doctor encounter screen | DONE | `83c1e62` | `flutter analyze` + existing suite | note editing, diagnoses with void-and-reason, sign, amend, complete. Same conflict rule as the web; nothing clinical written to device storage. Later-stage panels omitted rather than shown empty |
 | `GET /patients/{id}/encounters` | DONE | `83c1e62` | integration 2 | 111 operations. A new route, not in the documented API (C-55): the spec reaches patient history through the Stage 11 timeline. Authorized at patient level so a doctor sees a colleague's earlier consultation; carries no note text |
+| RX-000 commit the uncommitted Stage 7 work | DONE | `56c9e35` | integration 10 (catalog schema) | migration 0019, section 0019 to avoid the CLIN-004 collision (C-52). Catalog invariants asserted against the engine rather than trusted from the schema file |
+| ADR-024 clinical correction event names (C-53) | DONE | `4d54b81` | existing clinical suite | distinct event names over a payload discriminator. H-9 landed in the same commit: the two retired ADR-021 routes, the `QueueService` methods behind them and their 410 tests are gone |
+| OPS-001 `pnpm ops:reset-owner-password` | DONE | `b14b257` | integration | break-glass only: two invocations with a confirmation token derived from email + quarter-hour, refuses without a dump from the last 24 h, revokes every session. **G-1 stays open** — it needs SSH, so it is not a path a *user* can reach |
+| OPS-002 `pnpm ops:restore-drill` | DONE | `b14b257` | integration | restores into a `restore_drill_*` database only, then checks tables, rows, `_prisma_migrations` and statements-vs-lines against the dump manifest. Verified against a real dump, and both guards proven by making them fire. **G-4 stays open** — the evidence is a drill against a *production* dump (H-6) |
+| MEDDATA-002 dataset preflight + mapping | DONE | `2882005` | unit (mapping, search key) | every manifest file hashed before a single write; schema set pinned by SHA-256 (`MEDDATA_SCHEMA_UNSUPPORTED` otherwise). `medicationSearchKey` keeps `\p{M}`, because a letters-and-numbers class tears "ন্যাপা" into three disconnected consonants |
+| MEDDATA-002 the catalog writer | DONE | `ebc1f16` `d348c0b` | integration 12 | 50,214 rows in ~75–92 s, resumable, byte-identical on re-import. Two bugs that looked like correctness: `touchColumns` emitted last in `ON DUPLICATE KEY UPDATE` (MariaDB evaluates left to right, so the timestamp never moved — reads as perfect idempotence), and counts from affected-rows (the driver uses CLIENT_FOUND_ROWS, so that is rows *matched*). `meddata-mini` then exposed a third: the rejection threshold compared every file's rejections against the *medication* line count and counted deliberate skips as corruption |
+| MEDDATA-003 stage, job and operator routes | DONE | `7033eae` `647965b` | integration 10 (HTTP) | 115 operations. Own `catalog` queue, because the runner's claim lease is the longest lease on a queue. `ImportOptions.signal` stops a run at a committed checkpoint on lease loss. Attestations are append-only and hash-chained, with `medicationGateChainSource` in front of the periodic verifier. **Divergence:** the job reads the staged *disk* path, not `ObjectStoragePort` — that port is Stage 8 (recorded in ADR-020 "as built") |
+| MEDDATA-004 catalog search | DONE | `9277504` | integration 3 + the ranking tests | six tiers as six indexed queries, so a result can say which tier matched. The tenant boost orders *within* a tier by the shape of the comparison, not by a tunable cap. 25–82 ms against the real 50,214-row catalog. **Divergence:** the 180 days are a cut-off rather than a rolling window, because `medication_usage_stats` has no per-period buckets (recorded in PRESCRIPTION-IMPLEMENTATION §2). `RecordMedicationUsage` has its service method but no consumer until `PrescriptionApproved` exists in CP10 |
+| Test-harness fixes found by CP9 | DONE | `c23b1ef` `1bc3a1d` | — | `truncateAll` never cleared `medication_dataset_gate_attestations`, whose rows reference `users`; latent since MEDDATA-001 and surfaced only when a new test file changed the order files run in, breaking five unrelated provider-credential tests. And the guarded-migration tests run 31–40 s against a 60 s default, which failed the gate twice on a different test each time |
+### CP9 deployment note — migration 0019 in production
+
+`1bc3a1d` is deployed (`/health/live` reports `1bc3a1dc`; `/health/ready` reports `db: ok`,
+`sessionMode: ok`, `realPatientDataAllowed: false`), and **migration 0019 is applied**:
+`node packages/database/scripts/migrate-guarded.mjs` on the production release answers
+`{"event":"MIGRATION_UP_TO_DATE","environment":"production"}`, which is computed by diffing every
+migration directory in the release against `_prisma_migrations` — so zero pending means 0019 is there.
+
+Recorded because the `stage7-cp9-catalog` tag message says the opposite. At tag time it was unverified:
+no Hostinger deploy log contains a migration step, in this deploy or the three before it, so the step's
+output is not captured anywhere an operator can see it. That made the state unknowable from the logs
+alone and the tag said so. The tag is not re-pointed; this note is the correction.
+
+The catalog tables are therefore present and **empty**, which is the intended production state.
+`GATE-MEDDATA-PROD` is OPEN — no attestation has been recorded for `medicine-dataset-20260917-4` — so a
+production import is refused. Free-text prescribing is designed to work against an empty catalog
+(mandatory test 9).
+
+Worth improving, not blocking: the deploy log ends at `build-info` with no migration output, so the one
+step that can change the database is the one step nobody can read afterwards. Making it visible would
+have answered this in seconds instead of an SSH session.
+
 ## 3. Test summary (latest full run)
 
 | Suite | Count | Notes |
 |---|---|---|
-| unit | 324 | Vitest `unit` project (packages, apps, tooling, scripts) |
+| unit | 325 | Vitest `unit` project (packages, apps, tooling, scripts) |
 | architecture | 40 | depcruise + ESLint rule fixtures |
-| integration + security | 365 on mariadb:10.6 · 365 on mariadb:11.8 | Testcontainers, `node scripts/test/run-integration.mjs` |
+| integration + security | 395 on mariadb:10.6 · 395 on mariadb:11.8 | Testcontainers, `node scripts/test/run-integration.mjs` |
 | security | 10 | Vitest `security` project |
 | e2e (Playwright) | 19 | built web app against a mocked API (smoke, patient, queue and consultation flows) |
 | mobile (Flutter) | 15 | `dart run melos run test`; `flutter analyze --fatal-infos` clean |
