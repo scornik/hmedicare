@@ -1,6 +1,14 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { createDatabase } from '@hmedic/database';
 import { REQUIRED_GATE_CODES, type GateCode } from '../infrastructure/medication-catalog-admin';
+
+// Read the repository .env the way `pnpm db:seed` and `pnpm db:reset` do, so this works from a plain
+// shell rather than only from one where someone remembered to source it. Variables already exported
+// win, because `loadEnvFile` never overwrites.
+const repoEnv = path.resolve(__dirname, '../../../../.env');
+if (existsSync(repoEnv)) process.loadEnvFile(repoEnv);
 
 /**
  * `pnpm meddata:status [--json]` — what is in the catalog, what was imported, and which dataset-card

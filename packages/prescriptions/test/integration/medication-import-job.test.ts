@@ -62,7 +62,7 @@ async function drainCatalogQueue(): Promise<string[]> {
 
 function build(environment: string, productionAllowed = false) {
   registry = new JobRegistry();
-  runner = new JobRunner(db.prisma, registry, { app: 'test' });
+  runner = new JobRunner(db.prisma, registry, { app: 'test', strategy: 'skip_locked' });
   registerMedicationImportJobs(registry, runner, {
     prisma: db.prisma,
     environment,

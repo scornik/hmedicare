@@ -36,6 +36,8 @@ export interface SeedConfig {
 export const SEED_VERSION = 'stage4-v1';
 export const EMAIL_DOMAIN = 'example.invalid';
 const PHONE = (n: number) => `+8801700000${String(n).padStart(3, '0')}`;
+/** The same rule, exported so the credential report can name a patient's login without guessing it. */
+export const PHONE_FOR = PHONE;
 
 export const TENANT_A = { slug: 'demo-chamber-group', name: 'DEMO Chamber Group' };
 export const TENANT_B = { slug: 'demo-solo-practice', name: 'DEMO Solo Practice' };

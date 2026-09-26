@@ -15,7 +15,8 @@
     "build": "tsc -b",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
     "seed": "tsc -b && node dist/main.js",
-    "seed:verify": "tsc -b && node dist/main.js --verify"
+    "seed:verify": "tsc -b && node dist/main.js --verify",
+    "credentials": "tsc -b && node dist/main.js --credentials"
   },
   "dependencies": {
     "@hmedic/audit": "workspace:*",

@@ -3,8 +3,15 @@ import { userInfo } from 'node:os';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { createDatabase } from '@hmedic/database';
+
 import { DatasetReader } from '../infrastructure/medication-import/dataset-reader';
 import { MedicationImporter } from '../infrastructure/medication-import/importer';
+
+// Read the repository .env the way `pnpm db:seed` and `pnpm db:reset` do, so this works from a plain
+// shell rather than only from one where someone remembered to source it. Variables already exported
+// win, because `loadEnvFile` never overwrites — an explicit DATABASE_URL still points where it says.
+const repoEnv = path.resolve(__dirname, '../../../../.env');
+if (existsSync(repoEnv)) process.loadEnvFile(repoEnv);
 
 /**
  * `pnpm meddata:import --dir tools/medicine-data/dist/<version> [--dry-run]`

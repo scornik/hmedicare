@@ -79,19 +79,28 @@ export async function seedQueue(d: QueueSeedDeps): Promise<{ serials: SerialServ
     );
   }
 
-  // 2. One booked serial arrives at the desk. Only one: the CP4 dataset confirms two, and a demo database
-  // should still show a CONFIRMED serial that has not turned up yet, which is the common state before a
-  // chamber opens. Checking in both would erase that.
-  const booked = await prisma.serial.findMany({
+  // 2. One serial arrives at the desk, and it is a BOOKED one by preference.
+  //
+  // A demo database should still show a CONFIRMED serial that has not turned up yet, which is the common
+  // state before a chamber opens. The earlier version selected `status IN ('BOOKED','CONFIRMED')` ordered
+  // by serial number and checked in the first — so which status got consumed depended on which patient
+  // happened to hold the lower number. On this database that was the only CONFIRMED serial, and
+  // `db:seed:verify` failed with "no serial in status CONFIRMED" on any freshly reset database while
+  // passing on one that had drifted. Asking for BOOKED first makes the intent the behaviour.
+  const checkInCandidates = await prisma.serial.findMany({
     where: { chamberDayId: day.id, status: { in: ['BOOKED', 'CONFIRMED'] }, careMode: 'PHYSICAL' },
     orderBy: { serialNumber: 'asc' },
-    take: 2,
   });
+  const confirmed = checkInCandidates.filter((s) => s.status === 'CONFIRMED');
+  const arriving =
+    checkInCandidates.find((s) => s.status === 'BOOKED') ??
+    // Only reach for a CONFIRMED one when another would survive to represent the state.
+    (confirmed.length > 1 ? confirmed[0] : undefined);
   const arrived = [];
-  for (const s of booked.slice(0, 1)) {
+  if (arriving) {
     arrived.push(
-      await ctx.queue.checkIn(asStaff(), s.id, {
-        expectedRowVersion: s.rowVersion,
+      await ctx.queue.checkIn(asStaff(), arriving.id, {
+        expectedRowVersion: arriving.rowVersion,
         method: 'STAFF_DESK',
         idempotencyKey: newId(),
       }),

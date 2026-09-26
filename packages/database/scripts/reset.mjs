@@ -2,9 +2,16 @@
 // Local-only database reset: drops every table and re-applies all migrations. Refused outside
 // development/test (LOCAL-DEVELOPMENT.md §3, `pnpm db:reset`).
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as mariadb from 'mariadb';
+
+// Read the repository .env the way `pnpm db:seed` does, so this works from a plain shell rather than
+// only from one where someone remembered to source it. Variables already exported win, because
+// `loadEnvFile` never overwrites — an explicit DATABASE_URL still points where it says.
+const repoEnv = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../.env');
+if (existsSync(repoEnv)) process.loadEnvFile(repoEnv);
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const appEnv = process.env.APP_ENV ?? 'development';
