@@ -9,7 +9,7 @@
 //    dropping a column is a decision, not an accident a backup should make painless.
 // 4. `prisma migrate deploy`, verify nothing is pending, release the lock, print a JSON summary line.
 import { execFileSync } from 'node:child_process';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import { createRequire } from 'node:module';
@@ -18,6 +18,13 @@ import { fileURLToPath } from 'node:url';
 import * as mariadb from 'mariadb';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+// Read the repository .env when there is one, so `pnpm db:migrate` works from a plain shell. A deployed
+// release has no .env at this path — its configuration is sourced from `hbuilds/config/.env` before the
+// build command runs — so this is a local convenience that changes nothing in production. Variables
+// already exported win, because `loadEnvFile` never overwrites.
+const repoEnv = path.resolve(root, '../../.env');
+if (existsSync(repoEnv)) process.loadEnvFile(repoEnv);
 const migrationsDir = path.join(root, 'prisma/migrations');
 
 function fail(code, message) {

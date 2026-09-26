@@ -46,6 +46,11 @@ export const LOCK_RANKING: Readonly<Record<string, number>> = {
   // diagnosis is recorded during a consultation whose note the doctor already has open (Stage 6 CLIN-004).
   symptom_observations: 57,
   diagnoses: 58,
+  // The prescription is written last in a consultation: the doctor has the note open and the diagnoses
+  // recorded before deciding what to prescribe (Stage 7 CP10). Items take no rank of their own — they are
+  // only ever mutated under their parent's lock, which is what makes an approved prescription immutable
+  // rather than merely un-edited.
+  prescriptions: 59,
   // 60 – auth and platform rows
   sessions: 60,
   refresh_tokens: 60,

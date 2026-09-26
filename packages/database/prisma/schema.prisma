@@ -1864,3 +1864,113 @@ model PatientMedication {
   @@index([medicationId], map: "ix_patient_medications_medication")
   @@map("patient_medications")
 }
+
+// ---------------------------------------------------------------- 0009 prescriptions
+// DATABASE-IMPLEMENTATION.md §3.9, PRESCRIPTION-IMPLEMENTATION.md §1 (Stage 7 CP10).
+//
+// Placed after 0019 because a prescription item points at `medications`, and a model cannot reference a
+// table declared below it. The migration section number is still 0009: the number says where this
+// belongs in the documented schema, not where the file happens to read best.
+//
+// One row per *revision*. A correction does not edit an approved prescription — it creates the next
+// revision and voids the one it supersedes, so the approved text a patient was handed stays exactly as
+// it was handed over.
+
+/// One revision of an encounter's prescription. Approved rows are immutable: the service refuses item
+/// mutation, and `uq_prescriptions_one_approved` refuses a second approved revision per encounter.
+model Prescription {
+  /// @ascii
+  id                             String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId                       String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  patientId                      String    @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  encounterId                    String    @map("encounter_id") @db.VarChar(36)
+  /// @ascii
+  doctorProfileId                String    @map("doctor_profile_id") @db.VarChar(36)
+  /// 1, 2, … per encounter. Distinct from `rowVersion`, which is the draft-editing token (C-06).
+  revision                       Int       @db.UnsignedInt
+  /// @ascii
+  supersedesPrescriptionId       String?   @map("supersedes_prescription_id") @db.VarChar(36)
+  /// @ascii
+  clinicalStatus                 String    @map("clinical_status") @db.VarChar(16)
+  /// @ascii
+  renderStatus                   String    @default("NOT_REQUESTED") @map("render_status") @db.VarChar(16)
+  /// @ascii
+  reviewedByUserId               String?   @map("reviewed_by_user_id") @db.VarChar(36)
+  reviewedAt                     DateTime? @map("reviewed_at") @db.DateTime(3)
+  /// @ascii
+  approvedByDoctorProfileId      String?   @map("approved_by_doctor_profile_id") @db.VarChar(36)
+  approvedAt                     DateTime? @map("approved_at") @db.DateTime(3)
+  attestationVersion             Int?      @map("attestation_version") @db.SmallInt
+  /// SHA-256 over the canonical JSON of the header and items at approval. What was approved, provably.
+  /// @ascii
+  approvedSnapshotSha256         String?   @map("approved_snapshot_sha256") @db.VarChar(64)
+  /// @ascii
+  voidedByUserId                 String?   @map("voided_by_user_id") @db.VarChar(36)
+  voidedAt                       DateTime? @map("voided_at") @db.DateTime(3)
+  voidReason                     String?   @map("void_reason") @db.VarChar(500)
+  /// @ascii
+  clinicalReviewerDoctorProfileId String?  @map("clinical_reviewer_doctor_profile_id") @db.VarChar(36)
+  /// @ascii
+  renderTemplateVersion          String?   @map("render_template_version") @db.VarChar(32)
+  /// SHA-256 of the most recent render. Stage 7 renders on demand and persists no artefact, so there is
+  /// no `rendered_document_id` yet: that column and its FK arrive with `documents` in section 0010.
+  /// @ascii
+  lastRenderSha256               String?   @map("last_render_sha256") @db.VarChar(64)
+  lastRenderedAt                 DateTime? @map("last_rendered_at") @db.DateTime(3)
+  createdAt                      DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt                      DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId                String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId                String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion                     Int       @default(1) @map("row_version")
+
+  @@unique([tenantId, id], map: "uq_prescriptions_tenant_id")
+  @@unique([tenantId, encounterId, revision], map: "uq_prescriptions_revision")
+  @@index([tenantId, patientId], map: "ix_prescriptions_patient")
+  @@index([tenantId, encounterId], map: "ix_prescriptions_encounter")
+  @@map("prescriptions")
+}
+
+/// One prescribed line. Either a catalog selection or free text — never both, never neither.
+model PrescriptionItem {
+  /// @ascii
+  id                      String  @id @db.VarChar(36)
+  /// @ascii
+  tenantId                String  @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  prescriptionId          String  @map("prescription_id") @db.VarChar(36)
+  sequence                Int     @db.SmallInt
+  /// @ascii
+  medicationId            String? @map("medication_id") @db.VarChar(36)
+  /// @ascii
+  medicationDatasetVersion String? @map("medication_dataset_version") @db.VarChar(64)
+  /// Brand, generics, strength, form, manufacturer, review status and DGDA match *at selection time*.
+  /// A later import that changes or deactivates the medication must not change what was prescribed.
+  catalogSnapshot         Json?   @map("catalog_snapshot")
+  freeTextName            String? @map("free_text_name") @db.VarChar(200)
+  isFreeText              Boolean @default(false) @map("is_free_text")
+  strength                String? @db.VarChar(120)
+  /// @ascii
+  dosageForm              String? @map("dosage_form") @db.VarChar(40)
+  /// @ascii
+  route                   String? @db.VarChar(24)
+  /// Required. Never suggested from the catalog — ADR-020 §4 and Stage 7 forbid dosing from scraped data.
+  dose                    String  @db.VarChar(80)
+  frequency               String  @db.VarChar(80)
+  duration                String  @db.VarChar(80)
+  quantity                String? @db.VarChar(40)
+  timing                  String? @db.VarChar(80)
+  instructions            String? @db.VarChar(500)
+  instructionsBn          String? @map("instructions_bn") @db.VarChar(500)
+  substitutionAllowed     Boolean @default(true) @map("substitution_allowed")
+
+  @@unique([tenantId, id], map: "uq_prescription_items_tenant_id")
+  @@unique([tenantId, prescriptionId, sequence], map: "uq_prescription_items_sequence")
+  @@index([tenantId, prescriptionId], map: "ix_prescription_items_prescription")
+  @@index([medicationId], map: "ix_prescription_items_medication")
+  @@map("prescription_items")
+}
