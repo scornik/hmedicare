@@ -47,6 +47,28 @@ The subfolder/monorepo mechanics are confirmed by HOST-002/HOST-008. If Hostinge
 
 ```text
 hostinger:build:api     = pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/api... && pnpm db:migrate:guarded
+
+> **The build command must start with `node`, not `pnpm`** (2026-09-26):
+>
+> ```
+> hostinger:build:api = node scripts/host/ensure-pnpm.mjs && pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/api... && pnpm db:migrate:guarded
+> ```
+>
+> A command whose first token is `pnpm` cannot bootstrap pnpm. That is what broke the deploy of
+> `5e07e95`: the build image's corepack is 0.34.0 (the one bundled with Node 24.6.0), which records
+> pnpm's entry point as `bin/pnpm.cjs`. pnpm 12 ships `bin/pnpm.mjs` instead, so corepack downloaded
+> 12.4.2 successfully and then died with `MODULE_NOT_FOUND` on a path that was never in the tarball.
+> Earlier deploys survived only because corepack fell back to pnpm 11.8.0, which warned about the
+> version mismatch (`devEngines.packageManager.onFail: "warn"`) and carried on.
+>
+> `node scripts/host/ensure-pnpm.mjs` runs before any pnpm exists, activates the pinned version, and
+> writes the entry-point stub corepack is looking for (`scripts/host/corepack-repair.mjs`). On an image
+> with a current corepack it finds nothing to do. The real fix is a newer corepack on the build image;
+> this keeps deploys working until then.
+>
+> **Do not switch the project to npm.** It was suggested as a workaround and it does not apply here:
+> 209 `package.json` entries use the `workspace:*` protocol, which npm cannot resolve, and
+> `pnpm-lock.yaml` (`lockfileVersion: 9.0`) plus its supply-chain verification would be discarded.
 hostinger:build:worker  = pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/worker...
 hostinger:build:web     = pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/web...
 ```

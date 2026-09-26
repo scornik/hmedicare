@@ -13,9 +13,10 @@
 // The version is read from `packageManager` rather than hard-coded, so bumping that field is still the one
 // place a pnpm upgrade happens.
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { corepackRoots, repairCache } from './corepack-repair.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const { packageManager } = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
@@ -36,8 +37,54 @@ try {
   console.warn('ensure-pnpm: corepack enable was refused; trying prepare on its own');
 }
 
+/** Every `<root>/v1/<manager>/<version>` directory, so the repair can inspect each one. */
+function cachedVersions(root) {
+  const out = [];
+  for (const managers of [path.join(root, 'v1'), root]) {
+    let entries;
+    try {
+      entries = readdirSync(managers, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const manager of entries) {
+      if (!manager.isDirectory()) continue;
+      const dir = path.join(managers, manager.name);
+      let versions;
+      try {
+        versions = readdirSync(dir, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const version of versions) {
+        if (!version.isDirectory()) continue;
+        const full = path.join(dir, version.name);
+        try {
+          if (statSync(full).isDirectory()) out.push(full);
+        } catch {
+          // Raced with a cache prune; nothing to repair in a directory that is gone.
+        }
+      }
+    }
+  }
+  return out;
+}
+
 try {
   run(`corepack prepare ${packageManager} --activate`);
+  // Downloading is not the same as being able to run it. The corepack on Hostinger's build image (0.34.0,
+  // bundled with Node 24.6.0) records pnpm's entry point as `bin/pnpm.cjs`, which pnpm 12 does not ship —
+  // so `prepare` reports success and the next `pnpm` call dies with MODULE_NOT_FOUND. This puts the file
+  // corepack is looking for in place. On an image with a current corepack it finds nothing to do.
+  for (const root of corepackRoots()) {
+    const written = repairCache(root, { listVersions: cachedVersions });
+    for (const file of written) {
+      console.log(`ensure-pnpm: wrote a corepack entry-point stub at ${file}`);
+      console.log(
+        'ensure-pnpm: the build image ships a corepack too old for this pnpm; see corepack-repair.mjs',
+      );
+    }
+  }
   console.log(`ensure-pnpm: ${packageManager} active`);
 } catch (error) {
   // A build image without corepack is not fatal on its own: the pnpm already on PATH may be the right one,
