@@ -1,5 +1,9 @@
 # Local Development Contract
 
+> For a step-by-step walkthrough — demo logins, seeding, the browser, a phone emulator, testing and
+> resetting — see **[DEV-WALKTHROUGH.md](DEV-WALKTHROUGH.md)**. This file is the contract: what the
+> services are and why.
+
 **Stage 3.1 rewrite (2026-09-17).** There is no Redis and no PostgreSQL. The same engine series as production is used (ADR-014).
 
 ## 1. Prerequisites
@@ -35,13 +39,15 @@ The app user has no SUPER privilege, and triggers are not used anyway.
 | `pnpm install` | install (frozen lockfile in CI) |
 | `pnpm infra:up` / `pnpm infra:down` / `pnpm infra:reset` | compose up (wait for healthchecks) / down / down -v |
 | `pnpm db:migrate` | `prisma migrate deploy` via `db:migrate:guarded` (same lock path as production) |
-| `pnpm db:migration:new <name>` | `prisma migrate dev --create-only` then `db:migration:normalize` |
+| `pnpm --filter @hmedic/database run db:migration:new <name>` | `prisma migrate dev --create-only` then normalize (no root alias) |
 | `pnpm db:migration:lint` | charset/collation/generated/CHECK/composite-FK/no-trigger checks |
-| `pnpm db:seed` / `pnpm db:seed --verify` / `pnpm db:reset` | synthetic seed / assertions / drop + migrate + seed |
+| `pnpm db:seed` / `pnpm db:seed:verify` / `pnpm db:reset` / `pnpm db:reset:full` | synthetic seed / assertions / drop + migrate + seed / the same then re-import the catalog |
+| `pnpm db:credentials` | print the demo logins recorded by the seed (`.local/dev-credentials.json`, development and test only) |
+| `pnpm meddata:import` / `pnpm meddata:stage` / `pnpm meddata:status` | import the Stage M catalog / stage it where the server reads it / report catalog, imports and gate attestations |
 | `pnpm dev` | turbo: `apps/api` (watch), `apps/worker` (watch), `apps/web` (Vite) |
 | `pnpm dev:api` / `pnpm dev:worker` / `pnpm dev:web` | individual processes |
 | `pnpm contracts:generate` | OpenAPI 3.1 + 3.0 artifacts, TS client |
-| `pnpm test` / `pnpm test:unit` / `pnpm test:integration` / `pnpm test:concurrency` / `pnpm test:security` / `pnpm test:e2e` | suites (Testcontainers starts its own MariaDB/MinIO unless `TEST_USE_COMPOSE=true`) |
+| `pnpm test` / `pnpm test:unit` / `pnpm test:integration` / `pnpm test:security` / `pnpm test:e2e` | suites (Testcontainers starts its own MariaDB/MinIO unless `TEST_USE_COMPOSE=true`) |
 | `pnpm lint` / `pnpm format` / `pnpm format:check` / `pnpm typecheck` / `pnpm depcruise` | quality |
 | `pnpm build` | turbo build all |
 | `pnpm mobile:bootstrap` / `pnpm mobile:generate-api` / `pnpm mobile:analyze` / `pnpm mobile:test` | shell into `mobile/` (Melos) |
