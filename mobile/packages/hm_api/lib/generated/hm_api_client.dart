@@ -15,10 +15,10 @@ import 'clients/clinics_client.dart';
 import 'clients/patients_client.dart';
 import 'clients/encounters_client.dart';
 import 'clients/tenant_client.dart';
+import 'clients/prescriptions_client.dart';
 import 'clients/guardianships_client.dart';
 import 'clients/me_client.dart';
 import 'clients/serials_client.dart';
-import 'clients/prescriptions_client.dart';
 import 'clients/patient_accounts_client.dart';
 import 'clients/health_client.dart';
 
@@ -48,10 +48,10 @@ class HmApiClient {
   PatientsClient? _patients;
   EncountersClient? _encounters;
   TenantClient? _tenant;
+  PrescriptionsClient? _prescriptions;
   GuardianshipsClient? _guardianships;
   MeClient? _me;
   SerialsClient? _serials;
-  PrescriptionsClient? _prescriptions;
   PatientAccountsClient? _patientAccounts;
   HealthClient? _health;
 
@@ -77,13 +77,13 @@ class HmApiClient {
 
   TenantClient get tenant => _tenant ??= TenantClient(_dio, baseUrl: _baseUrl);
 
+  PrescriptionsClient get prescriptions => _prescriptions ??= PrescriptionsClient(_dio, baseUrl: _baseUrl);
+
   GuardianshipsClient get guardianships => _guardianships ??= GuardianshipsClient(_dio, baseUrl: _baseUrl);
 
   MeClient get me => _me ??= MeClient(_dio, baseUrl: _baseUrl);
 
   SerialsClient get serials => _serials ??= SerialsClient(_dio, baseUrl: _baseUrl);
-
-  PrescriptionsClient get prescriptions => _prescriptions ??= PrescriptionsClient(_dio, baseUrl: _baseUrl);
 
   PatientAccountsClient get patientAccounts => _patientAccounts ??= PatientAccountsClient(_dio, baseUrl: _baseUrl);
 

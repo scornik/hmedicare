@@ -2,6 +2,7 @@
 import { type DynamicModule, Global, Module } from '@nestjs/common';
 import type { MedicationCatalogAdminService } from '../infrastructure/medication-catalog-admin';
 import type { MedicationSearchService } from '../infrastructure/medication-search';
+import type { PrescriptionService } from '../infrastructure/prescription-service';
 
 export * from './worker-module';
 
@@ -12,6 +13,8 @@ export interface PrescriptionServices {
   catalogAdmin: MedicationCatalogAdminService;
   /** The prescriber-facing catalog lookup. */
   search: MedicationSearchService;
+  /** The draft → approve → void lifecycle. */
+  prescriptions: PrescriptionService;
 }
 
 @Global()

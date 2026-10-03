@@ -474,6 +474,22 @@
         ],
         "type": "object"
       },
+      "ApprovePrescriptionRequest": {
+        "properties": {
+          "attestationVersion": {
+            "description": "The attestation text the doctor read; a mismatch means reload and read it again",
+            "type": "integer"
+          },
+          "expectedRowVersion": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expectedRowVersion",
+          "attestationVersion"
+        ],
+        "type": "object"
+      },
       "BootstrapTenantRequest": {
         "properties": {
           "name": {
@@ -702,6 +718,47 @@
           "endsAt",
           "reason",
           "rowVersion"
+        ],
+        "type": "object"
+      },
+      "CatalogItemSnapshot": {
+        "properties": {
+          "brandName": {
+            "type": "string"
+          },
+          "brandNameBn": {
+            "nullable": true,
+            "type": "string"
+          },
+          "dgdaMatch": {
+            "type": "string"
+          },
+          "dosageForm": {
+            "type": "string"
+          },
+          "genericDisplay": {
+            "type": "string"
+          },
+          "manufacturerDisplay": {
+            "type": "string"
+          },
+          "reviewStatus": {
+            "type": "string"
+          },
+          "strengthText": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "brandName",
+          "brandNameBn",
+          "genericDisplay",
+          "strengthText",
+          "dosageForm",
+          "manufacturerDisplay",
+          "reviewStatus",
+          "dgdaMatch"
         ],
         "type": "object"
       },
@@ -1775,6 +1832,26 @@
         "required": [
           "acknowledgedCandidateIds",
           "reason"
+        ],
+        "type": "object"
+      },
+      "EditPrescriptionRequest": {
+        "properties": {
+          "expectedRowVersion": {
+            "type": "integer"
+          },
+          "items": {
+            "description": "The whole list. A diff cannot tell \"removed\" from \"not sent\"",
+            "items": {
+              "$ref": "#/components/schemas/PrescriptionItemInput"
+            },
+            "maxItems": 50,
+            "type": "array"
+          }
+        },
+        "required": [
+          "expectedRowVersion",
+          "items"
         ],
         "type": "object"
       },
@@ -3931,6 +4008,291 @@
         ],
         "type": "object"
       },
+      "Prescription": {
+        "properties": {
+          "approvedAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "approvedByDoctorProfileId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "approvedSnapshotSha256": {
+            "description": "SHA-256 over the header and items at approval; what was approved, provably",
+            "nullable": true,
+            "type": "string"
+          },
+          "attestationVersion": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "clinicalStatus": {
+            "enum": [
+              "DRAFT",
+              "REVIEWED",
+              "APPROVED",
+              "VOID"
+            ],
+            "type": "string"
+          },
+          "createdAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "doctorProfileId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "encounterId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "id": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PrescriptionItem"
+            },
+            "type": "array"
+          },
+          "patientId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "renderStatus": {
+            "enum": [
+              "NOT_REQUESTED",
+              "QUEUED",
+              "RENDERING",
+              "AVAILABLE",
+              "FAILED"
+            ],
+            "type": "string"
+          },
+          "reviewedAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "reviewedByUserId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "revision": {
+            "description": "1, 2, … per encounter; a correction is a new one",
+            "type": "integer"
+          },
+          "rowVersion": {
+            "type": "integer"
+          },
+          "supersedesPrescriptionId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "voidReason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "voidedAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "voidedByUserId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "patientId",
+          "encounterId",
+          "doctorProfileId",
+          "revision",
+          "supersedesPrescriptionId",
+          "clinicalStatus",
+          "renderStatus",
+          "reviewedByUserId",
+          "reviewedAt",
+          "approvedByDoctorProfileId",
+          "approvedAt",
+          "attestationVersion",
+          "approvedSnapshotSha256",
+          "voidedByUserId",
+          "voidedAt",
+          "voidReason",
+          "createdAt",
+          "rowVersion",
+          "items"
+        ],
+        "type": "object"
+      },
+      "PrescriptionItem": {
+        "allOf": [
+          {
+            "properties": {
+              "id": {
+                "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          {
+            "$ref": "#/components/schemas/PrescriptionItemInput"
+          }
+        ]
+      },
+      "PrescriptionItemInput": {
+        "properties": {
+          "catalogSnapshot": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CatalogItemSnapshot"
+              },
+              {
+                "nullable": true
+              }
+            ]
+          },
+          "dosageForm": {
+            "maxLength": 40,
+            "nullable": true,
+            "type": "string"
+          },
+          "dose": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "duration": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "freeTextName": {
+            "maxLength": 200,
+            "nullable": true,
+            "type": "string"
+          },
+          "frequency": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "instructions": {
+            "maxLength": 500,
+            "nullable": true,
+            "type": "string"
+          },
+          "instructionsBn": {
+            "maxLength": 500,
+            "nullable": true,
+            "type": "string"
+          },
+          "isFreeText": {
+            "type": "boolean"
+          },
+          "medicationDatasetVersion": {
+            "example": "medicine-dataset-20260917-4",
+            "nullable": true,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+            "type": "string"
+          },
+          "medicationId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "quantity": {
+            "maxLength": 40,
+            "nullable": true,
+            "type": "string"
+          },
+          "route": {
+            "maxLength": 24,
+            "nullable": true,
+            "type": "string"
+          },
+          "sequence": {
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "strength": {
+            "maxLength": 120,
+            "nullable": true,
+            "type": "string"
+          },
+          "substitutionAllowed": {
+            "default": true,
+            "type": "boolean"
+          },
+          "timing": {
+            "maxLength": 80,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "sequence",
+          "isFreeText",
+          "dose",
+          "frequency",
+          "duration"
+        ],
+        "type": "object"
+      },
+      "PrescriptionList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Prescription"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "PrescriptionRowVersionOnly": {
+        "properties": {
+          "expectedRowVersion": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expectedRowVersion"
+        ],
+        "type": "object"
+      },
       "ProblemDetails": {
         "description": "Error body for every non-2xx response (API-IMPLEMENTATION §1)",
         "properties": {
@@ -5807,6 +6169,30 @@
           "reason": {
             "maxLength": 500,
             "minLength": 3,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedRowVersion",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "VoidPrescriptionRequest": {
+        "properties": {
+          "clinicalReviewerDoctorProfileId": {
+            "description": "Required when a clinic admin voids (AUTHORIZATION-MATRIX §6)",
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "expectedRowVersion": {
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
             "type": "string"
           }
         },
@@ -14772,6 +15158,294 @@
         ]
       }
     },
+    "/api/v1/encounters/{id}/prescriptions": {
+      "get": {
+        "description": "Every revision for the encounter, newest first — the history a correction leaves behind.",
+        "operationId": "listEncounterPrescriptions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PrescriptionList"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Revisions"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "prescriptions"
+        ]
+      },
+      "post": {
+        "description": "The encounter's open draft, created on first use. Assignment only: a prescription carries the prescribing doctor's name, so it cannot be brought into being by someone the encounter does not assign.",
+        "operationId": "createPrescriptionDraft",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Prescription"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Draft"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "prescriptions"
+        ]
+      }
+    },
     "/api/v1/encounters/{id}/resume": {
       "post": {
         "operationId": "resumeEncounter",
@@ -20650,6 +21324,919 @@
         ],
         "tags": [
           "patients"
+        ]
+      }
+    },
+    "/api/v1/prescriptions/{id}": {
+      "get": {
+        "operationId": "getPrescription",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Prescription"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Prescription"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "prescriptions"
+        ]
+      },
+      "patch": {
+        "description": "Replaces the item list. Editing a REVIEWED prescription returns it to DRAFT, because \"someone checked these items\" stops being true once the items change. APPROVED is refused.",
+        "operationId": "editPrescriptionDraft",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditPrescriptionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Prescription"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Updated"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "prescriptions"
+        ]
+      }
+    },
+    "/api/v1/prescriptions/{id}/approve": {
+      "post": {
+        "description": "Final clinical truth, frozen under a content hash. Assigned doctor only. Where this revision supersedes another, the superseded one is voided in the same transaction.",
+        "operationId": "approvePrescription",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovePrescriptionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Prescription"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Approved"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "prescriptions"
+        ]
+      }
+    },
+    "/api/v1/prescriptions/{id}/corrections": {
+      "post": {
+        "description": "Starts revision N+1 carrying a copy of the approved items. The approved revision is untouched until the correction is itself approved, so an abandoned correction changes nothing.",
+        "operationId": "createPrescriptionCorrection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Prescription"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Correction draft"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "prescriptions"
+        ]
+      }
+    },
+    "/api/v1/prescriptions/{id}/review": {
+      "post": {
+        "description": "An optional \"items checked\" marker with no clinical effect: not final, not visible to patients and not renderable. A nurse holding prescription.review may set it.",
+        "operationId": "markPrescriptionReviewed",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrescriptionRowVersionOnly"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Prescription"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Reviewed"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "prescriptions"
+        ]
+      }
+    },
+    "/api/v1/prescriptions/{id}/void": {
+      "post": {
+        "description": "Withdraws an approved prescription with a reason. There is no path back.",
+        "operationId": "voidPrescription",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoidPrescriptionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Prescription"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Voided"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "prescriptions"
         ]
       }
     },

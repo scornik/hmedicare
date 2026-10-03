@@ -808,6 +808,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/encounters/{id}/prescriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Every revision for the encounter, newest first — the history a correction leaves behind. */
+        get: operations["listEncounterPrescriptions"];
+        put?: never;
+        /** @description The encounter's open draft, created on first use. Assignment only: a prescription carries the prescribing doctor's name, so it cannot be brought into being by someone the encounter does not assign. */
+        post: operations["createPrescriptionDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/encounters/{id}/resume": {
         parameters: {
             query?: never;
@@ -1327,6 +1345,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/prescriptions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPrescription"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Replaces the item list. Editing a REVIEWED prescription returns it to DRAFT, because "someone checked these items" stops being true once the items change. APPROVED is refused. */
+        patch: operations["editPrescriptionDraft"];
+        trace?: never;
+    };
+    "/api/v1/prescriptions/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Final clinical truth, frozen under a content hash. Assigned doctor only. Where this revision supersedes another, the superseded one is voided in the same transaction. */
+        post: operations["approvePrescription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/prescriptions/{id}/corrections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Starts revision N+1 carrying a copy of the approved items. The approved revision is untouched until the correction is itself approved, so an abandoned correction changes nothing. */
+        post: operations["createPrescriptionCorrection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/prescriptions/{id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description An optional "items checked" marker with no clinical effect: not final, not visible to patients and not renderable. A nurse holding prescription.review may set it. */
+        post: operations["markPrescriptionReviewed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/prescriptions/{id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Withdraws an approved prescription with a reason. There is no path back. */
+        post: operations["voidPrescription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/schedule-rules/{id}/end": {
         parameters: {
             query?: never;
@@ -1769,6 +1872,11 @@ export interface components {
             /** @enum {string} */
             status: "OPEN" | "FULL" | "CLOSED";
         };
+        ApprovePrescriptionRequest: {
+            /** @description The attestation text the doctor read; a mismatch means reload and read it again */
+            attestationVersion: number;
+            expectedRowVersion: number;
+        };
         BootstrapTenantRequest: {
             name: string;
             owner: {
@@ -1852,6 +1960,16 @@ export interface components {
              * @example 2026-09-18T10:49:42.206Z
              */
             startsAt: string;
+        };
+        CatalogItemSnapshot: {
+            brandName: string;
+            brandNameBn: string | null;
+            dgdaMatch: string;
+            dosageForm: string;
+            genericDisplay: string;
+            manufacturerDisplay: string;
+            reviewStatus: string;
+            strengthText: string | null;
         };
         Chamber: {
             /** @enum {string} */
@@ -2280,6 +2398,11 @@ export interface components {
         DuplicateReview: {
             acknowledgedCandidateIds: string[];
             reason: string;
+        };
+        EditPrescriptionRequest: {
+            expectedRowVersion: number;
+            /** @description The whole list. A diff cannot tell "removed" from "not sent" */
+            items: components["schemas"]["PrescriptionItemInput"][];
         };
         Encounter: {
             /**
@@ -3078,6 +3201,118 @@ export interface components {
             /** @enum {string} */
             status: "ACTIVE" | "MERGED" | "INACTIVE";
         };
+        Prescription: {
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            approvedAt: string | null;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            approvedByDoctorProfileId: string | null;
+            /** @description SHA-256 over the header and items at approval; what was approved, provably */
+            approvedSnapshotSha256: string | null;
+            attestationVersion: number | null;
+            /** @enum {string} */
+            clinicalStatus: "DRAFT" | "REVIEWED" | "APPROVED" | "VOID";
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            createdAt: string;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            doctorProfileId: string;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            encounterId: string;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            id: string;
+            items: components["schemas"]["PrescriptionItem"][];
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            patientId: string;
+            /** @enum {string} */
+            renderStatus: "NOT_REQUESTED" | "QUEUED" | "RENDERING" | "AVAILABLE" | "FAILED";
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            reviewedAt: string | null;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            reviewedByUserId: string | null;
+            /** @description 1, 2, … per encounter; a correction is a new one */
+            revision: number;
+            rowVersion: number;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            supersedesPrescriptionId: string | null;
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            voidedAt: string | null;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            voidedByUserId: string | null;
+            voidReason: string | null;
+        };
+        PrescriptionItem: {
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            id: string;
+        } & components["schemas"]["PrescriptionItemInput"];
+        PrescriptionItemInput: {
+            catalogSnapshot?: components["schemas"]["CatalogItemSnapshot"] & (Record<string, never> | null);
+            dosageForm?: string | null;
+            dose: string;
+            duration: string;
+            freeTextName?: string | null;
+            frequency: string;
+            instructions?: string | null;
+            instructionsBn?: string | null;
+            isFreeText: boolean;
+            /** @example medicine-dataset-20260917-4 */
+            medicationDatasetVersion?: string | null;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            medicationId?: string | null;
+            quantity?: string | null;
+            route?: string | null;
+            sequence: number;
+            strength?: string | null;
+            /** @default true */
+            substitutionAllowed: boolean;
+            timing?: string | null;
+        };
+        PrescriptionList: {
+            items: components["schemas"]["Prescription"][];
+        };
+        PrescriptionRowVersionOnly: {
+            expectedRowVersion: number;
+        };
         /** @description Error body for every non-2xx response (API-IMPLEMENTATION §1) */
         ProblemDetails: {
             code: components["schemas"]["ErrorCode"];
@@ -3682,6 +3917,16 @@ export interface components {
             method: "STAFF_VERIFIED_IN_PERSON" | "STAFF_VERIFIED_DOCUMENT";
         };
         VoidDiagnosisRequest: {
+            expectedRowVersion: number;
+            reason: string;
+        };
+        VoidPrescriptionRequest: {
+            /**
+             * Format: uuid
+             * @description Required when a clinic admin voids (AUTHORIZATION-MATRIX §6)
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            clinicalReviewerDoctorProfileId?: string | null;
             expectedRowVersion: number;
             reason: string;
         };
@@ -9805,6 +10050,205 @@ export interface operations {
             };
         };
     };
+    listEncounterPrescriptions: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revisions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PrescriptionList"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    createPrescriptionDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Draft */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Prescription"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     resumeEncounter: {
         parameters: {
             query?: never;
@@ -13688,6 +14132,620 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["DuplicateCheckResponse"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getPrescription: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Prescription */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Prescription"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    editPrescriptionDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EditPrescriptionRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Prescription"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    approvePrescription: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ApprovePrescriptionRequest"];
+            };
+        };
+        responses: {
+            /** @description Approved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Prescription"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    createPrescriptionCorrection: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correction draft */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Prescription"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    markPrescriptionReviewed: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PrescriptionRowVersionOnly"];
+            };
+        };
+        responses: {
+            /** @description Reviewed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Prescription"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    voidPrescription: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VoidPrescriptionRequest"];
+            };
+        };
+        responses: {
+            /** @description Voided */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Prescription"];
                         meta: components["schemas"]["ResponseMeta"];
                     };
                 };

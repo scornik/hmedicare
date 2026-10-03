@@ -37,6 +37,7 @@ import { ClinicalWriteModule, type ClinicalServices } from '@hmedic/clinical/nes
 import {
   MedicationCatalogAdminService,
   MedicationSearchService,
+  PrescriptionService,
   medicationGateChainSource,
 } from '@hmedic/prescriptions';
 import {
@@ -66,6 +67,7 @@ import {
   MedicationImportAdminController,
   MedicationSearchController,
 } from './prescriptions/medication-catalog.controllers';
+import { PrescriptionController } from './prescriptions/prescription.controllers';
 import { ConsentController, MergeCaseController, PatientController } from './patient/patient.controllers';
 import {
   CareTeamController,
@@ -140,6 +142,7 @@ export class ApiModule {
         PatientEncounterController,
         EncounterNoteController,
         DiagnosisController,
+        PrescriptionController,
         MedicationImportAdminController,
         MedicationSearchController,
         ...(devInbox ? [DevInboxController] : []),
@@ -250,6 +253,15 @@ export async function buildApi(
       clock: runtime.clock,
     }),
     search: new MedicationSearchService(runtime.prisma, runtime.clock),
+    prescriptions: new PrescriptionService({
+      prisma: runtime.prisma,
+      audit: runtime.audit,
+      // The same access policy the notes and diagnoses use: a prescription is part of the encounter,
+      // so it answers to the encounter's footing rather than a rule of its own.
+      access: clinical.access,
+      clock: runtime.clock,
+      metrics: runtime.metrics,
+    }),
   };
   const identity = createIdentityServices(runtime, sms.otpDelivery ? { otpDelivery: sms.otpDelivery } : {});
   const tenantOrg: TenantOrgServices = {

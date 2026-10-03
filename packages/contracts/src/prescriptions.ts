@@ -8,6 +8,10 @@ const json = (schema: z.ZodTypeAny) => ({ 'application/json': { schema } });
 const secured = [{ [bearerAuth.name]: [] }];
 const ok = (schema: z.ZodTypeAny, description: string) => ({ description, content: json(envelope(schema)) });
 const tenantHeaders = z.object({ 'X-Tenant-ID': TenantIdHeader });
+const tenantIdemHeaders = z.object({
+  'X-Tenant-ID': TenantIdHeader,
+  'Idempotency-Key': IdempotencyKeyHeader,
+});
 const operatorHeaders = z.object({ 'X-Platform-Context': z.literal('operator') });
 const operatorIdemHeaders = z.object({
   'X-Platform-Context': z.literal('operator'),
@@ -272,4 +276,253 @@ registry.registerPath({
     query: SearchMedicationsQuery,
   },
   responses: { 200: ok(MedicationSearchResults, 'Matches'), ...errorResponses },
+});
+
+// ---------------------------------------------------------------- prescriptions (CP10)
+
+export const PrescriptionClinicalStatus = z.enum(['DRAFT', 'REVIEWED', 'APPROVED', 'VOID']);
+export const PrescriptionRenderStatus = z.enum([
+  'NOT_REQUESTED',
+  'QUEUED',
+  'RENDERING',
+  'AVAILABLE',
+  'FAILED',
+]);
+
+export const CatalogItemSnapshot = registry.register(
+  'CatalogItemSnapshot',
+  z.object({
+    brandName: z.string(),
+    brandNameBn: z.string().nullable(),
+    genericDisplay: z.string(),
+    strengthText: z.string().nullable(),
+    dosageForm: z.string(),
+    manufacturerDisplay: z.string(),
+    reviewStatus: z.string(),
+    dgdaMatch: z.string(),
+  }),
+);
+
+/**
+ * One prescribed line.
+ *
+ * `dose`, `frequency` and `duration` are required and always come from the prescriber. The catalog
+ * prefills only `strength` and `dosageForm`, and even those stay editable — a product's packaged
+ * strength is not automatically the strength being prescribed. Nothing in this API suggests a dose.
+ */
+export const PrescriptionItemInput = registry.register(
+  'PrescriptionItemInput',
+  z
+    .object({
+      sequence: z.number().int().min(1).max(50),
+      medicationId: Uuid.nullable().optional(),
+      medicationDatasetVersion: DatasetVersion.nullable().optional(),
+      catalogSnapshot: CatalogItemSnapshot.nullable().optional(),
+      freeTextName: z.string().trim().max(200).nullable().optional(),
+      isFreeText: z.boolean(),
+      strength: z.string().max(120).nullable().optional(),
+      dosageForm: z.string().max(40).nullable().optional(),
+      route: z.string().max(24).nullable().optional(),
+      dose: z.string().trim().min(1).max(80),
+      frequency: z.string().trim().min(1).max(80),
+      duration: z.string().trim().min(1).max(80),
+      quantity: z.string().max(40).nullable().optional(),
+      timing: z.string().max(80).nullable().optional(),
+      instructions: z.string().max(500).nullable().optional(),
+      instructionsBn: z.string().max(500).nullable().optional(),
+      substitutionAllowed: z.boolean().default(true),
+    })
+    // A line is a catalog selection or free text, never both and never neither. The same rule is a
+    // CHECK constraint; this one exists so a prescriber sees which line is wrong.
+    .refine((i) => (i.isFreeText ? !i.medicationId && !!i.freeTextName : !!i.medicationId), {
+      message: 'an item is either a catalog medication or free text',
+      path: ['isFreeText'],
+    }),
+);
+
+export const PrescriptionItem = registry.register(
+  'PrescriptionItem',
+  z.object({ id: Uuid }).and(PrescriptionItemInput),
+);
+
+export const Prescription = registry.register(
+  'Prescription',
+  z.object({
+    id: Uuid,
+    patientId: Uuid,
+    encounterId: Uuid,
+    doctorProfileId: Uuid,
+    revision: z.number().int().openapi({ description: '1, 2, … per encounter; a correction is a new one' }),
+    supersedesPrescriptionId: Uuid.nullable(),
+    clinicalStatus: PrescriptionClinicalStatus,
+    renderStatus: PrescriptionRenderStatus,
+    reviewedByUserId: Uuid.nullable(),
+    reviewedAt: Timestamp.nullable(),
+    approvedByDoctorProfileId: Uuid.nullable(),
+    approvedAt: Timestamp.nullable(),
+    attestationVersion: z.number().int().nullable(),
+    approvedSnapshotSha256: z.string().nullable().openapi({
+      description: 'SHA-256 over the header and items at approval; what was approved, provably',
+    }),
+    voidedByUserId: Uuid.nullable(),
+    voidedAt: Timestamp.nullable(),
+    voidReason: z.string().nullable(),
+    createdAt: Timestamp,
+    rowVersion: z.number().int(),
+    items: z.array(PrescriptionItem),
+  }),
+);
+
+export const PrescriptionList = registry.register(
+  'PrescriptionList',
+  z.object({ items: z.array(Prescription) }),
+);
+
+export const EditPrescriptionRequest = registry.register(
+  'EditPrescriptionRequest',
+  z.object({
+    expectedRowVersion: z.number().int(),
+    items: z.array(PrescriptionItemInput).max(50).openapi({
+      description: 'The whole list. A diff cannot tell "removed" from "not sent"',
+    }),
+  }),
+);
+
+export const ApprovePrescriptionRequest = registry.register(
+  'ApprovePrescriptionRequest',
+  z.object({
+    expectedRowVersion: z.number().int(),
+    attestationVersion: z.number().int().openapi({
+      description: 'The attestation text the doctor read; a mismatch means reload and read it again',
+    }),
+  }),
+);
+
+export const VoidPrescriptionRequest = registry.register(
+  'VoidPrescriptionRequest',
+  z.object({
+    expectedRowVersion: z.number().int(),
+    reason: z.string().trim().min(1).max(500),
+    clinicalReviewerDoctorProfileId: Uuid.nullable().optional().openapi({
+      description: 'Required when a clinic admin voids (AUTHORIZATION-MATRIX §6)',
+    }),
+  }),
+);
+
+export const PrescriptionRowVersionOnly = registry.register(
+  'PrescriptionRowVersionOnly',
+  z.object({ expectedRowVersion: z.number().int() }),
+);
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/encounters/{id}/prescriptions',
+  operationId: 'createPrescriptionDraft',
+  tags: ['prescriptions'],
+  security: secured,
+  description:
+    "The encounter's open draft, created on first use. Assignment only: a prescription carries the " +
+    "prescribing doctor's name, so it cannot be brought into being by someone the encounter does not assign.",
+  request: { headers: tenantIdemHeaders, params: z.object({ id: Uuid }) },
+  responses: { 201: ok(Prescription, 'Draft'), ...errorResponses },
+});
+
+registry.registerPath({
+  method: 'patch',
+  path: '/api/v1/prescriptions/{id}',
+  operationId: 'editPrescriptionDraft',
+  tags: ['prescriptions'],
+  security: secured,
+  description:
+    'Replaces the item list. Editing a REVIEWED prescription returns it to DRAFT, because "someone ' +
+    'checked these items" stops being true once the items change. APPROVED is refused.',
+  request: {
+    headers: tenantHeaders,
+    params: z.object({ id: Uuid }),
+    body: { content: json(EditPrescriptionRequest) },
+  },
+  responses: { 200: ok(Prescription, 'Updated'), ...errorResponses },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/prescriptions/{id}/review',
+  operationId: 'markPrescriptionReviewed',
+  tags: ['prescriptions'],
+  security: secured,
+  description:
+    'An optional "items checked" marker with no clinical effect: not final, not visible to patients ' +
+    'and not renderable. A nurse holding prescription.review may set it.',
+  request: {
+    headers: tenantIdemHeaders,
+    params: z.object({ id: Uuid }),
+    body: { content: json(PrescriptionRowVersionOnly) },
+  },
+  responses: { 200: ok(Prescription, 'Reviewed'), ...errorResponses },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/prescriptions/{id}/approve',
+  operationId: 'approvePrescription',
+  tags: ['prescriptions'],
+  security: secured,
+  description:
+    'Final clinical truth, frozen under a content hash. Assigned doctor only. Where this revision ' +
+    'supersedes another, the superseded one is voided in the same transaction.',
+  request: {
+    headers: tenantIdemHeaders,
+    params: z.object({ id: Uuid }),
+    body: { content: json(ApprovePrescriptionRequest) },
+  },
+  responses: { 200: ok(Prescription, 'Approved'), ...errorResponses },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/prescriptions/{id}/corrections',
+  operationId: 'createPrescriptionCorrection',
+  tags: ['prescriptions'],
+  security: secured,
+  description:
+    'Starts revision N+1 carrying a copy of the approved items. The approved revision is untouched ' +
+    'until the correction is itself approved, so an abandoned correction changes nothing.',
+  request: { headers: tenantIdemHeaders, params: z.object({ id: Uuid }) },
+  responses: { 201: ok(Prescription, 'Correction draft'), ...errorResponses },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/prescriptions/{id}/void',
+  operationId: 'voidPrescription',
+  tags: ['prescriptions'],
+  security: secured,
+  description: 'Withdraws an approved prescription with a reason. There is no path back.',
+  request: {
+    headers: tenantIdemHeaders,
+    params: z.object({ id: Uuid }),
+    body: { content: json(VoidPrescriptionRequest) },
+  },
+  responses: { 200: ok(Prescription, 'Voided'), ...errorResponses },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/prescriptions/{id}',
+  operationId: 'getPrescription',
+  tags: ['prescriptions'],
+  security: secured,
+  request: { headers: tenantHeaders, params: z.object({ id: Uuid }) },
+  responses: { 200: ok(Prescription, 'Prescription'), ...errorResponses },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/encounters/{id}/prescriptions',
+  operationId: 'listEncounterPrescriptions',
+  tags: ['prescriptions'],
+  security: secured,
+  description: 'Every revision for the encounter, newest first — the history a correction leaves behind.',
+  request: { headers: tenantHeaders, params: z.object({ id: Uuid }) },
+  responses: { 200: ok(PrescriptionList, 'Revisions'), ...errorResponses },
 });

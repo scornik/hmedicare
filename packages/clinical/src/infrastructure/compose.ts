@@ -46,5 +46,7 @@ export function composeClinical(deps: {
   const diagnoses = new DiagnosisService(deps.prisma, deps.audit, outbox, access, clock, deps.metrics);
   // Without this, cancelling a serial mid-consultation would leave an encounter that still looks live.
   deps.serials.attachEncounterInterruption(encounters);
-  return { encounters, notes, diagnoses };
+  // `access` is returned because prescriptions answer to the same footing: a prescription is part of
+  // the encounter, so it uses the encounter's access policy rather than growing a parallel one.
+  return { encounters, notes, diagnoses, access };
 }

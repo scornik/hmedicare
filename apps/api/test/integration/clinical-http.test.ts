@@ -643,3 +643,223 @@ describe('the clinical record is audited, not logged (test 10)', () => {
     for (const text of Object.values(SECTIONS)) expect(serialized).not.toContain(text);
   });
 });
+
+/**
+ * Prescriptions over HTTP (Stage 7 CP10, mandatory tests 1–4).
+ *
+ * The service suite proves the lifecycle and the schema suite proves what the database refuses; this
+ * proves the wiring — that each route carries the permission the matrix gives it, that an approved
+ * prescription is immutable from the outside, and that a correction leaves the original readable.
+ *
+ * It lives beside the note and diagnosis tests because it needs the same thing they do: a real
+ * consultation reached through the real routes, from clinic to chamber to serial to encounter.
+ */
+const rxItem = (over: Record<string, unknown> = {}) => ({
+  sequence: 1,
+  isFreeText: true,
+  freeTextName: 'SYNTHETIC compounded syrup',
+  dose: '5 ml',
+  frequency: 'twice daily',
+  duration: '3 days',
+  substitutionAllowed: true,
+  ...over,
+});
+
+describe('prescriptions over HTTP', () => {
+  /** Mandatory test 1: draft editable, review reverts on edit, approved immutable. */
+  it('edits a draft, loses the review on edit, and refuses to edit once approved', async () => {
+    const c = await consultation('rx-lifecycle');
+
+    const draft = await request(server)
+      .post(`/api/v1/encounters/${c.encounter.id}/prescriptions`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(201);
+    expect(draft.body.data).toMatchObject({ clinicalStatus: 'DRAFT', revision: 1 });
+
+    const edited = await request(server)
+      .patch(`/api/v1/prescriptions/${draft.body.data.id}`)
+      .set(c.owner.headers)
+      .send({ expectedRowVersion: draft.body.data.rowVersion, items: [rxItem()] })
+      .expect(200);
+    expect(edited.body.data.items).toHaveLength(1);
+
+    const reviewed = await request(server)
+      .post(`/api/v1/prescriptions/${draft.body.data.id}/review`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: edited.body.data.rowVersion })
+      .expect(200);
+    expect(reviewed.body.data.clinicalStatus).toBe('REVIEWED');
+
+    // Editing invalidates the review: "someone checked these items" stops being true.
+    const reEdited = await request(server)
+      .patch(`/api/v1/prescriptions/${draft.body.data.id}`)
+      .set(c.owner.headers)
+      .send({
+        expectedRowVersion: reviewed.body.data.rowVersion,
+        items: [rxItem({ dose: '10 ml' })],
+      })
+      .expect(200);
+    expect(reEdited.body.data.clinicalStatus).toBe('DRAFT');
+    expect(reEdited.body.data.reviewedByUserId).toBeNull();
+
+    const approved = await request(server)
+      .post(`/api/v1/prescriptions/${draft.body.data.id}/approve`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: reEdited.body.data.rowVersion, attestationVersion: 1 })
+      .expect(200);
+    expect(approved.body.data).toMatchObject({ clinicalStatus: 'APPROVED', attestationVersion: 1 });
+    expect(approved.body.data.approvedSnapshotSha256).toMatch(/^[0-9a-f]{64}$/);
+
+    // Immutable from the outside, not merely un-edited by convention.
+    const refused = await request(server)
+      .patch(`/api/v1/prescriptions/${draft.body.data.id}`)
+      .set(c.owner.headers)
+      .send({ expectedRowVersion: approved.body.data.rowVersion, items: [rxItem()] });
+    expect(refused.body.code).toBe('PRESCRIPTION_NOT_EDITABLE');
+  });
+
+  /** Mandatory test 3: a stale row version is a conflict, not a silent overwrite. */
+  it('rejects a stale expectedRowVersion', async () => {
+    const c = await consultation('rx-stale');
+    const draft = await request(server)
+      .post(`/api/v1/encounters/${c.encounter.id}/prescriptions`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(201);
+    await request(server)
+      .patch(`/api/v1/prescriptions/${draft.body.data.id}`)
+      .set(c.owner.headers)
+      .send({ expectedRowVersion: draft.body.data.rowVersion, items: [rxItem()] })
+      .expect(200);
+
+    const stale = await request(server)
+      .patch(`/api/v1/prescriptions/${draft.body.data.id}`)
+      .set(c.owner.headers)
+      .send({ expectedRowVersion: draft.body.data.rowVersion, items: [rxItem()] });
+    expect(stale.body.code).toBe('STALE_VERSION');
+  });
+
+  /** Mandatory test 4: a correction voids the revision it supersedes, atomically. */
+  it('corrects an approved prescription by superseding it, leaving the original readable', async () => {
+    const c = await consultation('rx-correction');
+    const draft = await request(server)
+      .post(`/api/v1/encounters/${c.encounter.id}/prescriptions`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(201);
+    const withItems = await request(server)
+      .patch(`/api/v1/prescriptions/${draft.body.data.id}`)
+      .set(c.owner.headers)
+      .send({ expectedRowVersion: draft.body.data.rowVersion, items: [rxItem()] })
+      .expect(200);
+    const first = await request(server)
+      .post(`/api/v1/prescriptions/${draft.body.data.id}/approve`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: withItems.body.data.rowVersion, attestationVersion: 1 })
+      .expect(200);
+
+    const correction = await request(server)
+      .post(`/api/v1/prescriptions/${first.body.data.id}/corrections`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(201);
+    expect(correction.body.data).toMatchObject({
+      revision: 2,
+      clinicalStatus: 'DRAFT',
+      supersedesPrescriptionId: first.body.data.id,
+    });
+    // The items came across, so a correction starts from what was prescribed rather than from nothing.
+    expect(correction.body.data.items).toHaveLength(1);
+
+    // Revision 1 is still APPROVED while the correction is unapproved: an abandoned correction
+    // changes nothing for the patient.
+    const stillApproved = await request(server)
+      .get(`/api/v1/prescriptions/${first.body.data.id}`)
+      .set(c.owner.headers)
+      .expect(200);
+    expect(stillApproved.body.data.clinicalStatus).toBe('APPROVED');
+
+    const second = await request(server)
+      .post(`/api/v1/prescriptions/${correction.body.data.id}/approve`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: correction.body.data.rowVersion, attestationVersion: 1 })
+      .expect(200);
+    expect(second.body.data.clinicalStatus).toBe('APPROVED');
+
+    // Approving the correction voided the one it replaced, in the same transaction.
+    const superseded = await request(server)
+      .get(`/api/v1/prescriptions/${first.body.data.id}`)
+      .set(c.owner.headers)
+      .expect(200);
+    expect(superseded.body.data.clinicalStatus).toBe('VOID');
+    expect(superseded.body.data.voidReason).toContain('Superseded by revision 2');
+
+    // And the history is readable: both revisions, newest first.
+    const list = await request(server)
+      .get(`/api/v1/encounters/${c.encounter.id}/prescriptions`)
+      .set(c.owner.headers)
+      .expect(200);
+    expect(list.body.data.items.map((p: { revision: number }) => p.revision)).toEqual([2, 1]);
+  });
+
+  it('refuses to approve an empty prescription, and refuses a stale attestation version', async () => {
+    const c = await consultation('rx-guards');
+    const draft = await request(server)
+      .post(`/api/v1/encounters/${c.encounter.id}/prescriptions`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(201);
+
+    const empty = await request(server)
+      .post(`/api/v1/prescriptions/${draft.body.data.id}/approve`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: draft.body.data.rowVersion, attestationVersion: 1 });
+    expect(empty.body.code).toBe('VALIDATION_FAILED');
+
+    const withItems = await request(server)
+      .patch(`/api/v1/prescriptions/${draft.body.data.id}`)
+      .set(c.owner.headers)
+      .send({ expectedRowVersion: draft.body.data.rowVersion, items: [rxItem()] })
+      .expect(200);
+
+    // A changed attestation text must be read again, not approved under the old one.
+    const staleAttestation = await request(server)
+      .post(`/api/v1/prescriptions/${draft.body.data.id}/approve`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: withItems.body.data.rowVersion, attestationVersion: 99 });
+    expect(staleAttestation.body.code).toBe('VALIDATION_FAILED');
+  });
+
+  it('refuses a free-text line with no name and a catalog line with no dataset version', async () => {
+    const c = await consultation('rx-items');
+    const draft = await request(server)
+      .post(`/api/v1/encounters/${c.encounter.id}/prescriptions`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(201);
+
+    for (const bad of [
+      rxItem({ freeTextName: null }),
+      rxItem({ isFreeText: false, freeTextName: null, medicationId: newId() }),
+    ]) {
+      const r = await request(server)
+        .patch(`/api/v1/prescriptions/${draft.body.data.id}`)
+        .set(c.owner.headers)
+        .send({ expectedRowVersion: draft.body.data.rowVersion, items: [bad] });
+      expect(r.status).toBeGreaterThanOrEqual(400);
+    }
+  });
+});
