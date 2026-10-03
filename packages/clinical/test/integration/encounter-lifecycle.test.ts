@@ -7,7 +7,7 @@ import { composeSchedulingAndQueue } from '@hmedic/queue';
 import { QueueSerialLifecycle } from '@hmedic/queue';
 import { AssignmentPolicy, type ClinicalActor, ClinicalOutbox, EncounterService } from '../../src/public';
 import { openTestDatabase, truncateAll } from '../../../../tests/support/db';
-import { chamberWithCalledSerial as fixture, tenantContext } from './support';
+import { chamberWithCalledSerial as fixture, tenantContext } from '../../../../tests/support/clinical';
 
 const chamberWithCalledSerial = (label: string) => fixture(db.prisma, label);
 

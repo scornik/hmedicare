@@ -15,6 +15,7 @@ import {
   sessionModeCheck,
 } from '@hmedic/http-kit';
 import { composeSchedulingAndQueue, registerQueueJobs } from '@hmedic/queue';
+import { medicationGateChainSource } from '@hmedic/prescriptions';
 import { registerPrescriptionJobs } from '@hmedic/prescriptions/worker';
 
 /**
@@ -61,22 +62,28 @@ export async function buildWorker(
     audit: runtime.audit,
     clock: runtime.clock,
   });
-  const jobs = composePlatformJobs(runtime, sms, ({ registry, runner }) => {
-    // The medication import runs here and only here: it is minutes of streaming and batched writes on
-    // its own queue, and the API process should never be the thing holding that work.
-    registerPrescriptionJobs(registry, runner, {
-      prisma: runtime.prisma,
-      environment: config.APP_ENV,
-      productionAllowed: config.MEDICATION_IMPORT_PRODUCTION_ALLOWED,
-      excludeVeterinary: config.MEDICATION_IMPORT_EXCLUDE_VETERINARY,
-      staging: {
-        root: config.STORAGE_DISK_ROOT,
-        prefix: config.MEDICATION_DATASET_STORAGE_PREFIX,
-      },
-      logger: runtime.logger,
-    });
-    return registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger });
-  });
+  const jobs = composePlatformJobs(
+    runtime,
+    sms,
+    ({ registry, runner }) => {
+      // The medication import runs here and only here: it is minutes of streaming and batched writes on
+      // its own queue, and the API process should never be the thing holding that work.
+      registerPrescriptionJobs(registry, runner, {
+        prisma: runtime.prisma,
+        environment: config.APP_ENV,
+        productionAllowed: config.MEDICATION_IMPORT_PRODUCTION_ALLOWED,
+        excludeVeterinary: config.MEDICATION_IMPORT_EXCLUDE_VETERINARY,
+        staging: {
+          root: config.STORAGE_DISK_ROOT,
+          prefix: config.MEDICATION_DATASET_STORAGE_PREFIX,
+        },
+        logger: runtime.logger,
+      });
+      return registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger });
+    },
+    // http-kit never imports a context, so the medication gate chain is handed down from here.
+    [medicationGateChainSource],
+  );
   runtime.smsDiagnostics = config.DIAGNOSTICS_ENABLED ? createSmsDiagnostics(runtime, sms) : null;
   runtime.runnerLoop = jobs?.loop ?? null;
   runtime.readinessChecks.push(sessionModeCheck(runtime), jobLagCheck(runtime));

@@ -1,11 +1,15 @@
 import { type MembershipId, type StaffRole, type TenantContext, type TenantId, newId } from '@hmedic/kernel';
 import type { PrismaClient } from '@hmedic/database';
-import type { ClinicalActor } from '../../src/public';
+import type { ClinicalActor } from '../../packages/clinical/src/public';
 
 /**
  * The fixture every clinical integration suite starts from: one tenant, one doctor, one open chamber day
  * and one patient called to be seen. Shared rather than copied so a schema change lands in one place —
  * the Stage 5 suites each grew their own copy and every new required column had to be found five times.
+ *
+ * Moved from `packages/clinical/test/integration/` to `tests/support/` in Stage 7, when the prescription
+ * suite needed the same tenant-doctor-encounter scaffold and started growing a sixth copy. The comment
+ * above was already the argument for this; it just took another context to make it act.
  */
 /**
  * A resolved tenant context. The clinical services care only about `tenantId`; the rest of the shape is

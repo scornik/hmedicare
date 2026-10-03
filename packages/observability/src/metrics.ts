@@ -143,6 +143,12 @@ export function createMetrics(app: string) {
       labelNames: ['outcome'] as const,
       registers: [registry],
     }),
+    prescriptionApprovalDuration: new Histogram({
+      name: 'prescription_approval_duration_seconds',
+      help: 'Time to validate, hash and freeze a prescription at approval',
+      buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5],
+      registers: [registry],
+    }),
     noteSignDuration: new Histogram({
       name: 'encounter_note_sign_duration_seconds',
       help: 'Time to freeze a draft into a signed revision',

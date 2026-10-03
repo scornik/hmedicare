@@ -28,6 +28,8 @@ const SELF_REFERENCING: Readonly<Record<string, string>> = {
   appointments: 'rescheduled_from_appointment_id',
   patients: 'merged_into_patient_id',
   diagnoses: 'replaces_diagnosis_id',
+  // A correction points at the revision it supersedes (Stage 7 CP10).
+  prescriptions: 'supersedes_prescription_id',
 };
 
 /** Tables owned by Stage 4/5 migrations, in delete-safe order (children first). */
@@ -37,6 +39,10 @@ const TABLES = [
   // empty catalog by accident. Only the tenant-scoped rows that point into them go.
   'patient_medications',
   'medication_usage_stats',
+  // 0009 prescriptions: children of encounters and of the catalog, so they go before both. Items first,
+  // then the prescriptions they hang off.
+  'prescription_items',
+  'prescriptions',
   // 0008 clinical_observations: children of encounters, so they go before them.
   'symptom_observations',
   'diagnoses',

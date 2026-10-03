@@ -14,7 +14,7 @@ import {
   NoteService,
 } from '../../src/public';
 import { openTestDatabase, truncateAll } from '../../../../tests/support/db';
-import { chamberWithCalledSerial as fixture, tenantContext } from './support';
+import { chamberWithCalledSerial as fixture, tenantContext } from '../../../../tests/support/clinical';
 
 /**
  * CLIN-003 and CLIN-004. Mandatory tests 4–7, 10, 13 and 14 of the Stage 6 brief.

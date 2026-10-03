@@ -1,3 +1,4 @@
+import type { ChainSource } from '@hmedic/audit';
 import type { SmsProvider } from '@hmedic/communication';
 import { MockSmsAdapter } from '@hmedic/communication-adapters-mock';
 import { ZamanItSmsAdapter, probeZamanItBalance } from '@hmedic/communication-adapters-zamanit';
@@ -78,20 +79,26 @@ export function composePlatformJobs(
   sms: SmsRuntime,
   /** Context job types registered by the app (queue, scheduling, …); http-kit never imports a context. */
   extend: (c: { registry: JobRegistry; runner: JobRunner | null }) => PeriodicJob[] = () => [],
+  /** Context-owned append-only chains; see `composeJobs`. */
+  chainSources: readonly ChainSource[] = [],
 ): JobComposition | null {
   const vault = createProviderCredentialVault(runtime.config, runtime.prisma, runtime.audit, runtime.clock);
-  return composeJobs(runtime, ({ registry, runner }) => [
-    ...registerCommunicationJobs(registry, runner, {
-      config: runtime.config,
-      prisma: runtime.prisma,
-      audit: runtime.audit,
-      clock: runtime.clock,
-      logger: runtime.logger,
-      metrics: runtime.metrics,
-      sms,
-      vault,
-    }),
-    ...registerProviderCredentialJobs(registry, runner, vault),
-    ...extend({ registry, runner }),
-  ]);
+  return composeJobs(
+    runtime,
+    ({ registry, runner }) => [
+      ...registerCommunicationJobs(registry, runner, {
+        config: runtime.config,
+        prisma: runtime.prisma,
+        audit: runtime.audit,
+        clock: runtime.clock,
+        logger: runtime.logger,
+        metrics: runtime.metrics,
+        sms,
+        vault,
+      }),
+      ...registerProviderCredentialJobs(registry, runner, vault),
+      ...extend({ registry, runner }),
+    ],
+    chainSources,
+  );
 }

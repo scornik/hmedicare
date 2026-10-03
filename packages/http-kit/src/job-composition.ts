@@ -9,9 +9,13 @@ import {
   SubscriptionRegistry,
   registerMaintenance,
 } from '@hmedic/jobs';
-import { VerifyAppendOnlyChains, auditChainSource, registerChainVerification } from '@hmedic/audit';
+import {
+  type ChainSource,
+  VerifyAppendOnlyChains,
+  auditChainSource,
+  registerChainVerification,
+} from '@hmedic/audit';
 import { gateChainSource } from '@hmedic/secrets';
-import { medicationGateChainSource } from '@hmedic/prescriptions';
 import type { HttpRuntime, ReadinessCheck } from './runtime';
 
 export interface JobComposition {
@@ -32,6 +36,14 @@ export const JOB_LAG_DEGRADED_SECONDS = 300;
 export function composeJobs(
   runtime: HttpRuntime,
   extend: (c: Omit<JobComposition, 'loop'>) => PeriodicJob[] = () => [],
+  /**
+   * Append-only chains owned by a context, passed in by the app.
+   *
+   * http-kit never imports a context — importing `@hmedic/prescriptions` here for the medication gate
+   * chain closed a build cycle (http-kit -> prescriptions -> clinical -> ... -> http-kit). The app
+   * composition roots already depend on both sides, so they hand the source down instead.
+   */
+  chainSources: readonly ChainSource[] = [],
 ): JobComposition | null {
   const { config, prisma, clock, logger, metrics } = runtime;
   const mode = config.JOB_RUNNER_MODE;
@@ -58,7 +70,7 @@ export function composeJobs(
       // The medication gate chain is verified alongside the others: four attestations are the only
       // reason a production catalog import is permitted, so "nobody edited them afterwards" has to be a
       // checked claim rather than a promise.
-      new VerifyAppendOnlyChains(prisma, [auditChainSource, gateChainSource, medicationGateChainSource], {
+      new VerifyAppendOnlyChains(prisma, [auditChainSource, gateChainSource, ...chainSources], {
         clock,
         logger,
         metrics,

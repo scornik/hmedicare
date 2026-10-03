@@ -34,7 +34,11 @@ import { composeSchedulingAndQueue, registerQueueJobs } from '@hmedic/queue';
 import { QueueWriteModule, type QueueServices } from '@hmedic/queue/nest';
 import { composeClinical } from '@hmedic/clinical';
 import { ClinicalWriteModule, type ClinicalServices } from '@hmedic/clinical/nest';
-import { MedicationCatalogAdminService, MedicationSearchService } from '@hmedic/prescriptions';
+import {
+  MedicationCatalogAdminService,
+  MedicationSearchService,
+  medicationGateChainSource,
+} from '@hmedic/prescriptions';
 import {
   PrescriptionWriteModule,
   type PrescriptionServices,
@@ -218,10 +222,16 @@ export async function buildApi(
   };
   const jobs =
     config.JOB_RUNNER_MODE === 'embedded' || config.JOB_RUNNER_MODE === 'cron'
-      ? composePlatformJobs(runtime, sms, ({ registry, runner }) => {
-          registerPrescriptionJobs(registry, runner, catalogJobDeps);
-          return registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger });
-        })
+      ? composePlatformJobs(
+          runtime,
+          sms,
+          ({ registry, runner }) => {
+            registerPrescriptionJobs(registry, runner, catalogJobDeps);
+            return registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger });
+          },
+          // http-kit never imports a context, so the medication gate chain is handed down from here.
+          [medicationGateChainSource],
+        )
       : null;
   runtime.runnerLoop = jobs?.loop ?? null;
   // The API must be able to *enqueue* an import whatever the runner mode, and in `worker` and `off` modes
