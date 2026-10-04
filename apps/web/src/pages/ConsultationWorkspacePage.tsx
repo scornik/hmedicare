@@ -5,6 +5,7 @@ import { TopBar } from '../components/TopBar';
 import { useI18n } from '../i18n/i18n';
 import type { MessageKey } from '../i18n/messages';
 import { usePatient } from '../patients/api';
+import { PrescriptionPanel } from './PrescriptionPanel';
 import {
   AUTOSAVE_DEBOUNCE_MS,
   type Diagnosis,
@@ -316,9 +317,11 @@ export function ConsultationWorkspacePage() {
           </ul>
         </section>
 
-        {/* Stages 7, 10 and 11. Labelled and empty on purpose: a mocked panel here would teach a doctor
-            to expect a prescription pad that does not exist yet. */}
-        {(['prescriptions', 'labs', 'timeline', 'ai'] as const).map((key) => (
+        <PrescriptionPanel encounterId={encounterId} />
+
+        {/* Stages 10 and 11. Labelled and empty on purpose: a mocked panel here would teach a doctor
+            to expect something that does not exist yet. */}
+        {(['labs', 'timeline', 'ai'] as const).map((key) => (
           <section className="card muted" key={key} data-testid={`panel-${key}`}>
             <h2>{t(`workspace.panel.${key}` as MessageKey)}</h2>
             <p>{t('workspace.panel.later')}</p>

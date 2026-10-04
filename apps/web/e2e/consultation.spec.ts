@@ -14,6 +14,7 @@ const API = 'http://localhost:3999/api/v1';
 const TENANT = '00000000-0000-4000-8000-00000000000a';
 const ENCOUNTER = '00000000-0000-4000-8000-000000000701';
 const PATIENT = '00000000-0000-4000-8000-000000000601';
+const RX = '00000000-0000-4000-8000-000000000801';
 const NOTE = '00000000-0000-4000-8000-000000000801';
 const ACCESS = 'mock-access-token-value';
 
@@ -49,6 +50,8 @@ interface State {
     rowVersion: number;
   };
   revisions: Array<{ revision: number; correctionReason: string | null }>;
+  /** Stage 7 CP10: the encounter's prescription revisions, newest first. */
+  prescriptions: Array<Record<string, unknown> & { rowVersion: number }>;
   /** Saves the server refuses, to stage a race without needing a second browser. */
   rejectNextSave: boolean;
   seen: { saves: number[]; signs: unknown[] };
@@ -71,6 +74,7 @@ async function mockApi(page: Page, overrides: Partial<State> = {}): Promise<Stat
     revisions: [],
     rejectNextSave: false,
     seen: { saves: [], signs: [] },
+    prescriptions: [],
     ...overrides,
   };
 
@@ -234,6 +238,81 @@ async function mockApi(page: Page, overrides: Partial<State> = {}): Promise<Stat
       return json(route, 200, { data: { id: ENCOUNTER, status: 'COMPLETED', rowVersion: 2 } });
     }
 
+    // Prescriptions (Stage 7 CP10). One draft in memory, enough to show that the editor prefills no
+    // dose and that approving needs the attestation ticked.
+    if (path === `/encounters/${ENCOUNTER}/prescriptions` && req.method() === 'GET')
+      return json(route, 200, { data: { items: state.prescriptions } });
+    if (path === `/encounters/${ENCOUNTER}/prescriptions` && req.method() === 'POST') {
+      state.prescriptions = [
+        {
+          id: RX,
+          patientId: PATIENT,
+          encounterId: ENCOUNTER,
+          doctorProfileId: '00000000-0000-4000-8000-000000000901',
+          revision: 1,
+          supersedesPrescriptionId: null,
+          clinicalStatus: 'DRAFT',
+          renderStatus: 'NOT_REQUESTED',
+          reviewedByUserId: null,
+          reviewedAt: null,
+          approvedByDoctorProfileId: null,
+          approvedAt: null,
+          attestationVersion: null,
+          approvedSnapshotSha256: null,
+          voidedByUserId: null,
+          voidedAt: null,
+          voidReason: null,
+          createdAt: new Date().toISOString(),
+          rowVersion: 1,
+          items: [],
+        },
+      ];
+      return json(route, 201, { data: state.prescriptions[0] });
+    }
+    if (path === '/medications/search' && req.method() === 'GET') {
+      // Only "synth" matches, so the free-text fallback has a query that genuinely finds nothing.
+      const q = (url.searchParams.get('q') ?? '').toLowerCase();
+      if (!'demo-synthacillin'.includes(q)) return json(route, 200, { data: { items: [] } });
+      return json(route, 200, {
+        data: {
+          items: [
+            {
+              medicationId: '00000000-0000-4000-8000-000000000a01',
+              brandName: 'DEMO-Synthacillin',
+              brandNameBn: null,
+              genericDisplay: 'DEMO Generic A',
+              strengthText: '500 mg',
+              dosageForm: 'tablet',
+              dosageFormUnmapped: false,
+              route: 'oral',
+              manufacturerDisplay: 'DEMO Labs',
+              tier: 'BRAND_PREFIX',
+              matchedOn: null,
+              tenantUsageCount: 0,
+              source: {
+                datasetVersion: 'test-v1',
+                reviewStatus: 'UNVERIFIED',
+                dgdaMatch: 'NOT_CHECKED',
+                isSynthetic: false,
+              },
+            },
+          ],
+        },
+      });
+    }
+    if (path === `/prescriptions/${RX}` && req.method() === 'PATCH') {
+      const body = JSON.parse(req.postData() ?? '{}') as { items: unknown[] };
+      const existing = state.prescriptions[0];
+      if (!existing) return json(route, 404, { code: 'RESOURCE_NOT_FOUND' });
+      const updated = {
+        ...existing,
+        items: body.items.map((i, n) => ({ id: `item-${n}`, ...(i as object) })),
+        rowVersion: existing.rowVersion + 1,
+      };
+      state.prescriptions[0] = updated;
+      return json(route, 200, { data: updated });
+    }
+
     return json(route, 404, { code: 'RESOURCE_NOT_FOUND' });
   });
   return state;
@@ -373,7 +452,8 @@ test('an interrupted consultation is still editable and says so', async ({ page 
 test('later-stage panels are labelled and empty, not mocked', async ({ page }) => {
   await mockApi(page);
   await open(page);
-  for (const panel of ['prescriptions', 'labs', 'timeline', 'ai']) {
+  // `prescriptions` left the list in Stage 7 CP10: it is a real editor now, covered below.
+  for (const panel of ['labs', 'timeline', 'ai']) {
     await expect(page.getByTestId(`panel-${panel}`)).toContainText('Arrives in a later stage.');
   }
 });
@@ -392,4 +472,50 @@ test('no clinical text is written to browser storage', async ({ page }) => {
   });
   expect(stored).not.toContain('private clinical assessment');
   expect(stored).not.toContain('SYNTHETIC');
+});
+
+test('the prescription editor prefills no dose and gates approve behind the attestation', async ({
+  page,
+}) => {
+  await mockApi(page);
+  await open(page);
+
+  await page.getByTestId('rx-open').click();
+  await expect(page.getByTestId('rx-empty')).toBeVisible();
+
+  await page.getByTestId('rx-search').fill('synth');
+  await page.getByTestId('rx-pick-00000000-0000-4000-8000-000000000a01').click();
+
+  // The catalog filled the brand and the strength, and nothing clinical. A pad that guesses a dose is
+  // a pad that gets one accepted without being read.
+  await expect(page.getByTestId('rx-dose-0')).toHaveValue('');
+  await expect(page.getByTestId('rx-frequency-0')).toHaveValue('');
+  await expect(page.getByTestId('rx-duration-0')).toHaveValue('');
+  await expect(page.getByTestId('rx-item-0')).toContainText('Unverified catalog');
+  await expect(page.getByTestId('rx-required-hint')).toBeVisible();
+
+  // Approve stays unavailable while anything required is missing.
+  await expect(page.getByTestId('rx-approve')).toBeDisabled();
+
+  await page.getByTestId('rx-dose-0').fill('1 tablet');
+  await page.getByTestId('rx-frequency-0').fill('twice daily');
+  await page.getByTestId('rx-duration-0').fill('5 days');
+  await expect(page.getByTestId('rx-required-hint')).toBeHidden();
+
+  // Still disabled: the attestation has not been read.
+  await expect(page.getByTestId('rx-approve')).toBeDisabled();
+  await page.getByTestId('rx-attest').check();
+  await expect(page.getByTestId('rx-approve')).toBeEnabled();
+});
+
+test('a free-text medicine is visibly marked as free text', async ({ page }) => {
+  await mockApi(page);
+  await open(page);
+  await page.getByTestId('rx-open').click();
+
+  // A spelling the catalog does not know still has to be prescribable — that is the fallback the
+  // whole UNVERIFIED catalog rests on.
+  await page.getByTestId('rx-search').fill('nothing matches this');
+  await page.getByTestId('rx-add-free-text').click();
+  await expect(page.getByTestId('rx-free-text-0')).toContainText('Free text');
 });
