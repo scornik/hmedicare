@@ -103,6 +103,20 @@ async function doctor(tenantId: string, label: string) {
   return { ...s, profileId };
 }
 
+/** Logs an existing user in again, so a session picks up a permission granted after the first login. */
+async function staffLogin(userId: string, tenantId: string) {
+  const user = await api.runtime.prisma.user.findFirstOrThrow({ where: { id: userId } });
+  const r = await request(server)
+    .post('/api/v1/auth/password/login')
+    .set('idempotency-key', idem())
+    .send({ email: user.email, password: PASSWORD, client: 'web' })
+    .expect(200);
+  return {
+    userId,
+    headers: { authorization: `Bearer ${r.body.data.accessToken}`, 'x-tenant-id': tenantId },
+  };
+}
+
 /** A consultation in progress, which is where every case below starts. */
 async function consultation(label: string) {
   const now = new Date();
@@ -861,5 +875,276 @@ describe('prescriptions over HTTP', () => {
         .send({ expectedRowVersion: draft.body.data.rowVersion, items: [bad] });
       expect(r.status).toBeGreaterThanOrEqual(400);
     }
+  });
+});
+
+describe('prescription authorization and races', () => {
+  /** A draft with one item, ready to approve. */
+  async function draftWithItem(label: string) {
+    const c = await consultation(label);
+    const draft = await request(server)
+      .post(`/api/v1/encounters/${c.encounter.id}/prescriptions`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(201);
+    const withItems = await request(server)
+      .patch(`/api/v1/prescriptions/${draft.body.data.id}`)
+      .set(c.owner.headers)
+      .send({ expectedRowVersion: draft.body.data.rowVersion, items: [rxItem()] })
+      .expect(200);
+    return { c, id: draft.body.data.id as string, rowVersion: withItems.body.data.rowVersion as number };
+  }
+
+  /** Mandatory test 2: a nurse may mark reviewed; only an assigned doctor may approve. */
+  it('lets a nurse review but not approve, and refuses an unassigned doctor', async () => {
+    const { c, id, rowVersion } = await draftWithItem('rx-authz');
+    // A nurse holds `prescription.read` by role; `prescription.review` is a grant, not a baseline —
+    // marking items checked is a delegated task, so somebody has to delegate it.
+    const nurse = await staff(c.tenantId, 'nurse');
+    const ungranted = await request(server)
+      .post(`/api/v1/prescriptions/${id}/review`)
+      .set(nurse.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: rowVersion });
+    expect(ungranted.body.code).toBe('FORBIDDEN');
+
+    await api.runtime.prisma.tenantMembership.updateMany({
+      where: { tenantId: c.tenantId, userId: nurse.userId },
+      data: { permissions: { grants: ['prescription.review'], denials: [] } },
+    });
+    const granted = await staffLogin(nurse.userId, c.tenantId);
+
+    const reviewed = await request(server)
+      .post(`/api/v1/prescriptions/${id}/review`)
+      .set(granted.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: rowVersion });
+    expect(reviewed.status).toBe(200);
+    expect(reviewed.body.data.clinicalStatus).toBe('REVIEWED');
+
+    // Review is not approval: it attaches nobody's clinical responsibility.
+    const nurseApprove = await request(server)
+      .post(`/api/v1/prescriptions/${id}/approve`)
+      .set(granted.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: reviewed.body.data.rowVersion, attestationVersion: 1 });
+    expect(nurseApprove.body.code).toBe('FORBIDDEN');
+
+    // A doctor of the same tenant who is not on this encounter is equally refused.
+    const other = await doctor(c.tenantId, 'rx-authz-other');
+    const otherApprove = await request(server)
+      .post(`/api/v1/prescriptions/${id}/approve`)
+      .set(other.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: reviewed.body.data.rowVersion, attestationVersion: 1 });
+    expect(otherApprove.body.code).toBe('FORBIDDEN');
+
+    // And the assigned doctor approves straight from REVIEWED — mandatory test 3's other half.
+    const approved = await request(server)
+      .post(`/api/v1/prescriptions/${id}/approve`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: reviewed.body.data.rowVersion, attestationVersion: 1 })
+      .expect(200);
+    expect(approved.body.data.clinicalStatus).toBe('APPROVED');
+  });
+
+  /** Mandatory test 11: void needs a reason, and an admin void needs a named clinical reviewer. */
+  it('requires a reason to void, and a named assigned reviewer when an admin does it', async () => {
+    const { c, id, rowVersion } = await draftWithItem('rx-void');
+    const approved = await request(server)
+      .post(`/api/v1/prescriptions/${id}/approve`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: rowVersion, attestationVersion: 1 })
+      .expect(200);
+
+    // No reason: a clinical act without one is unreviewable.
+    const noReason = await request(server)
+      .post(`/api/v1/prescriptions/${id}/void`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: approved.body.data.rowVersion, reason: '   ' });
+    expect(noReason.status).toBeGreaterThanOrEqual(400);
+
+    // A clinic admin is not assigned, so AUTHORIZATION-MATRIX §6 wants a named clinical reviewer.
+    const adminNoReviewer = await request(server)
+      .post(`/api/v1/prescriptions/${id}/void`)
+      .set(c.admin.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: approved.body.data.rowVersion, reason: 'SYNTHETIC: dispensed in error' });
+    expect(adminNoReviewer.body.code).toBe('VALIDATION_FAILED');
+
+    // Naming a doctor who is not on this encounter does not satisfy the rule either — otherwise the
+    // field would be a text box that passes a check without meeting it.
+    const stranger = await doctor(c.tenantId, 'rx-void-stranger');
+    const adminWrongReviewer = await request(server)
+      .post(`/api/v1/prescriptions/${id}/void`)
+      .set(c.admin.headers)
+      .set('idempotency-key', idem())
+      .send({
+        expectedRowVersion: approved.body.data.rowVersion,
+        reason: 'SYNTHETIC: dispensed in error',
+        clinicalReviewerDoctorProfileId: stranger.profileId,
+      });
+    expect(adminWrongReviewer.body.code).toBe('VALIDATION_FAILED');
+
+    const voided = await request(server)
+      .post(`/api/v1/prescriptions/${id}/void`)
+      .set(c.admin.headers)
+      .set('idempotency-key', idem())
+      .send({
+        expectedRowVersion: approved.body.data.rowVersion,
+        reason: 'SYNTHETIC: dispensed in error',
+        clinicalReviewerDoctorProfileId: c.owner.profileId,
+      })
+      .expect(200);
+    expect(voided.body.data.clinicalStatus).toBe('VOID');
+    expect(voided.body.data.voidReason).toContain('dispensed in error');
+  });
+
+  /** Mandatory test 4, second half: concurrent approvals of two revisions yield one success. */
+  it('admits exactly one approved revision when two approvals race', async () => {
+    const { c, id, rowVersion } = await draftWithItem('rx-race');
+    const first = await request(server)
+      .post(`/api/v1/prescriptions/${id}/approve`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: rowVersion, attestationVersion: 1 })
+      .expect(200);
+
+    const correction = await request(server)
+      .post(`/api/v1/prescriptions/${first.body.data.id}/corrections`)
+      .set(c.owner.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(201);
+
+    // Two approvals of the correction at the same row version. One wins; the other must lose on the
+    // version check or the unique index, never by both landing and leaving two approved revisions.
+    const results = await Promise.allSettled(
+      [0, 1].map(() =>
+        request(server)
+          .post(`/api/v1/prescriptions/${correction.body.data.id}/approve`)
+          .set(c.owner.headers)
+          .set('idempotency-key', idem())
+          .send({ expectedRowVersion: correction.body.data.rowVersion, attestationVersion: 1 }),
+      ),
+    );
+    const statuses = results.map((r) => (r.status === 'fulfilled' ? r.value.status : 0));
+    expect(statuses.filter((s) => s === 200)).toHaveLength(1);
+
+    const list = await request(server)
+      .get(`/api/v1/encounters/${c.encounter.id}/prescriptions`)
+      .set(c.owner.headers)
+      .expect(200);
+    const approved = list.body.data.items.filter(
+      (p: { clinicalStatus: string }) => p.clinicalStatus === 'APPROVED',
+    );
+    expect(approved).toHaveLength(1);
+    expect(approved[0].revision).toBe(2);
+  });
+
+  /**
+   * Mandatory test 14: a catalog selection stores its snapshot and prefills nothing clinical, and a
+   * later import that deactivates the medication leaves the approved prescription exactly as it was.
+   */
+  it('freezes a catalog selection against a later import', async () => {
+    const { c } = await draftWithItem('rx-catalog-seed');
+    const now = new Date();
+    const medicationId = newId();
+    await api.runtime.prisma.medication.create({
+      data: {
+        id: medicationId,
+        canonicalKey: `synthetic:${medicationId}`,
+        canonicalKeySha256: medicationId.replace(/-/g, '').padEnd(64, '0').slice(0, 64),
+        datasetRecordId: `syn_${medicationId.replace(/-/g, '').slice(0, 16)}`,
+        datasetVersion: 'test-v1',
+        firstSeenVersion: 'test-v1',
+        brandName: 'DEMO-Synthacillin',
+        brandSearchKey: 'demo synthacillin',
+        genericDisplay: 'DEMO Generic A',
+        genericSetKey: 'demo generic a',
+        strengthText: '500 mg',
+        strengthParsed: {},
+        dosageForm: 'tablet',
+        dosageFormRaw: [],
+        manufacturerDisplay: 'DEMO Labs',
+        dgdaMatch: 'NOT_CHECKED',
+        reviewStatus: 'UNVERIFIED',
+        sourceIds: [],
+        fieldProvenance: {},
+        importedAt: now,
+        updatedAt: now,
+      },
+    });
+
+    const c2 = await consultation('rx-catalog');
+    const draft = await request(server)
+      .post(`/api/v1/encounters/${c2.encounter.id}/prescriptions`)
+      .set(c2.owner.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(201);
+    const edited = await request(server)
+      .patch(`/api/v1/prescriptions/${draft.body.data.id}`)
+      .set(c2.owner.headers)
+      .send({
+        expectedRowVersion: draft.body.data.rowVersion,
+        items: [
+          rxItem({
+            isFreeText: false,
+            freeTextName: null,
+            medicationId,
+            medicationDatasetVersion: 'test-v1',
+            strength: '500 mg',
+            dosageForm: 'tablet',
+            catalogSnapshot: {
+              brandName: 'DEMO-Synthacillin',
+              brandNameBn: null,
+              genericDisplay: 'DEMO Generic A',
+              strengthText: '500 mg',
+              dosageForm: 'tablet',
+              manufacturerDisplay: 'DEMO Labs',
+              reviewStatus: 'UNVERIFIED',
+              dgdaMatch: 'NOT_CHECKED',
+            },
+          }),
+        ],
+      })
+      .expect(200);
+    // The snapshot carries the catalog's own review status, so a reader sees what it is.
+    expect(edited.body.data.items[0].catalogSnapshot).toMatchObject({ reviewStatus: 'UNVERIFIED' });
+
+    const approved = await request(server)
+      .post(`/api/v1/prescriptions/${draft.body.data.id}/approve`)
+      .set(c2.owner.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: edited.body.data.rowVersion, attestationVersion: 1 })
+      .expect(200);
+    const frozenHash = approved.body.data.approvedSnapshotSha256;
+
+    // A later import deactivates and renames the product. The catalog never deletes (ADR-020 §2).
+    await api.runtime.prisma.medication.update({
+      where: { id: medicationId },
+      data: {
+        active: false,
+        deactivatedInVersion: 'test-v2',
+        brandName: 'DEMO-Synthacillin WITHDRAWN',
+        datasetVersion: 'test-v2',
+      },
+    });
+
+    const after = await request(server)
+      .get(`/api/v1/prescriptions/${draft.body.data.id}`)
+      .set(c2.owner.headers)
+      .expect(200);
+    expect(after.body.data.approvedSnapshotSha256).toBe(frozenHash);
+    expect(after.body.data.items[0].catalogSnapshot).toMatchObject({
+      brandName: 'DEMO-Synthacillin',
+    });
+    expect(after.body.data.items[0].medicationDatasetVersion).toBe('test-v1');
+    expect(c.tenantId).toBeTruthy();
   });
 });

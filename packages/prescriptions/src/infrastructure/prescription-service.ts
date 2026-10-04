@@ -459,7 +459,47 @@ export class PrescriptionService {
       this.deps.prisma,
       async (tx) => {
         const current = await this.lock(tx, actor, prescriptionId, input.expectedRowVersion);
-        await this.deps.access.assignedOrScoped(actor, current.encounterId);
+        const access = await this.deps.access.assignedOrScoped(actor, current.encounterId);
+
+        // AUTHORIZATION-MATRIX §6: a doctor voids on assignment. An owner or clinic admin may also
+        // void, but only by naming an assigned doctor as the clinical reviewer — withdrawing a
+        // prescription is a clinical decision, and an administrator taking it alone leaves no clinician
+        // accountable for it. The named profile is checked against the encounter rather than trusted
+        // from the payload, or the field would be a text box that satisfies a rule without meeting it.
+        if (access.footing !== 'assigned') {
+          const reviewerId = input.clinicalReviewerDoctorProfileId;
+          if (!reviewerId) {
+            throw new AppError('VALIDATION_FAILED', undefined, {
+              fieldErrors: [
+                {
+                  path: 'clinicalReviewerDoctorProfileId',
+                  code: 'required',
+                  message: 'validation.clinical_reviewer_required',
+                },
+              ],
+            });
+          }
+          const reviewerIsOnEncounter = await tx.encounter.findFirst({
+            where: {
+              tenantId: actor.tenant.tenantId,
+              id: current.encounterId,
+              OR: [{ doctorProfileId: reviewerId }, { coveringDoctorProfileId: reviewerId }],
+            },
+            select: { id: true },
+          });
+          if (!reviewerIsOnEncounter) {
+            throw new AppError('VALIDATION_FAILED', undefined, {
+              fieldErrors: [
+                {
+                  path: 'clinicalReviewerDoctorProfileId',
+                  code: 'not_assigned',
+                  message: 'validation.clinical_reviewer_not_assigned',
+                },
+              ],
+            });
+          }
+        }
+
         if (!canTransition(current.clinicalStatus as ClinicalStatus, 'VOID')) {
           throw new AppError('INVALID_TRANSITION', undefined, {
             details: { from: current.clinicalStatus, to: 'VOID' },
@@ -481,6 +521,10 @@ export class PrescriptionService {
         });
         await this.audit(tx, actor, 'PRESCRIPTION_VOIDED', prescriptionId, {
           revision: current.revision,
+          footing: access.footing,
+          namedClinicalReviewer:
+            input.clinicalReviewerDoctorProfileId !== undefined &&
+            input.clinicalReviewerDoctorProfileId !== null,
         });
         return updated;
       },
