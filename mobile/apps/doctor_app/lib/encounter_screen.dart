@@ -23,6 +23,7 @@ import 'package:hm_core/hm_core.dart';
 import 'package:hm_localization/hm_localization.dart';
 
 import 'active_tenant.dart';
+import 'prescription_panel.dart';
 
 /// How long after the last keystroke the draft is sent. Longer than the web's, because a phone keyboard
 /// on a clinic's connection is slower and a request per letter would be worse than useless.
@@ -379,6 +380,7 @@ class _DoctorEncounterScreenState extends ConsumerState<DoctorEncounterScreen> {
                   ],
                 ),
               ),
+              PrescriptionPanel(encounterId: widget.encounterId),
               if (!_locked)
                 Row(
                   children: [
