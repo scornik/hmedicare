@@ -48,6 +48,7 @@
     "db:reset:full": "pnpm db:reset && pnpm meddata:import --dir tools/medicine-data/dist/medicine-dataset-20260917-4",
     "verify-audit-chain": "pnpm --filter @hmedic/audit run verify-audit-chain",
     "ops:record-risk-decision": "pnpm --filter @hmedic/secrets run record-risk-decision",
+    "ops:create-operator-user": "pnpm --filter @hmedic/identity-access run create-operator-user",
     "ops:platform-operator": "pnpm --filter @hmedic/identity-access run platform-operator",
     "ops:reset-owner-password": "pnpm --filter @hmedic/identity-access run reset-owner-password",
     "ops:restore-drill": "pnpm --filter @hmedic/database run restore-drill",
