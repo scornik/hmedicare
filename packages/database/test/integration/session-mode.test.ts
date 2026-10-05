@@ -27,6 +27,26 @@ afterAll(async () => {
   await db?.close();
 });
 
+/**
+ * A connection the server has killed but the pool has not yet reaped fails the next statement handed
+ * to it with a closed socket, before any session init could run. That is the driver's behaviour on a
+ * stale checkout, not evidence about `initSql`, so this discards the dead connection and samples
+ * again. It narrows to that one error on purpose: a report that came back with a missing mode still
+ * fails the test, which is the thing DEPLOY-003 is actually guarding.
+ */
+const isStaleConnection = (e: unknown) =>
+  e instanceof Error && /socket has unexpectedly been closed/i.test(e.message);
+
+async function sampleThroughReconnect(n: number, attempts = 3) {
+  for (let i = 1; ; i += 1) {
+    try {
+      return await sampleConcurrently(n);
+    } catch (e) {
+      if (i >= attempts || !isStaleConnection(e)) throw e;
+    }
+  }
+}
+
 /** Forces the pool to hold `n` connections at once by keeping `n` queries in flight together. */
 async function sampleConcurrently(n: number) {
   const barrier = new Promise<void>((resolve) => setTimeout(resolve, 150));
@@ -68,7 +88,7 @@ describe('ADR-014 session init (DEPLOY-003)', () => {
       await db.prisma.$executeRawUnsafe(`KILL ${Number(row.id)}`).catch(() => undefined);
     }
 
-    const after = await sampleConcurrently(POOL);
+    const after = await sampleThroughReconnect(POOL);
     for (const r of after) {
       expect(r.missing).toEqual([]);
       expect(r.timeZone).toBe('+00:00');
