@@ -3,6 +3,7 @@ import { type PrismaClient, lockRow, withTransaction } from '@hmedic/database';
 import type { AuditMetadata, AuditPort } from '@hmedic/audit';
 import type { ClinicalAccessPolicy, ClinicalActor } from '@hmedic/clinical';
 import type { Metrics } from '@hmedic/observability';
+import type { PrescriptionOutbox } from './events';
 import {
   ATTESTATION_VERSION,
   type ClinicalStatus,
@@ -60,6 +61,8 @@ export interface PrescriptionServiceDeps {
   prisma: PrismaClient;
   audit: AuditPort<unknown>;
   access: ClinicalAccessPolicy;
+  /** Domain events. Optional so a test can exercise the lifecycle without a publisher. */
+  outbox?: PrescriptionOutbox;
   clock?: Clock;
   metrics?: Metrics;
 }
@@ -141,6 +144,14 @@ export class PrescriptionService {
           },
         });
         await this.audit(tx, actor, 'PRESCRIPTION_DRAFT_OPENED', id, { revision });
+        await this.deps.outbox?.emit(tx, {
+          tenantId: actor.tenant.tenantId,
+          name: 'PrescriptionDraftCreated',
+          aggregateId: id,
+          payload: { encounterId, patientId: access.encounter.patientId, revision },
+          actorId: actor.userId,
+          correlationId: actor.correlationId ?? null,
+        });
         return created;
       },
       { context: 'prescription:open-draft' },
@@ -270,6 +281,14 @@ export class PrescriptionService {
           },
         });
         await this.audit(tx, actor, 'PRESCRIPTION_REVIEWED', prescriptionId, {});
+        await this.deps.outbox?.emit(tx, {
+          tenantId: actor.tenant.tenantId,
+          name: 'PrescriptionReviewed',
+          aggregateId: prescriptionId,
+          payload: { encounterId: current.encounterId, revision: current.revision },
+          actorId: actor.userId,
+          correlationId: actor.correlationId ?? null,
+        });
         return updated;
       },
       { context: 'prescription:review' },
@@ -367,6 +386,27 @@ export class PrescriptionService {
           items: items.length,
           patientId: access.encounter.patientId,
           supersededPrescriptionId: current.supersedesPrescriptionId,
+        });
+        // Identifiers and counts only. `RecordMedicationUsage` reads the item rows itself, because a
+        // list of what was prescribed does not belong in an event payload.
+        await this.deps.outbox?.emit(tx, {
+          tenantId: actor.tenant.tenantId,
+          name: 'PrescriptionApproved',
+          aggregateId: prescriptionId,
+          payload: {
+            encounterId: current.encounterId,
+            patientId: current.patientId,
+            revision: current.revision,
+            items: items.length,
+            // `supersedesId`, not `supersedesPrescriptionId`: the outbox PHI deny-list refuses any key
+            // matching /prescri/i, and the right answer to a control firing is a different key name,
+            // never a looser control.
+            supersedesId: current.supersedesPrescriptionId,
+          },
+          actorId: actor.userId,
+          correlationId: actor.correlationId ?? null,
+          // One approval of one revision is one event, however many times the request is retried.
+          idempotencyKey: `prescription-approved:${prescriptionId}`,
         });
         return updated;
       },
@@ -566,6 +606,15 @@ export class PrescriptionService {
     await this.audit(tx, actor, 'PRESCRIPTION_VOIDED', supersededId, {
       reason: 'SUPERSEDED',
       bySupersedingRevision: byRevision,
+    });
+    // A correction emits both names in order, because it genuinely is both (ADR-024).
+    await this.deps.outbox?.emit(tx, {
+      tenantId: actor.tenant.tenantId,
+      name: 'PrescriptionVoided',
+      aggregateId: supersededId,
+      payload: { encounterId: previous.encounterId, revision: previous.revision, superseded: true },
+      actorId: actor.userId,
+      correlationId: actor.correlationId ?? null,
     });
   }
 

@@ -37,7 +37,9 @@ import { ClinicalWriteModule, type ClinicalServices } from '@hmedic/clinical/nes
 import {
   MedicationCatalogAdminService,
   MedicationSearchService,
+  PrescriptionOutbox,
   PrescriptionService,
+  RECORD_MEDICATION_USAGE,
   medicationGateChainSource,
 } from '@hmedic/prescriptions';
 import {
@@ -228,7 +230,9 @@ export async function buildApi(
       ? composePlatformJobs(
           runtime,
           sms,
-          ({ registry, runner }) => {
+          ({ registry, runner, subscriptions }) => {
+            // PrescriptionApproved feeds the tenant prescribing boost (EVENT-ARCHITECTURE §4).
+            subscriptions.subscribe('PrescriptionApproved', { handler: RECORD_MEDICATION_USAGE });
             registerPrescriptionJobs(registry, runner, catalogJobDeps);
             return registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger });
           },
@@ -259,6 +263,7 @@ export async function buildApi(
       // The same access policy the notes and diagnoses use: a prescription is part of the encounter,
       // so it answers to the encounter's footing rather than a rule of its own.
       access: clinical.access,
+      outbox: new PrescriptionOutbox(new OutboxPort(runtime.clock), runtime.clock),
       clock: runtime.clock,
       metrics: runtime.metrics,
     }),

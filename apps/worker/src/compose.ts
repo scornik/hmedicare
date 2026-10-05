@@ -15,7 +15,7 @@ import {
   sessionModeCheck,
 } from '@hmedic/http-kit';
 import { composeSchedulingAndQueue, registerQueueJobs } from '@hmedic/queue';
-import { medicationGateChainSource } from '@hmedic/prescriptions';
+import { RECORD_MEDICATION_USAGE, medicationGateChainSource } from '@hmedic/prescriptions';
 import { registerPrescriptionJobs } from '@hmedic/prescriptions/worker';
 
 /**
@@ -65,9 +65,11 @@ export async function buildWorker(
   const jobs = composePlatformJobs(
     runtime,
     sms,
-    ({ registry, runner }) => {
+    ({ registry, runner, subscriptions }) => {
       // The medication import runs here and only here: it is minutes of streaming and batched writes on
       // its own queue, and the API process should never be the thing holding that work.
+      // PrescriptionApproved feeds the tenant prescribing boost (EVENT-ARCHITECTURE §4).
+      subscriptions.subscribe('PrescriptionApproved', { handler: RECORD_MEDICATION_USAGE });
       registerPrescriptionJobs(registry, runner, {
         prisma: runtime.prisma,
         environment: config.APP_ENV,

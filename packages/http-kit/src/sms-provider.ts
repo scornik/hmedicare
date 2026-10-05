@@ -8,7 +8,7 @@ import {
   createProviderCredentialVault,
   registerProviderCredentialJobs,
 } from '@hmedic/provider-credentials/worker';
-import type { JobRegistry, JobRunner, PeriodicJob } from '@hmedic/jobs';
+import type { JobRegistry, JobRunner, PeriodicJob, SubscriptionRegistry } from '@hmedic/jobs';
 import { type JobComposition, composeJobs } from './job-composition';
 import type { HttpRuntime } from './runtime';
 
@@ -78,14 +78,18 @@ export function composePlatformJobs(
   runtime: HttpRuntime,
   sms: SmsRuntime,
   /** Context job types registered by the app (queue, scheduling, …); http-kit never imports a context. */
-  extend: (c: { registry: JobRegistry; runner: JobRunner | null }) => PeriodicJob[] = () => [],
+  extend: (c: {
+    registry: JobRegistry;
+    runner: JobRunner | null;
+    subscriptions: SubscriptionRegistry;
+  }) => PeriodicJob[] = () => [],
   /** Context-owned append-only chains; see `composeJobs`. */
   chainSources: readonly ChainSource[] = [],
 ): JobComposition | null {
   const vault = createProviderCredentialVault(runtime.config, runtime.prisma, runtime.audit, runtime.clock);
   return composeJobs(
     runtime,
-    ({ registry, runner }) => [
+    ({ registry, runner, subscriptions }) => [
       ...registerCommunicationJobs(registry, runner, {
         config: runtime.config,
         prisma: runtime.prisma,
@@ -97,7 +101,7 @@ export function composePlatformJobs(
         vault,
       }),
       ...registerProviderCredentialJobs(registry, runner, vault),
-      ...extend({ registry, runner }),
+      ...extend({ registry, runner, subscriptions }),
     ],
     chainSources,
   );

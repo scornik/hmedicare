@@ -2,6 +2,8 @@ import type { PrismaClient } from '@hmedic/database';
 import type { JobRegistry, JobRunner } from '@hmedic/jobs';
 import type { Logger } from '@hmedic/observability';
 import { registerMedicationImportJobs } from '../infrastructure/medication-import/jobs';
+import { MedicationSearchService } from '../infrastructure/medication-search';
+import { registerMedicationUsageJobs } from '../infrastructure/usage-jobs';
 import type { StagedDatasetConfig } from '../infrastructure/medication-import/staged-datasets';
 
 export interface PrescriptionWorkerDeps {
@@ -28,4 +30,10 @@ export function registerPrescriptionJobs(
   deps: PrescriptionWorkerDeps,
 ): void {
   registerMedicationImportJobs(registry, runner, deps);
+  // `RecordMedicationUsage`: the PrescriptionApproved consumer that feeds the search boost.
+  registerMedicationUsageJobs(registry, runner, {
+    prisma: deps.prisma,
+    search: new MedicationSearchService(deps.prisma),
+    logger: deps.logger,
+  });
 }
