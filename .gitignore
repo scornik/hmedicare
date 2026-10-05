@@ -52,3 +52,6 @@ host-results*.json
 
 # Architecture fixtures need a fake node_modules tree to exercise vendor rules
 !tests/architecture/fixtures/node_modules/
+
+# Operator review samples written by `pnpm meddata:review`; working files, never dataset artefacts.
+meddata-review-*-sample.csv
