@@ -89,7 +89,13 @@ describe('loadConfig (ENVIRONMENT-CONTRACT.md)', () => {
     expect(() => loadConfig('api', { ...env, ZAMANIT_ALLOW_INSECURE_HTTP: 'true' })).not.toThrow();
   });
 
-  it('refuses mock OTP delivery in production', () => {
+  it.each([
+    ['spelled out', 'mock'],
+    ['left to its default', undefined],
+  ])('refuses mock OTP delivery in production, %s', (_label, value) => {
+    // Omitted, OTP_PROVIDER defaults to mock, so the effect is identical and the refusal has to be
+    // too. Production once ran this way: delivery reported ACCEPTED and sent nothing, and the only
+    // symptom was an OTP code that never arrived.
     const problems = problemsOf(() =>
       loadConfig(
         'api',
@@ -97,11 +103,30 @@ describe('loadConfig (ENVIRONMENT-CONTRACT.md)', () => {
           APP_ENV: 'production',
           PUSH_TOKEN_KEK_ID: 'prod-push-1',
           PROVIDER_CREDENTIAL_KEK_ID: 'prod-pc-1',
-          OTP_PROVIDER: 'mock',
+          ...(value === undefined ? {} : { OTP_PROVIDER: value }),
         }),
       ),
     );
-    expect(problems).toContain('OTP_PROVIDER: mock delivery is refused in production');
+    expect(problems.some((p) => p.startsWith('OTP_PROVIDER: mock delivery is refused'))).toBe(true);
+  });
+
+  it('requires the provider /api path on ZAMANIT_BASE_URL', () => {
+    const env = testEnv({
+      APP_ENV: 'production',
+      PUSH_TOKEN_KEK_ID: 'prod-push-1',
+      PROVIDER_CREDENTIAL_KEK_ID: 'prod-pc-1',
+      OTP_PROVIDER: 'sms',
+      SMS_PROVIDER: 'zamanit',
+      ZAMANIT_API_KEY: 'zit_fake_0123456789abcdef',
+      ZAMANIT_SENDER_ID: 'DEMO',
+      ZAMANIT_API_KEY_ISSUED_ON: '2026-10-05',
+      ZAMANIT_ALLOW_INSECURE_HTTP: 'true',
+    });
+    const bare = problemsOf(() => loadConfig('api', { ...env, ZAMANIT_BASE_URL: 'http://10.0.0.1' }));
+    expect(bare.some((p) => p.startsWith('ZAMANIT_BASE_URL: must end with'))).toBe(true);
+
+    const withApi = problemsOf(() => loadConfig('api', { ...env, ZAMANIT_BASE_URL: 'http://10.0.0.1/api' }));
+    expect(withApi.some((p) => p.startsWith('ZAMANIT_BASE_URL'))).toBe(false);
   });
 
   it('requires the cron token when a runner is active', () => {

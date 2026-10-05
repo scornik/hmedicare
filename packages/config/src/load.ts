@@ -109,12 +109,37 @@ function crossChecks(env: Env, appEnv: AppEnv, app: AppName): string[] {
         'ZAMANIT_BASE_URL: plain http requires ZAMANIT_ALLOW_INSECURE_HTTP=true (and GATE-SMS-HTTP in production)',
       );
     }
+    // The adapter appends `sendsms` and `checkbalance` to this base, and the provider serves both under
+    // `/api`. A base of the bare origin therefore 404s every send. Caught here because the failure is
+    // otherwise invisible: the provider answers, so nothing looks broken at boot, and the first symptom
+    // is a user waiting for an OTP that was never accepted.
+    if (base) {
+      let pathname: string | null = null;
+      try {
+        pathname = new URL(base).pathname;
+      } catch {
+        pathname = null; // not a URL at all; the schema's own url() check reports that
+      }
+      if (pathname !== null && !/\/api\/?$/.test(pathname)) {
+        problems.push(
+          "ZAMANIT_BASE_URL: must end with the provider's /api path, e.g. http://host/api — the " +
+            'adapter appends only "sendsms" or "checkbalance"',
+        );
+      }
+    }
   }
   if (env.OTP_PROVIDER === 'sms' && (env.SMS_PROVIDER ?? 'mock') === 'mock' && deployed) {
     problems.push('OTP_PROVIDER: "sms" with SMS_PROVIDER=mock is not allowed in staging/production');
   }
-  if (appEnv === 'production' && env.OTP_PROVIDER !== undefined && env.OTP_PROVIDER === 'mock') {
-    problems.push('OTP_PROVIDER: mock delivery is refused in production');
+  // Written out or left to its default, the effect is the same, so the refusal has to be the same. An
+  // absent `OTP_PROVIDER` used to fall through to `mock`, which this check forbids when it is spelled
+  // out: production ran with OTP delivery that reported ACCEPTED and sent nothing, and the only visible
+  // symptom was a code that never arrived.
+  if (appEnv === 'production' && (env.OTP_PROVIDER ?? 'mock') === 'mock') {
+    problems.push(
+      'OTP_PROVIDER: mock delivery is refused in production; set OTP_PROVIDER=sms (omitting it defaults ' +
+        'to mock)',
+    );
   }
   if (env.TRUST_PROXY_HOPS !== undefined) {
     problems.push(

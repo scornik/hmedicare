@@ -160,6 +160,28 @@ type SmsSendResult =
   - Destination is the developer-supplied `ZAMANIT_LIVE_SMOKE_TO`, and the text is fixed and non-clinical.
   - **Never in CI.** The CI workflow sets `ZAMANIT_LIVE_SMOKE=false`, and the test aborts when `CI=true`.
 
+### As built — amended 2026-10-05 after the first production send
+
+Three findings from enabling this adapter in production for the first time. All three shared one
+symptom: an OTP that never arrived, with nothing anywhere reporting an error.
+
+- **A definite 4xx is now `REJECTED`, not `UNKNOWN_OUTCOME`.** `ZAMANIT_BASE_URL` had been set to the
+  bare origin instead of the documented `/api` base, so every send hit the provider's 404 page. The
+  adapter could not parse that HTML, fell through to `UNKNOWN_OUTCOME`, and the OTP challenge stayed
+  PENDING with the hint `MAY_ARRIVE` — which is the correct handling of "we cannot tell", and the wrong
+  handling of "the provider answered and refused the request". `definiteRejection()` now maps 401 and
+  403 to `INVALID_CREDENTIAL` and every other 4xx to `INVALID_REQUEST`, so the challenge expires at
+  once and the caller is told `RETRY_LATER`. 408 and 429 stay unknown deliberately: a request timeout
+  can land after the provider has taken the message, and a 429 from an intermediary says nothing
+  reliable about what the provider behind it did.
+- **`ZAMANIT_BASE_URL` is validated at boot for the `/api` path.** The contract always said the adapter
+  appends only `sendsms` or `checkbalance` (ENVIRONMENT-CONTRACT §`ZAMANIT_BASE_URL`), but nothing
+  checked it, and a base that cannot work started cleanly.
+- **An omitted `OTP_PROVIDER` is refused in production.** The key defaults to `mock`, and the
+  production check only rejected the value when it was spelled out. So production ran with OTP
+  delivery that reported `ACCEPTED` and sent nothing. A default that the validator forbids when
+  written is now forbidden when absent.
+
 ## Alternatives considered
 
 | Alternative | Why not now |

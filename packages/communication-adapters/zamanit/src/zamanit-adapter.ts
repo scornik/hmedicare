@@ -55,6 +55,29 @@ export function toProviderPhone(e164: string): string | null {
   return PROVIDER_PHONE_RE.test(digits) ? digits : null;
 }
 
+/**
+ * A 4xx this adapter can read as "nothing was sent", or null when the status leaves it open.
+ *
+ * `UNKNOWN_OUTCOME` exists for the one case where we genuinely cannot tell — a timeout after the request
+ * bytes went out, or a 5xx — and it is expensive: the OTP challenge stays PENDING, the caller is told the
+ * code `MAY_ARRIVE`, and a user waits for a message that is never coming. A 404 or a 422 is not that
+ * case. The provider answered, and the answer was that it did not accept the request.
+ *
+ * This was found in production: `ZAMANIT_BASE_URL` was set to the origin without the provider's `/api`
+ * segment, so every send hit a 404 HTML page, came back `UNKNOWN_OUTCOME`, and a misconfigured URL
+ * looked for an afternoon like an undelivered SMS.
+ *
+ * 408 and 429 stay unknown on purpose. A request timeout can land after the provider has taken the
+ * message, and a rate-limit response from an intermediary says nothing reliable about what the provider
+ * behind it did with an earlier identical request.
+ */
+export function definiteRejection(status: number): SmsErrorClass | null {
+  if (status === 401 || status === 403) return 'INVALID_CREDENTIAL';
+  if (status === 408 || status === 429) return null;
+  if (status >= 400 && status < 500) return 'INVALID_REQUEST';
+  return null;
+}
+
 /** Finds a provider error code (1001–1007) used as a value in a JSON body or as a bare token in text. */
 export function findErrorCode(body: unknown, raw: string): number | null {
   const visit = (v: unknown): number | null => {
@@ -187,6 +210,8 @@ export class ZamanItSmsAdapter implements SmsProvider {
     if (r.status >= 200 && r.status < 300 && r.body !== undefined) {
       return { outcome: 'ACCEPTED', segmentsEstimated: segments, encoding };
     }
+    const definite = definiteRejection(r.status);
+    if (definite) return { outcome: 'REJECTED', errorClass: definite };
     return { outcome: 'UNKNOWN_OUTCOME', errorClass: 'UNKNOWN_OUTCOME' };
   }
 

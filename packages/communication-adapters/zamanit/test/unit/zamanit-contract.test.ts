@@ -3,7 +3,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { SmsCredentialHandle } from '@hmedic/communication';
-import { ZamanItSmsAdapter, findErrorCode, toProviderPhone } from '../../src/index';
+import { ZamanItSmsAdapter, definiteRejection, findErrorCode, toProviderPhone } from '../../src/index';
 
 // SMS-004 contract tests against the mock-providers HTTP service (ADR-018 §9, COMMUNICATION §6.5, T27/T28).
 const KEY = 'zit_fake_0123456789abcdef0123456789abcdef';
@@ -128,6 +128,32 @@ describe('ZamanItSmsAdapter — error mapping (ADR-018 §4)', () => {
     expect((await send()).outcome).toBe('UNKNOWN_OUTCOME');
     await scenario('unparseable');
     expect((await send()).outcome).toBe('UNKNOWN_OUTCOME');
+  });
+
+  it('a 404 is a rejection, not an unknown outcome', async () => {
+    // The production failure this guards: ZAMANIT_BASE_URL was set to the origin without the provider's
+    // /api segment, so every send hit a 404. Classified as UNKNOWN_OUTCOME it left the OTP challenge
+    // PENDING and told the caller the code MAY_ARRIVE, so a wrong URL looked like an undelivered SMS.
+    expect(await send(adapter({ baseUrl: `${base}/zamanit` }))).toEqual({
+      outcome: 'REJECTED',
+      errorClass: 'INVALID_REQUEST',
+    });
+  });
+
+  it.each([
+    [400, 'INVALID_REQUEST'],
+    [401, 'INVALID_CREDENTIAL'],
+    [403, 'INVALID_CREDENTIAL'],
+    [404, 'INVALID_REQUEST'],
+    [422, 'INVALID_REQUEST'],
+  ])('%i is a definite rejection → %s', (status, errorClass) => {
+    expect(definiteRejection(status)).toBe(errorClass);
+  });
+
+  it.each([408, 429, 500, 502, 200])('%i stays open rather than claiming a rejection', (status) => {
+    // 408 can land after the provider has taken the message, and a 429 from an intermediary says
+    // nothing reliable about what the provider behind it did. Both must stay UNKNOWN_OUTCOME.
+    expect(definiteRejection(status)).toBeNull();
   });
 
   it('a timeout after the request was sent is UNKNOWN_OUTCOME', async () => {
