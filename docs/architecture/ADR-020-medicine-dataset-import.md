@@ -114,6 +114,14 @@ be discovered:
   `medicine-dataset-20260917-4`, and production refuses it. The attestation chain is verified alongside
   the audit and platform-gate chains, so the four rows that would open the gate cannot be edited after
   the fact without the verifier noticing.
+- **`pnpm meddata:review` prepares a gate review; it never performs one.** It verifies the dataset,
+  gathers what each of the four gates asks about — the card's own "outstanding" bullets, the DGDA
+  numbers — draws a seeded, reproducible sample of importable records as a CSV for a pharmacist to mark
+  up, computes the error rate over the rows that were actually marked, and prints the four
+  `POST /admin/medications/gates` calls with evidence references filled in and the summaries left
+  blank. It is read-only and holds no credentials. The reason it stops there is the reason the gates are
+  worth anything: a tool that could satisfy an attestation without the review would make all four
+  decorative, so the recording stays a command a named operator runs, with a summary they wrote.
 
 ### 4. Search and prescribing
 

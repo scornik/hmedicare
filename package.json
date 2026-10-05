@@ -41,6 +41,7 @@
     "db:seed:verify": "pnpm --filter @hmedic/seed run seed:verify",
     "db:credentials": "pnpm --filter @hmedic/seed run credentials",
     "meddata:import": "pnpm --filter @hmedic/prescriptions run meddata:import",
+    "meddata:review": "pnpm --filter @hmedic/prescriptions run meddata:review",
     "meddata:stage": "pnpm --filter @hmedic/prescriptions run meddata:stage",
     "meddata:status": "pnpm --filter @hmedic/prescriptions run meddata:status",
     "db:reset": "pnpm --filter @hmedic/database run db:reset && pnpm db:seed",
