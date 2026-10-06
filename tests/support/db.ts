@@ -39,6 +39,10 @@ const TABLES = [
   // empty catalog by accident. Only the tenant-scoped rows that point into them go.
   'patient_medications',
   'medication_usage_stats',
+  // 0010 documents: children of patients and encounters. Versions first — they carry the FK to the
+  // document row. Nothing yet points at `documents` from the other direction, so they go above 0009.
+  'document_versions',
+  'documents',
   // 0009 prescriptions: children of encounters and of the catalog, so they go before both. Items first,
   // then the prescriptions they hang off.
   'prescription_items',

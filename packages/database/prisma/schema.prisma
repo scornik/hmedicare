@@ -1974,3 +1974,104 @@ model PrescriptionItem {
   @@index([medicationId], map: "ix_prescription_items_medication")
   @@map("prescription_items")
 }
+
+// ---------------------------------------------------------------- 0010 documents
+// DATABASE-IMPLEMENTATION.md §3.10, FILE-STORAGE-IMPLEMENTATION.md, ADR-016 (Stage 7 CP11, DOC-001).
+//
+// Placed last for the same reason 0009 is: `documents` is referenced by a prescription's rendered PDF,
+// and the section number says where this belongs in the documented schema rather than where the file
+// happens to read best.
+//
+// **Scope note.** §3.10 also defines `upload_sessions`, `upload_session_parts`, `lab_reports` and
+// `lab_results`. Those belong to the *upload* and lab-ingestion paths, which have no code yet; tables
+// without a caller are schema that nobody tests. This section creates only what the generated-document
+// path needs, and the upload tables arrive with the routes that write them, under the same section
+// number.
+//
+// A document row is the record that a file exists and who may read it. The bytes live in object storage
+// under a key the server generates; nothing here ever holds a path a client supplied.
+model Document {
+  /// @ascii
+  id              String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId        String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  patientId       String    @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  encounterId     String?   @map("encounter_id") @db.VarChar(36)
+  /// `LAB_REPORT|PRESCRIPTION_PDF|IMAGE|REFERRAL|OTHER|AI_RAW`. `PRESCRIPTION_PDF` and `AI_RAW` are
+  /// generated only: there is no upload route that accepts them.
+  /// @ascii
+  category        String    @db.VarChar(32)
+  /// `CREATED|UPLOADING|UPLOADED|SCANNING|SCAN_ERROR|AVAILABLE|REJECTED|EXPIRED`. A generated document
+  /// goes straight to `AVAILABLE`: ADR-016 does not scan files this system produced itself.
+  /// @ascii
+  status          String    @db.VarChar(16)
+  /// The revision a download serves. Null until the first version is complete.
+  currentRevision Int?      @map("current_revision") @db.UnsignedInt
+  title           String?   @db.VarChar(200)
+  /// `CLINICAL_TEAM|PATIENT_SHARED|AUDIT_ONLY`. Who may read it, independent of who uploaded it.
+  /// @ascii
+  accessPolicy    String    @map("access_policy") @db.VarChar(24)
+  redactedAt      DateTime? @map("redacted_at") @db.DateTime(3)
+  createdAt       DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt       DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion      Int       @default(1) @map("row_version")
+
+  @@unique([tenantId, id], map: "uq_documents_tenant_id")
+  @@index([tenantId, patientId, createdAt], map: "ix_documents_patient")
+  @@map("documents")
+}
+
+/// One stored object per revision. Append-only in practice: a correction is a new revision, because a
+/// document someone has already read must stay readable exactly as they read it.
+model DocumentVersion {
+  /// @ascii
+  id                  String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId            String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  documentId          String    @map("document_id") @db.VarChar(36)
+  revision            Int       @db.UnsignedInt
+  /// `s3|disk`. Recorded per version, not per deployment: a tenant's older objects stay readable after
+  /// the adapter changes.
+  /// @ascii
+  storageAdapter      String    @map("storage_adapter") @db.VarChar(8)
+  /// Server-generated, validated against a fixed pattern before any filesystem call (ADR-016 §4).
+  /// @ascii
+  storageKey          String    @unique(map: "uq_document_versions_key") @map("storage_key") @db.VarChar(255)
+  /// @ascii
+  contentType         String    @map("content_type") @db.VarChar(100)
+  sizeBytes           BigInt    @map("size_bytes") @db.UnsignedBigInt
+  /// @ascii
+  sha256              String    @db.VarChar(64)
+  /// `PENDING|CLEAN|REJECTED|ERROR`. A generated file is `CLEAN` with a `scan_adapter` naming the
+  /// generator, so "not scanned" is never indistinguishable from "scanned and passed".
+  /// @ascii
+  scanStatus          String    @map("scan_status") @db.VarChar(16)
+  /// @ascii
+  scanAdapter         String?   @map("scan_adapter") @db.VarChar(48)
+  /// @ascii
+  scanReason          String?   @map("scan_reason") @db.VarChar(48)
+  scannedAt           DateTime? @map("scanned_at") @db.DateTime(3)
+  /// Set when this revision is a re-encode of another (image EXIF stripping).
+  derivedFromRevision Int?      @map("derived_from_revision")
+  /// @ascii
+  uploadedByUserId    String?   @map("uploaded_by_user_id") @db.VarChar(36)
+  createdAt           DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt           DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId     String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId     String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion          Int       @default(1) @map("row_version")
+
+  @@unique([tenantId, id], map: "uq_document_versions_tenant_id")
+  @@unique([tenantId, documentId, revision], map: "uq_document_versions_revision")
+  @@index([tenantId, documentId], map: "ix_document_versions_document")
+  @@map("document_versions")
+}
