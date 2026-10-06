@@ -1915,8 +1915,11 @@ model Prescription {
   clinicalReviewerDoctorProfileId String?  @map("clinical_reviewer_doctor_profile_id") @db.VarChar(36)
   /// @ascii
   renderTemplateVersion          String?   @map("render_template_version") @db.VarChar(32)
-  /// SHA-256 of the most recent render. Stage 7 renders on demand and persists no artefact, so there is
-  /// no `rendered_document_id` yet: that column and its FK arrive with `documents` in section 0010.
+  /// The stored PDF, once one exists. Added by `0009_prescription_render_link` after `documents` landed
+  /// in 0010; null for every prescription nobody asked to render.
+  /// @ascii
+  renderedDocumentId             String?   @map("rendered_document_id") @db.VarChar(36)
+  /// SHA-256 of the most recent render.
   /// @ascii
   lastRenderSha256               String?   @map("last_render_sha256") @db.VarChar(64)
   lastRenderedAt                 DateTime? @map("last_rendered_at") @db.DateTime(3)

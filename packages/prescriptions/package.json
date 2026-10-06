@@ -38,9 +38,13 @@
     "@hmedic/kernel": "workspace:*",
     "@hmedic/localization": "workspace:*",
     "@hmedic/observability": "workspace:*",
-    "ajv": "8.20.0",
     "@nestjs/common": "11.2.5",
-    "zod": "3.25.76",
-    "ajv-formats": "3.0.1"
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "pdfmake": "0.2.20",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/pdfmake": "^0.3.3"
   }
 }
