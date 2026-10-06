@@ -53,6 +53,8 @@ describe('schema sections', () => {
       // 0009 is declared after 0019 in schema.prisma: a prescription item references `medications`,
       // and Prisma cannot reference a model declared below. The number still says where it belongs.
       '0009',
+      // 0010 last for the same reason: a prescription's rendered PDF points at `documents`.
+      '0010',
     ]);
     expect(cumulativeSchema(schema, '0001')).not.toContain('model Tenant ');
     expect(cumulativeSchema(schema, '0002')).toContain('model Tenant ');

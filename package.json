@@ -81,6 +81,7 @@
     "@hmedic/database": "workspace:*",
     "@hmedic/identity-access": "workspace:*",
     "@hmedic/jobs": "workspace:*",
+    "@hmedic/laboratory-documents": "workspace:*",
     "@hmedic/kernel": "workspace:*",
     "@hmedic/observability": "workspace:*",
     "@hmedic/patient": "workspace:*",
