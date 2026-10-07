@@ -138,3 +138,11 @@ Each has a default and fallback so Stage 4 is not blocked.
 | ~~Verified Bangladesh medicine dataset~~ | **Import mechanism decided in Stage 3.2 (ADR-020)**; dataset `medicine-dataset-20260917-4` is `UNVERIFIED`; dev/staging only | MEDDATA-006 (four gate attestations) |
 | Retention, residency, telemedicine consent, prescription and AI governance rules | conservative defaults, no compliance claim | legal research register |
 | Queue fairness (late arrivals, overbooking) | `QueuePolicy` defaults | clinic pilot feedback |
+
+### Timeline takeover (2026-10-07)
+
+| ID | Conflict | Sources | Risk | Resolution |
+|---|---|---|---|---|
+| C-57 | Section 0011 reserves both timeline and follow-up, while TL-001 is next in MVP order and follow-up comes afterward. The migration generator refuses a second migration for an applied section. | DATABASE-IMPLEMENTATION §3.11, backlog TL-001/FUP-001, migration-new.mjs | Follow-up would require editing an immutable applied migration or building it prematurely. | Section 0011 creates timeline tables only. Reserve 0020 for follow-up, following the split precedent C-52. Timeline event codes use DOMAIN-MODEL §5 verbatim, plus `REDACTED`. The genesis previous hash is nullable to match `ChainAppender`. |
+
+**Dependency found for TL-002:** `packages/database/src/raw/retention.ts` currently deletes published outbox rows by age alone. EVENT-ARCHITECTURE §5 and DATABASE-IMPLEMENTATION §2 require timeline progress to pass them before deletion. Correct this as part of projector activation, with a retained-event test; the table foundation does not activate a consumer or change retention behavior.

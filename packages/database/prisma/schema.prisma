@@ -2078,3 +2078,60 @@ model DocumentVersion {
   @@index([tenantId, documentId], map: "ix_document_versions_document")
   @@map("document_versions")
 }
+
+// ---------------------------------------------------------------- 0011 timeline
+// DATABASE-IMPLEMENTATION.md §3.11. Follow-up tables land separately when their context is built.
+model TimelineEvent {
+  /// @ascii
+  id                     String   @id @db.VarChar(36)
+  /// @ascii
+  tenantId               String   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  patientId              String   @map("patient_id") @db.VarChar(36)
+  seq                    Int      @db.UnsignedInt
+  /// @ascii
+  eventType              String   @map("event_type") @db.VarChar(32)
+  occurredAt             DateTime @map("occurred_at") @db.DateTime(3)
+  /// @ascii
+  sourceType             String   @map("source_type") @db.VarChar(48)
+  /// @ascii
+  sourceId               String   @map("source_id") @db.VarChar(36)
+  summary                String   @db.VarChar(300)
+  /// @ascii
+  visibility             String   @db.VarChar(16)
+  structuredRefs         Json     @map("structured_refs")
+  projectionVersion      Int      @map("projection_version") @db.SmallInt
+  /// @ascii
+  sourceEventId          String   @map("source_event_id") @db.VarChar(36)
+  /// @ascii
+  redactsTimelineEventId String?  @map("redacts_timeline_event_id") @db.VarChar(36)
+  /// @ascii
+  redactionReasonCode    String?  @map("redaction_reason_code") @db.VarChar(32)
+  /// @ascii
+  prevRowHash            String?  @map("prev_row_hash") @db.VarChar(64)
+  /// @ascii
+  rowHash                String   @map("row_hash") @db.VarChar(64)
+
+  @@unique([tenantId, id], map: "uq_timeline_tenant_id")
+  @@unique([tenantId, patientId, seq], map: "uq_timeline_patient_seq")
+  @@unique([tenantId, patientId, id], map: "uq_timeline_patient_id")
+  @@unique([tenantId, sourceEventId, eventType, projectionVersion], map: "uq_timeline_projection")
+  @@index([tenantId, patientId, occurredAt, id], map: "ix_timeline_patient")
+  @@index([tenantId, redactsTimelineEventId], map: "ix_timeline_redacts")
+  @@map("timeline_events")
+}
+
+model ProjectionCheckpoint {
+  /// @ascii
+  projectionName        String   @map("projection_name") @db.VarChar(64)
+  /// @ascii
+  tenantId              String   @map("tenant_id") @db.VarChar(36)
+  lastOutboxOccurredAt  DateTime @map("last_outbox_occurred_at") @db.DateTime(3)
+  /// @ascii
+  lastEventId           String   @map("last_event_id") @db.VarChar(36)
+  projectionVersion     Int      @map("projection_version") @db.SmallInt
+  updatedAt             DateTime @map("updated_at") @db.DateTime(3)
+
+  @@id([projectionName, tenantId])
+  @@map("projection_checkpoints")
+}

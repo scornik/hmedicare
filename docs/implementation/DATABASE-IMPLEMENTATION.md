@@ -86,7 +86,7 @@
 | 0008 | `clinical_observations` | `symptom_observations`, `diagnoses`. Created in Stage 6 (`202609230524_0008_clinical_observations`). **Split from the catalog in Stage 6 (C-52):** `patient_medications` cannot carry its FK before `medications` exists, and the catalog belongs to the stage that fills it |
 | 0009 | `prescriptions` | `prescriptions`, `prescription_items` |
 | 0010 | `documents_labs` | `documents`, `document_versions`, `upload_sessions`, `upload_session_parts`, `lab_reports`, `lab_results` |
-| 0011 | `timeline_followup` | `timeline_events`, `projection_checkpoints`, `follow_up_plans`, `follow_up_tasks` |
+| 0011 | `timeline` | `timeline_events`, `projection_checkpoints`. Created during takeover (2026-10-07). Follow-up tables are reserved for a separate 0020 migration (C-57). |
 | 0012 | `communication_telemedicine` | `communications`, `communication_attempts` (+ SMS columns, Stage 3.2), `communication_preferences`, `provider_webhook_events`, `communication_short_links`, `telemedicine_sessions`, `telemedicine_participants` |
 | 0013 | `ai` | `tenant_ai_policies`, `tenant_ai_policy_events`, `ai_data_use_acknowledgements`, `ai_provider_credentials`, `ai_credential_fallbacks`, `ai_model_catalog`, `ai_usage_counters`, `ai_usage_ledger`, `ai_jobs`, `ai_transcripts`, `ai_drafts`, `ai_suggestions`, `ai_approvals`; `ALTER TABLE diagnoses ADD ai_approval_id` + composite FK |
 | 0014 | `operations_integrity` | `integrity_chain_checkpoints`, `backup_runs`, `restore_drills`; maintenance indexes proven by query plans |
@@ -95,6 +95,8 @@
 | 0017 | `payments` | `tenant_payment_settings`, `payment_merchant_accounts`, `fee_schedules`, `payment_intents`, `payment_attempts`, `payment_gateway_events`, `payment_verifications`, `ledger_entries`, `refunds`, `payouts`, `payout_items` (Stage 3.2, ADR-019) |
 | 0018 | `subscriptions` | `subscription_plans`, `subscriptions`, `subscription_invoices` (Stage 3.2, ADR-019) |
 | 0019 | `medication_catalog` | `medications`, `medication_generics`, `medication_generic_links`, `medication_manufacturers`, `medication_aliases`, `medication_price_observations`, `medication_usage_stats`, `medication_dataset_imports`, `medication_dataset_gate_attestations`, `patient_medications` (catalog redesigned in Stage 3.2, ADR-020; split out of 0008 in Stage 6, C-52) |
+
+| 0020 | `follow_up` | `follow_up_plans`, `follow_up_tasks` (reserved by C-57; not yet implemented) |
 
 **Billing:** payments and platform subscriptions are MVP since Stage 3.2 (ADR-019 supersedes audit row S3-13). Insurance, claims and complex invoicing remain Future, with no tables.
 
@@ -519,18 +521,18 @@ Notation: `FK→t(tenant_id,id)` means a composite tenant FK `(tenant_id, <col>)
 
 **`lab_results`** (std): `lab_report_id FK→lab_reports(tenant_id,id)`, `analyte_code key(64) NULL`, `code_system key(32) NULL`, `analyte_display text(200)`, `value_numeric DECIMAL(18,6) NULL`, `value_text text(200) NULL`, `unit text(40) NULL`, `reference_range text(120) NULL`, `abnormal_flag code(8) NULL` CHECK `LOW|HIGH|CRITICAL|NORMAL`, `result_date date NULL`, `entry_source code(16)` CHECK `MANUAL|EXTRACTED`, `review_status code(16)`.
 
-### 3.11 Timeline and follow-up (0011) (resolves C-05)
+### 3.11 Timeline (0011) and follow-up (0020) (resolves C-05, C-57)
 
 **`timeline_events`** (append-only, hash-chained per patient):
 - `id id36 PK`, `tenant_id`, `patient_id FK→patients(tenant_id,id)`, `seq INT UNSIGNED` (per patient)
-- `event_type code(32)` CHECK list incl. `REDACTED`
+- `event_type code(32)` CHECK: the 15 event types in DOMAIN-MODEL §5 plus `REDACTED`; values are mirrored in `DB_ENUMS`.
 - `occurred_at ts`, `source_type key(48)`, `source_id id36`
 - `summary text(300)` (non-sensitive template text), `visibility code(16)` CHECK `CLINICAL|PATIENT_SHARED|OPERATIONAL`
 - `structured_refs json:TimelineRefs`, `projection_version SMALLINT`
 - `source_event_id id36` (outbox event id), `redacts_timeline_event_id id36 NULL` (only for `REDACTED` markers), `redaction_reason_code key(32) NULL`
-- `prev_row_hash`, `row_hash`
+- `prev_row_hash` (NULL at genesis), `row_hash`; chain key `timeline:<tenant_id>:<patient_id>`.
 - UNIQUE `(tenant_id, patient_id, seq)`, UNIQUE `(tenant_id, source_event_id, event_type, projection_version)` (idempotent projection)
-- Index `ix_timeline_patient (tenant_id, patient_id, occurred_at, id)`
+- Index `ix_timeline_patient (tenant_id, patient_id, occurred_at, id)`; composite FK `(tenant_id, patient_id, redacts_timeline_event_id)` ensures a redaction targets this patient only.
 - **Strictly append-only.** A redaction **inserts** a `REDACTED` marker row referencing the original. Read models exclude originals that have a marker, and the marker shows "entry removed" per visibility policy. No row is ever updated.
 
 **`projection_checkpoints`**: `projection_name key(64)`, `tenant_id id36`, PK `(projection_name, tenant_id)`; `last_outbox_occurred_at ts`, `last_event_id id36`, `projection_version SMALLINT`, `updated_at ts`.

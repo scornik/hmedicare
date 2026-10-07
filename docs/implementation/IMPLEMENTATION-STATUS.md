@@ -7,6 +7,12 @@ Legend:
 - **DEFERRED:** out of phase (reason given).
 - **BLOCKED:** a human action is required.
 
+## Timeline takeover (2026-10-07)
+
+Continued from `eef0d0a` in the local checkout. **TL-001 is implemented locally:** migration 0011, the append-only hash-chained repository, tenant/patient redaction boundaries, and the verifier source. This is not a completed or tagged timeline checkpoint. TL-002 (projector/rebuild) and TL-003 (API/clients) remain open. The runtime chain source is activated with the projector, not before it.
+
+Analysis, scope, and validation are recorded in [BUILD-TAKEOVER.md](BUILD-TAKEOVER.md). C-57 reserves follow-up migration 0020. The existing outbox retention rule needs a timeline-progress guard before projector activation.
+
 ## 1. Checkpoint status
 
 | Checkpoint | Scope | Status | Tag |

@@ -1065,7 +1065,17 @@ importers:
         specifier: workspace:*
         version: link:../config
 
-  packages/timeline: {}
+  packages/timeline:
+    dependencies:
+      '@hmedic/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@hmedic/database':
+        specifier: workspace:*
+        version: link:../database
+      '@hmedic/kernel':
+        specifier: workspace:*
+        version: link:../kernel
 
   tooling/eslint-plugin-hmedic: {}
 

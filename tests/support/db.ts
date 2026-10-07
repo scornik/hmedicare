@@ -24,6 +24,7 @@ export async function rawConnection(root = false): Promise<mariadb.Connection> {
  * `patients` additionally has a CHECK that MERGED rows keep their pointer, so the pointer cannot be nulled.
  */
 const SELF_REFERENCING: Readonly<Record<string, string>> = {
+  timeline_events: 'redacts_timeline_event_id',
   serials: 'rescheduled_from_serial_id',
   appointments: 'rescheduled_from_appointment_id',
   patients: 'merged_into_patient_id',
@@ -34,6 +35,9 @@ const SELF_REFERENCING: Readonly<Record<string, string>> = {
 
 /** Tables owned by Stage 4/5 migrations, in delete-safe order (children first). */
 const TABLES = [
+  // 0011 timeline: projection rows and checkpoints reference patients and tenants.
+  'timeline_events',
+  'projection_checkpoints',
   // 0019 medication_catalog. The global catalog tables are not truncated between tests: they hold no
   // tenant data, they are expensive to rebuild, and a suite that wiped them would be testing against an
   // empty catalog by accident. Only the tenant-scoped rows that point into them go.

@@ -2,7 +2,7 @@
   "name": "@hmedic/timeline",
   "version": "0.0.0",
   "private": true,
-  "description": "Stage 5+: timeline projection",
+  "description": "Patient timeline projection",
   "main": "./dist/public/index.js",
   "types": "./dist/public/index.d.ts",
   "exports": {
@@ -21,5 +21,9 @@
     "build": "tsc -b",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@hmedic/audit": "workspace:*",
+    "@hmedic/database": "workspace:*",
+    "@hmedic/kernel": "workspace:*"
+  }
 }

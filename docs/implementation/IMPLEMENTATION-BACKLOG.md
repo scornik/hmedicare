@@ -177,10 +177,10 @@ Each task lists: **ID · Phase · Module · Dependencies · Files/packages · DB
 
 | ID | Phase | Module | Deps | Files/packages | DB | API | UI | Tests | Acceptance | Risk |
 |---|---|---|---|---|---|---|---|---|---|---|
-| TL-001 | 8 | timeline | JOB-006, FOUND-012 | migration 0011 (timeline_events, projection_checkpoints) | as listed | — | — | append-only + chain | Tables per §3.11 | Low |
+| TL-001 | 8 | timeline | JOB-006, FOUND-012 | migration 0011 (timeline_events, projection_checkpoints); locally implemented 2026-10-07, see BUILD-TAKEOVER | as listed | — | — | append-only + chain | Tables per §3.11 | Low |
 | TL-002 | 8 | timeline | TL-001 | projector, redaction markers, rebuild | — | — | — | idempotent projection, marker insert, rebuild compare | Timeline rebuildable | Med |
 | TL-003 | 8 | timeline | TL-002, ID-005, PAT-007 | timeline API (doctor/patient views) | — | `/patients/{id}/timeline` | timeline views | source resolution, redaction hidden | Views correct | Med |
-| FUP-001 | 8 | follow-up | CLIN-002, QUEUE-004 | follow-up plans/tasks + booking facade | follow_up_plans/tasks (0011) | follow-up routes | follow-up UI | linked future serial, Dhaka due dates | Follow-up creates linked serial | Low |
+| FUP-001 | 8 | follow-up | CLIN-002, QUEUE-004 | follow-up plans/tasks + booking facade | follow_up_plans/tasks (0020, C-57) | follow-up routes | follow-up UI | linked future serial, Dhaka due dates | Follow-up creates linked serial | Low |
 
 ## Phase 9 — Communication and telemedicine
 

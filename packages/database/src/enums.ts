@@ -148,6 +148,25 @@ export const DB_ENUMS = {
     'DUPLICATE_OVERRIDE',
   ],
   'queue_events.actor_type': ['USER', 'SYSTEM', 'PATIENT_CONTEXT'],
+  'timeline_events.event_type': [
+    'appointment',
+    'serial',
+    'queue_change',
+    'encounter_started',
+    'encounter_completed',
+    'symptom',
+    'diagnosis',
+    'prescription_finalized',
+    'lab_report',
+    'document',
+    'follow_up',
+    'communication',
+    'call',
+    'ai_approved_note',
+    'doctor_note',
+    'REDACTED',
+  ],
+  'timeline_events.visibility': ['CLINICAL', 'PATIENT_SHARED', 'OPERATIONAL'],
 } as const;
 
 export type DbEnumKey = keyof typeof DB_ENUMS;
