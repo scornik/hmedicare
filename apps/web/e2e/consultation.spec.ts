@@ -15,6 +15,7 @@ const TENANT = '00000000-0000-4000-8000-00000000000a';
 const ENCOUNTER = '00000000-0000-4000-8000-000000000701';
 const PATIENT = '00000000-0000-4000-8000-000000000601';
 const RX = '00000000-0000-4000-8000-000000000801';
+const DOCUMENT = '00000000-0000-4000-8000-000000000901';
 const NOTE = '00000000-0000-4000-8000-000000000801';
 const ACCESS = 'mock-access-token-value';
 
@@ -262,12 +263,33 @@ async function mockApi(page: Page, overrides: Partial<State> = {}): Promise<Stat
           voidedByUserId: null,
           voidedAt: null,
           voidReason: null,
+          renderedDocumentId: null,
           createdAt: new Date().toISOString(),
           rowVersion: 1,
           items: [],
         },
       ];
       return json(route, 201, { data: state.prescriptions[0] });
+    }
+    // The render (RX-005) is a queued job, so the first request reports QUEUED with no document and the
+    // panel must say so rather than offering a download that would 404.
+    if (path === `/prescriptions/${RX}/render` && req.method() === 'POST') {
+      const first = state.prescriptions[0];
+      if (!first) return json(route, 404, { code: 'RESOURCE_NOT_FOUND' });
+      const already = first.renderedDocumentId !== null;
+      if (!already) first.renderedDocumentId = DOCUMENT;
+      return json(route, 202, {
+        data: {
+          jobId: '00000000-0000-4000-8000-00000000000b',
+          renderStatus: already ? 'AVAILABLE' : 'QUEUED',
+          documentId: already ? DOCUMENT : null,
+        },
+      });
+    }
+    if (path === `/documents/${DOCUMENT}/download-token` && req.method() === 'POST') {
+      return json(route, 201, {
+        data: { token: '9999999999.' + 'a'.repeat(64), expiresAt: new Date().toISOString(), revision: 1 },
+      });
     }
     if (path === '/medications/search' && req.method() === 'GET') {
       // Only "synth" matches, so the free-text fallback has a query that genuinely finds nothing.
@@ -518,4 +540,27 @@ test('a free-text medicine is visibly marked as free text', async ({ page }) => 
   await page.getByTestId('rx-search').fill('nothing matches this');
   await page.getByTestId('rx-add-free-text').click();
   await expect(page.getByTestId('rx-free-text-0')).toContainText('Free text');
+});
+
+test('the PDF is offered only once a render has produced one', async ({ page }) => {
+  const state = await mockApi(page);
+  await open(page);
+  await page.getByTestId('rx-open').click();
+
+  // A draft has no PDF and is not offered one: rendering never makes a prescription final.
+  await expect(page.getByTestId('rx-render')).toBeHidden();
+
+  state.prescriptions[0]!.clinicalStatus = 'APPROVED';
+  await page.reload();
+  await expect(page.getByTestId('rx-render')).toBeVisible();
+  // Nothing rendered yet, so the panel says so instead of showing a download that would 404.
+  await expect(page.getByTestId('rx-pdf-pending')).toBeVisible();
+  await expect(page.getByTestId('rx-pdf-download')).toBeHidden();
+
+  await page.getByTestId('rx-render').click();
+  // The job is queued, not finished: the wording follows what the server reported.
+  await expect(page.getByTestId('rx-pdf-pending')).toContainText('being created');
+
+  await page.reload();
+  await expect(page.getByTestId('rx-pdf-download')).toBeVisible();
 });

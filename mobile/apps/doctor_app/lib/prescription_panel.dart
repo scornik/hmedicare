@@ -61,6 +61,10 @@ class _PrescriptionPanelState extends ConsumerState<PrescriptionPanel> {
   bool _busy = false;
   String? _loadedFrom;
 
+  /// Set after a render request that queued a first PDF, so the panel reports what the server said
+  /// rather than assuming the file is ready the moment the call returns.
+  bool _renderQueued = false;
+
   @override
   void dispose() {
     _search.dispose();
@@ -283,6 +287,24 @@ class _PrescriptionPanelState extends ConsumerState<PrescriptionPanel> {
                 child: Text(s.t('rxApprove')),
               ),
             ],
+            // A PDF exists only for a final revision. Offered for a void one too: the superseded copy,
+            // watermarked, is often the one someone needs to produce.
+            if (current.clinicalStatus.json == 'APPROVED' || current.clinicalStatus.json == 'VOID') ...[
+              FilledButton(
+                key: const Key('rxRender'),
+                onPressed: _busy ? null : () => _render(current),
+                child: Text(s.t('rxPdf')),
+              ),
+              // Readiness, not a viewer. Opening the file needs a platform launcher this app does not
+              // depend on yet, and adding one is a dependency decision rather than a detail: the
+              // download is a single-use token the doctor App would have to hand to another process.
+              Text(
+                current.renderedDocumentId != null
+                    ? s.t('rxPdfReady')
+                    : (_renderQueued ? s.t('rxPdfQueued') : s.t('rxPdfPending')),
+                key: const Key('rxPdfStatus'),
+              ),
+            ],
             if (current.clinicalStatus.json == 'APPROVED')
               FilledButton(
                 key: const Key('rxCorrection'),
@@ -404,6 +426,20 @@ class _PrescriptionPanelState extends ConsumerState<PrescriptionPanel> {
       idempotencyKey: newIdempotencyKey(),
       body: ApprovePrescriptionRequest(expectedRowVersion: current.rowVersion, attestationVersion: 1),
     );
+  });
+
+  Future<void> _render(Prescription current) => _run(() async {
+    final api = ref.read(apiClientProvider);
+    final result = await api.prescriptions.renderPrescription(
+      id: current.id,
+      xTenantId: _tenantId!,
+      idempotencyKey: newIdempotencyKey(),
+    );
+    // AVAILABLE means a PDF already existed: a re-render leaves the current copy downloadable, so
+    // "being created" would be the wrong thing to say.
+    if (mounted) {
+      setState(() => _renderQueued = result.data.renderStatus.json != 'AVAILABLE');
+    }
   });
 
   Future<void> _correct(Prescription current) => _run(() async {

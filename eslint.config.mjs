@@ -6,6 +6,10 @@ export default tseslint.config(
   {
     ignores: [
       '**/node_modules/**',
+      // Worktrees the desktop app creates for background tasks hold a full checkout plus its own
+      // scratch files. Linting them means a second copy of this repository fails the gate for reasons
+      // that have nothing to do with the branch being checked.
+      '.claude/worktrees/**',
       '**/dist/**',
       '**/coverage/**',
       '**/.turbo/**',

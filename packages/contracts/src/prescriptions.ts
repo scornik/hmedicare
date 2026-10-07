@@ -356,6 +356,9 @@ export const Prescription = registry.register(
     supersedesPrescriptionId: Uuid.nullable(),
     clinicalStatus: PrescriptionClinicalStatus,
     renderStatus: PrescriptionRenderStatus,
+    renderedDocumentId: Uuid.nullable().openapi({
+      description: 'The stored PDF, once a render has produced one; null until then',
+    }),
     reviewedByUserId: Uuid.nullable(),
     reviewedAt: Timestamp.nullable(),
     approvedByDoctorProfileId: Uuid.nullable(),

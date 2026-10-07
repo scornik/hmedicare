@@ -267,6 +267,41 @@ class _PrescriptionsClient implements PrescriptionsClient {
   }
 
   @override
+  Future<PostApiV1PrescriptionsIdRenderResponse> renderPrescription({
+    required String id,
+    required String xTenantId,
+    required String idempotencyKey,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    final _headers = <String, dynamic>{
+      r'X-Tenant-ID': xTenantId,
+      r'Idempotency-Key': idempotencyKey,
+    };
+    _headers.removeWhere((k, v) => v == null);
+    const Map<String, dynamic>? _data = null;
+    final _options = _setStreamType<PostApiV1PrescriptionsIdRenderResponse>(
+      Options(method: 'POST', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/api/v1/prescriptions/${id}/render',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch<Map<String, Object?>>(_options);
+    late PostApiV1PrescriptionsIdRenderResponse _value;
+    try {
+      _value = PostApiV1PrescriptionsIdRenderResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options, response: _result);
+      rethrow;
+    }
+    return _value;
+  }
+
+  @override
   Future<PostApiV1PrescriptionsIdReviewResponse> markPrescriptionReviewed({
     required String id,
     required String xTenantId,

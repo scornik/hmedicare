@@ -101,6 +101,10 @@ class HmStrings {
       'rxSave': 'সংরক্ষণ করুন',
       'rxApprove': 'অনুমোদন করুন',
       'rxCorrection': 'সংশোধন শুরু করুন',
+      'rxPdf': 'পিডিএফ তৈরি করুন',
+      'rxPdfReady': 'পিডিএফ তৈরি হয়েছে। ওয়েব থেকে নামানো যাবে।',
+      'rxPdfQueued': 'পিডিএফ তৈরি হচ্ছে।',
+      'rxPdfPending': 'পিডিএফ এখনো তৈরি হয়নি।',
       'rxAttestation':
           'আমি নিশ্চিত করছি যে এই ওষুধগুলো আমি এই রোগীর জন্য লিখেছি এবং মাত্রা, কতবার ও কত দিন আমি নিজে ঠিক করেছি।',
       'rxRequired': 'মাত্রা, কতবার ও কত দিন — তিনটিই লিখতে হবে।',
@@ -230,6 +234,10 @@ class HmStrings {
       'rxSave': 'Save',
       'rxApprove': 'Approve',
       'rxCorrection': 'Start a correction',
+      'rxPdf': 'Create PDF',
+      'rxPdfReady': 'The PDF is ready. Download it from the web workspace.',
+      'rxPdfQueued': 'The PDF is being created.',
+      'rxPdfPending': 'No PDF yet.',
       'rxAttestation':
           'I confirm I prescribed these medicines for this patient, and that the dose, frequency and duration are mine.',
       'rxRequired': 'Dose, frequency and duration are all required.',

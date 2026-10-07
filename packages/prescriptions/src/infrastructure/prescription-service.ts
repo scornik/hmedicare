@@ -44,6 +44,8 @@ export interface PrescriptionView {
   supersedesPrescriptionId: string | null;
   clinicalStatus: ClinicalStatus;
   renderStatus: string;
+  /** The stored PDF, once a render produced one. Null until then (RX-005). */
+  renderedDocumentId: string | null;
   reviewedByUserId: string | null;
   reviewedAt: string | null;
   approvedByDoctorProfileId: string | null;
@@ -749,6 +751,7 @@ export class PrescriptionService {
     supersedesPrescriptionId: string | null;
     clinicalStatus: string;
     renderStatus: string;
+    renderedDocumentId: string | null;
     reviewedByUserId: string | null;
     reviewedAt: Date | null;
     approvedByDoctorProfileId: string | null;
@@ -774,6 +777,7 @@ export class PrescriptionService {
       supersedesPrescriptionId: row.supersedesPrescriptionId,
       clinicalStatus: row.clinicalStatus as ClinicalStatus,
       renderStatus: row.renderStatus,
+      renderedDocumentId: row.renderedDocumentId,
       reviewedByUserId: row.reviewedByUserId,
       reviewedAt: row.reviewedAt?.toISOString() ?? null,
       approvedByDoctorProfileId: row.approvedByDoctorProfileId,

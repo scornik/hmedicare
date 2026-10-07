@@ -25,6 +25,7 @@ class Prescription {
     required this.items,
     required this.patientId,
     required this.renderStatus,
+    required this.renderedDocumentId,
     required this.reviewedAt,
     required this.reviewedByUserId,
     required this.revision,
@@ -51,6 +52,9 @@ class Prescription {
   final List<PrescriptionItem> items;
   final String patientId;
   final PrescriptionRenderStatus renderStatus;
+
+  /// The stored PDF, once a render has produced one; null until then
+  final String? renderedDocumentId;
   final DateTime? reviewedAt;
   final String? reviewedByUserId;
 

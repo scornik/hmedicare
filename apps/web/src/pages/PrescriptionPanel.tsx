@@ -130,6 +130,9 @@ export function PrescriptionPanel({ encounterId }: { encounterId: string }) {
   const [error, setError] = useState<MessageKey | null>(null);
   const [voidReason, setVoidReason] = useState('');
   const [attested, setAttested] = useState(false);
+  // The render is a queued job, so the panel tracks what it last heard rather than assuming the PDF is
+  // ready the moment the request returns.
+  const [renderNote, setRenderNote] = useState<MessageKey | null>(null);
   // Held in a ref as well as in the query, so a save sends the version the editor was opened against
   // rather than one a background refetch moved underneath it.
   const rowVersion = useRef<number>(0);
@@ -231,6 +234,50 @@ export function PrescriptionPanel({ encounterId }: { encounterId: string }) {
         void qc.invalidateQueries({ queryKey: ['prescriptions', encounterId] });
       })
       .catch((e: { response?: { status: number } }) => onFailure(e?.response?.status, undefined));
+
+  /**
+   * Queues a PDF, then reports what the server said rather than what we hoped.
+   *
+   * `renderStatus` comes back AVAILABLE when a PDF already exists — a re-render leaves the current copy
+   * downloadable — so "queued" is only shown when the server actually queued a first one.
+   */
+  const render = useMutation({
+    mutationFn: async () => {
+      const r = await api.POST('/api/v1/prescriptions/{id}/render', {
+        params: { header: idemHeader(), path: { id: current!.id } },
+      });
+      if (r.error) throw r;
+      return r.data?.data;
+    },
+    onSuccess: (data) => {
+      setError(null);
+      setRenderNote(data?.renderStatus === 'AVAILABLE' ? null : 'rx.pdfQueued');
+      void qc.invalidateQueries({ queryKey: ['prescriptions', encounterId] });
+    },
+    onError: (e: { response?: { status: number } }) => onFailure(e?.response?.status, undefined),
+  });
+
+  /**
+   * Fetches a single-use token and follows it.
+   *
+   * The token is spent on use and bound to this actor, so it cannot be turned into a link to share —
+   * which is why the download is driven here rather than rendered as an anchor the browser might
+   * prefetch or a user might copy.
+   */
+  const download = useMutation({
+    mutationFn: async (documentId: string) => {
+      const issued = await api.POST('/api/v1/documents/{id}/download-token', {
+        params: { header: idemHeader(), path: { id: documentId } },
+      });
+      if (issued.error) throw issued;
+      const token = issued.data?.data?.token;
+      if (!token) throw issued;
+      window.location.assign(
+        `/api/v1/documents/${encodeURIComponent(documentId)}/download?token=${encodeURIComponent(token)}`,
+      );
+    },
+    onError: (e: { response?: { status: number } }) => onFailure(e?.response?.status, undefined),
+  });
 
   const setItem = (i: number, patch: Partial<ItemDraft>) =>
     setItems((prev) => (prev ?? []).map((it, n) => (n === i ? { ...it, ...patch } : it)));
@@ -426,6 +473,40 @@ export function PrescriptionPanel({ encounterId }: { encounterId: string }) {
           >
             {t('rx.approve')}
           </button>
+        </>
+      ) : null}
+
+      {/* A PDF exists only for a final revision, and a void one prints watermarked for the audit
+          trail. Offered for both, because the superseded copy is often the one someone needs to see. */}
+      {current.clinicalStatus === 'APPROVED' || current.clinicalStatus === 'VOID' ? (
+        <>
+          <button
+            type="button"
+            onClick={() => render.mutate()}
+            disabled={render.isPending}
+            data-testid="rx-render"
+          >
+            {t('rx.pdf')}
+          </button>
+          {current.renderedDocumentId ? (
+            <button
+              type="button"
+              onClick={() => download.mutate(current.renderedDocumentId!)}
+              disabled={download.isPending}
+              data-testid="rx-pdf-download"
+            >
+              {t('rx.pdfDownload')}
+            </button>
+          ) : (
+            <p className="muted" data-testid="rx-pdf-pending">
+              {t(renderNote ?? 'rx.pdfPending')}
+            </p>
+          )}
+          {current.clinicalStatus === 'VOID' ? (
+            <p className="muted" data-testid="rx-pdf-void-notice">
+              {t('rx.pdfVoidNotice')}
+            </p>
+          ) : null}
         </>
       ) : null}
 

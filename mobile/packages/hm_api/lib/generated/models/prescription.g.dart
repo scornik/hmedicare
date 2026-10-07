@@ -27,6 +27,7 @@ Prescription _$PrescriptionFromJson(Map<String, dynamic> json) => Prescription(
   renderStatus: PrescriptionRenderStatus.fromJson(
     json['renderStatus'] as String,
   ),
+  renderedDocumentId: json['renderedDocumentId'] as String?,
   reviewedAt: json['reviewedAt'] == null
       ? null
       : DateTime.parse(json['reviewedAt'] as String),
@@ -55,6 +56,7 @@ Map<String, dynamic> _$PrescriptionToJson(Prescription instance) =>
       'items': instance.items,
       'patientId': instance.patientId,
       'renderStatus': instance.renderStatus,
+      'renderedDocumentId': ?instance.renderedDocumentId,
       'reviewedAt': ?instance.reviewedAt?.toIso8601String(),
       'reviewedByUserId': ?instance.reviewedByUserId,
       'revision': instance.revision,

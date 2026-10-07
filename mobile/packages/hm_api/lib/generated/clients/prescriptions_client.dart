@@ -14,6 +14,7 @@ import '../models/patch_api_v1_prescriptions_id_response.dart';
 import '../models/post_api_v1_encounters_id_prescriptions_response.dart';
 import '../models/post_api_v1_prescriptions_id_approve_response.dart';
 import '../models/post_api_v1_prescriptions_id_corrections_response.dart';
+import '../models/post_api_v1_prescriptions_id_render_response.dart';
 import '../models/post_api_v1_prescriptions_id_review_response.dart';
 import '../models/post_api_v1_prescriptions_id_void_response.dart';
 import '../models/prescription_row_version_only.dart';
@@ -74,6 +75,14 @@ abstract class PrescriptionsClient {
   /// Starts revision N+1 carrying a copy of the approved items. The approved revision is untouched until the correction is itself approved, so an abandoned correction changes nothing.
   @POST('/api/v1/prescriptions/{id}/corrections')
   Future<PostApiV1PrescriptionsIdCorrectionsResponse> createPrescriptionCorrection({
+    @Path('id') required String id,
+    @Header('X-Tenant-ID') required String xTenantId,
+    @Header('Idempotency-Key') required String idempotencyKey,
+  });
+
+  /// Queues a PDF render of an approved (or voided, watermarked) revision. Refused with PRESCRIPTION_NOT_APPROVED for a draft: rendering never makes a prescription final, and a draft PDF could be handed to a patient and then changed. Idempotent — a replay that renders identical bytes changes nothing, and the existing PDF stays downloadable while a re-render is queued.
+  @POST('/api/v1/prescriptions/{id}/render')
+  Future<PostApiV1PrescriptionsIdRenderResponse> renderPrescription({
     @Path('id') required String id,
     @Header('X-Tenant-ID') required String xTenantId,
     @Header('Idempotency-Key') required String idempotencyKey,

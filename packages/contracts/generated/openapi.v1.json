@@ -4335,6 +4335,15 @@
             ],
             "type": "string"
           },
+          "renderedDocumentId": {
+            "description": "The stored PDF, once a render has produced one; null until then",
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "reviewedAt": {
             "example": "2026-09-18T10:49:42.206Z",
             "format": "date-time",
@@ -4398,6 +4407,7 @@
           "supersedesPrescriptionId",
           "clinicalStatus",
           "renderStatus",
+          "renderedDocumentId",
           "reviewedByUserId",
           "reviewedAt",
           "approvedByDoctorProfileId",

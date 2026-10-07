@@ -15,6 +15,7 @@ import 'clients/clinics_client.dart';
 import 'clients/patients_client.dart';
 import 'clients/encounters_client.dart';
 import 'clients/tenant_client.dart';
+import 'clients/documents_client.dart';
 import 'clients/prescriptions_client.dart';
 import 'clients/guardianships_client.dart';
 import 'clients/me_client.dart';
@@ -48,6 +49,7 @@ class HmApiClient {
   PatientsClient? _patients;
   EncountersClient? _encounters;
   TenantClient? _tenant;
+  DocumentsClient? _documents;
   PrescriptionsClient? _prescriptions;
   GuardianshipsClient? _guardianships;
   MeClient? _me;
@@ -76,6 +78,8 @@ class HmApiClient {
   EncountersClient get encounters => _encounters ??= EncountersClient(_dio, baseUrl: _baseUrl);
 
   TenantClient get tenant => _tenant ??= TenantClient(_dio, baseUrl: _baseUrl);
+
+  DocumentsClient get documents => _documents ??= DocumentsClient(_dio, baseUrl: _baseUrl);
 
   PrescriptionsClient get prescriptions => _prescriptions ??= PrescriptionsClient(_dio, baseUrl: _baseUrl);
 

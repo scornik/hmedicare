@@ -3305,6 +3305,12 @@ export interface components {
              * @example 01a0b422-fd6f-7480-8586-444e7fc66080
              */
             patientId: string;
+            /**
+             * Format: uuid
+             * @description The stored PDF, once a render has produced one; null until then
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            renderedDocumentId: string | null;
             /** @enum {string} */
             renderStatus: "NOT_REQUESTED" | "QUEUED" | "RENDERING" | "AVAILABLE" | "FAILED";
             /**
