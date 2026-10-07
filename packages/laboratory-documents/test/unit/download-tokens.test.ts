@@ -16,18 +16,38 @@ const CLAIMS: DownloadTokenClaims = {
   revision: 1,
 };
 
-/** The rate-limit counters, in memory: one row per subject, as the database table behaves. */
+/**
+ * The counter table, in memory, keyed the way the real one is: `(scope, subjectHash, windowStart)`.
+ *
+ * Deliberately not a stub of "was this token used" — the first version of this test faked
+ * `consume(subject)` and so could not see that the production key included a *moving* window, which is
+ * exactly the bug the HTTP replay test caught. This models the row identity instead.
+ */
+const rows = new Map<string, number>();
+
 function fakeLimiter() {
-  const used = new Map<string, number>();
-  return {
-    used,
-    consume: async (rule: { limit: number }, subject: string) => {
-      const count = (used.get(subject) ?? 0) + 1;
-      used.set(subject, count);
-      return { allowed: count <= rule.limit, estimate: count, retryAfterSeconds: 0 };
-    },
-  };
+  return { subjectHash: (subject: string) => `h:${subject}` };
 }
+
+const prismaStub = {
+  rateLimitCounter: {
+    findMany: async ({
+      where,
+    }: {
+      where: { scope: string; subjectHash: string; windowStart: { in: Date[] } };
+    }) =>
+      where.windowStart.in
+        .map((windowStart) => ({
+          windowStart,
+          count: rows.get(`${where.scope}|${where.subjectHash}|${windowStart.getTime()}`) ?? 0,
+        }))
+        .filter((r) => r.count > 0),
+  },
+  $executeRawUnsafe: async (_sql: string, scope: string, subjectHash: string, windowStart: Date) => {
+    const key = `${scope}|${subjectHash}|${windowStart.getTime()}`;
+    rows.set(key, (rows.get(key) ?? 0) + 1);
+  },
+};
 
 let now = new Date('2026-10-07T10:00:00.000Z');
 let limiter: ReturnType<typeof fakeLimiter>;
@@ -39,7 +59,7 @@ let limiter: ReturnType<typeof fakeLimiter>;
  */
 function service(secret: string | null = 's'.repeat(32), ttlSeconds = 60) {
   return new DownloadTokenService({
-    prisma: {} as never,
+    prisma: prismaStub as never,
     rateLimiter: limiter as never,
     secret: secret ?? undefined,
     ttlSeconds,
@@ -49,6 +69,7 @@ function service(secret: string | null = 's'.repeat(32), ttlSeconds = 60) {
 
 beforeEach(() => {
   now = new Date('2026-10-07T10:00:00.000Z');
+  rows.clear();
   limiter = fakeLimiter();
 });
 
@@ -69,6 +90,18 @@ describe('download tokens', () => {
     expect(expiresAt.toISOString()).toBe('2026-10-07T10:01:00.000Z');
     await expect(svc.redeem(token, CLAIMS)).resolves.toBeUndefined();
     // Single use: a saved link is spent the moment it is followed.
+    expect(await code(svc.redeem(token, CLAIMS))).toBe('UNAUTHENTICATED');
+  });
+
+  it('refuses a replay even when time has moved on between the two attempts', async () => {
+    const svc = service();
+    const { token } = svc.issue(CLAIMS);
+
+    await expect(svc.redeem(token, CLAIMS)).resolves.toBeUndefined();
+    // The original implementation derived the counter's window from the token's *remaining* life, so a
+    // second attempt a few seconds later computed a different row, found a count of 1 and allowed the
+    // replay. The row is keyed to the token's expiry precisely so this cannot happen.
+    now = new Date('2026-10-07T10:00:37.000Z');
     expect(await code(svc.redeem(token, CLAIMS))).toBe('UNAUTHENTICATED');
   });
 

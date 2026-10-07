@@ -21,6 +21,16 @@ const TENANT_A = '01a0e100-0000-7000-8000-00000000000a';
 const TENANT_B = '01a0e100-0000-7000-8000-00000000000b';
 const sha = (seed: string) => seed.padEnd(64, '0').slice(0, 64);
 const now = new Date();
+/**
+ * This suite's own dataset version, so its cleanup can be scoped to rows it created.
+ *
+ * The catalog tables are global and the integration files run in parallel against one database, so a
+ * blanket `medication.deleteMany()` here fails the moment another suite holds a `prescription_items`
+ * row pointing into the catalog — which is exactly what happened when a new file changed how the
+ * suites were scheduled. Deleting only this suite's rows removes the whole class of problem rather
+ * than reordering around it.
+ */
+const DATASET = `search-${newId().slice(-12)}`;
 
 beforeAll(async () => {
   db = openTestDatabase();
@@ -38,8 +48,8 @@ async function medication(brand: string, over: Record<string, unknown> = {}) {
       canonicalKey: `synthetic:${id}`,
       canonicalKeySha256: sha(id.replace(/-/g, '')),
       datasetRecordId: `syn_${id.replace(/-/g, '').slice(0, 16)}`,
-      datasetVersion: 'test-v1',
-      firstSeenVersion: 'test-v1',
+      datasetVersion: DATASET,
+      firstSeenVersion: DATASET,
       brandName: brand,
       brandSearchKey: brand.toLowerCase(),
       genericDisplay: 'DEMO Generic A',
@@ -72,18 +82,29 @@ async function alias(medicationId: string, text: string, origin: 'source' | 'gen
       kind: origin === 'source' ? 'brand_variant' : 'banglish',
       aliasOrigin: origin,
       sources: [],
-      datasetVersion: 'test-v1',
+      datasetVersion: DATASET,
       aliasIdentitySha256: sha(`${medicationId}${text}`.replace(/-/g, '')),
     },
   });
 }
 
-/** Empties only the catalog; `truncateAll` leaves global reference tables alone by design. */
+/**
+ * Removes this suite's catalog rows and nothing else.
+ *
+ * Scoped by `datasetVersion`, not global: `truncateAll` deliberately leaves the catalog alone because
+ * it is shared and expensive to rebuild, and a suite that wiped it would break whichever file happened
+ * to be running beside it.
+ */
 async function clearCatalog() {
-  await db.prisma.medicationUsageStat.deleteMany();
-  await db.prisma.medicationAlias.deleteMany();
-  await db.prisma.medicationGenericLink.deleteMany();
-  await db.prisma.medication.deleteMany();
+  const mine = await db.prisma.medication.findMany({
+    where: { datasetVersion: DATASET },
+    select: { id: true },
+  });
+  const ids = mine.map((m) => m.id);
+  await db.prisma.medicationUsageStat.deleteMany({ where: { medicationId: { in: ids } } });
+  await db.prisma.medicationAlias.deleteMany({ where: { medicationId: { in: ids } } });
+  await db.prisma.medicationGenericLink.deleteMany({ where: { medicationId: { in: ids } } });
+  await db.prisma.medication.deleteMany({ where: { datasetVersion: DATASET } });
 }
 
 /** `medication_usage_stats.tenant_id` carries a real foreign key, so the tenants must exist. */

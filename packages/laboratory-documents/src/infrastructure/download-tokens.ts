@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { AppError, type Clock, systemClock } from '@hmedic/kernel';
 import type { PrismaClient } from '@hmedic/database';
+import { incrementRateCounter, readRateCounters } from '@hmedic/database';
 import type { RateLimiter } from '@hmedic/jobs';
 
 /**
@@ -107,13 +108,31 @@ export class DownloadTokenService {
       throw new AppError('UNAUTHENTICATED');
     }
 
-    // Single use. The window is the token's own remaining life, so the counter expires on its own and
-    // there is nothing to clean up.
-    const remaining = Math.max(1, expiresAtSeconds - Math.floor(this.clock.now().getTime() / 1000));
-    const decision = await this.deps.rateLimiter.consume(
-      { scope: DOWNLOAD_TOKEN_USED.scope, limit: DOWNLOAD_TOKEN_USED.limit, windowSeconds: remaining },
-      token,
+    // Single use, recorded against the token's own expiry rather than a sliding window.
+    //
+    // `RateLimiter.consume` cannot express exactly-once: its counter is keyed by
+    // `floor(now / windowMs) * windowMs`, so a window derived from the token's *remaining* life moves
+    // between calls, and the replay lands on a fresh row with a count of 1 and is allowed. That is how
+    // this was first written, and the HTTP replay test caught it.
+    //
+    // Keying the row to `expiresAtSeconds` instead gives exactly one row per token: the insert is an
+    // atomic upsert, so the second redemption increments to 2 and is refused however the two requests
+    // interleave. `expires_at` is the token's own expiry, so the row still cleans itself up.
+    const windowStart = new Date(expiresAtSeconds * 1000);
+    const subjectHash = this.deps.rateLimiter.subjectHash(token);
+    await incrementRateCounter(
+      this.deps.prisma,
+      DOWNLOAD_TOKEN_USED.scope,
+      subjectHash,
+      windowStart,
+      this.deps.ttlSeconds,
+      windowStart,
     );
-    if (!decision.allowed) throw new AppError('UNAUTHENTICATED');
+    const counts = await readRateCounters(this.deps.prisma, DOWNLOAD_TOKEN_USED.scope, subjectHash, [
+      windowStart,
+    ]);
+    if ((counts.get(windowStart.getTime()) ?? 0) > DOWNLOAD_TOKEN_USED.limit) {
+      throw new AppError('UNAUTHENTICATED');
+    }
   }
 }
