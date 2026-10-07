@@ -70,6 +70,7 @@ import {
   MedicationSearchController,
 } from './prescriptions/medication-catalog.controllers';
 import { PrescriptionController } from './prescriptions/prescription.controllers';
+import { DocumentController } from './documents/document.controllers';
 import { ConsentController, MergeCaseController, PatientController } from './patient/patient.controllers';
 import {
   CareTeamController,
@@ -87,6 +88,8 @@ import {
   sessionModeCheck,
 } from '@hmedic/http-kit';
 import { DiskObjectStorage } from '@hmedic/storage-adapters-disk';
+import { DocumentDownloadService, DownloadTokenService } from '@hmedic/laboratory-documents';
+import { DocumentModule, type DocumentServices } from '@hmedic/laboratory-documents/nest';
 
 /**
  * Object storage for generated documents, or null when the deployment has no storage root.
@@ -114,6 +117,7 @@ export class ApiModule {
     queue: QueueServices,
     clinical: ClinicalServices,
     prescriptions: PrescriptionServices,
+    documents: DocumentServices | null,
   ): DynamicModule {
     const mode = runtime.config.JOB_RUNNER_MODE;
     const devInbox = identity.mockOtp !== null || identity.mockReset !== null;
@@ -128,6 +132,9 @@ export class ApiModule {
         QueueWriteModule.forRoot(queue),
         ClinicalWriteModule.forRoot(clinical),
         PrescriptionWriteModule.forRoot(prescriptions),
+        // Only when this deployment has document storage. Without it the routes are absent rather than
+        // present and failing, so a client discovers the capability from the API rather than from a 409.
+        ...(documents ? [DocumentModule.forRoot(documents)] : []),
       ],
       controllers: [
         AuthController,
@@ -159,6 +166,7 @@ export class ApiModule {
         PrescriptionController,
         MedicationImportAdminController,
         MedicationSearchController,
+        ...(documents ? [DocumentController] : []),
         ...(devInbox ? [DevInboxController] : []),
       ],
     };
@@ -281,6 +289,22 @@ export async function buildApi(
       metrics: runtime.metrics,
     }),
   };
+  const documentStorage = createDocumentStorage(config);
+  const documents: DocumentServices | null = documentStorage
+    ? {
+        downloads: new DocumentDownloadService({
+          prisma: runtime.prisma,
+          storage: documentStorage,
+          tokens: new DownloadTokenService({
+            prisma: runtime.prisma,
+            rateLimiter: runtime.rateLimiter,
+            secret: config.DOWNLOAD_TOKEN_SECRET,
+            ttlSeconds: config.DOWNLOAD_TOKEN_TTL_SECONDS,
+            clock: runtime.clock,
+          }),
+        }),
+      }
+    : null;
   const identity = createIdentityServices(runtime, sms.otpDelivery ? { otpDelivery: sms.otpDelivery } : {});
   const tenantOrg: TenantOrgServices = {
     clinics: new ClinicService(runtime.prisma, runtime.audit, runtime.clock),
@@ -294,7 +318,17 @@ export async function buildApi(
     await patient.access.autoLinkOnOtpVerify(userId, phoneE164);
   };
   const app = await createHttpApp(
-    ApiModule.forRoot(runtime, identity, tenantOrg, patient, scheduling, queue, clinical, prescriptions),
+    ApiModule.forRoot(
+      runtime,
+      identity,
+      tenantOrg,
+      patient,
+      scheduling,
+      queue,
+      clinical,
+      prescriptions,
+      documents,
+    ),
     runtime,
     { cors: true },
   );

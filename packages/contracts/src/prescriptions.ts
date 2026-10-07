@@ -526,3 +526,32 @@ registry.registerPath({
   request: { headers: tenantHeaders, params: z.object({ id: Uuid }) },
   responses: { 200: ok(PrescriptionList, 'Revisions'), ...errorResponses },
 });
+
+// ---------------------------------------------------------------- render (RX-005)
+
+export const RenderPrescriptionResponse = registry.register(
+  'RenderPrescriptionResponse',
+  z.object({
+    jobId: Uuid,
+    renderStatus: z.enum(['NOT_REQUESTED', 'QUEUED', 'RENDERING', 'AVAILABLE', 'FAILED']).openapi({
+      description:
+        'Stays AVAILABLE when a PDF already exists: a re-render must not take away the current copy',
+    }),
+    documentId: Uuid.nullable().openapi({ description: 'The document a previous render produced, if any' }),
+  }),
+);
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/prescriptions/{id}/render',
+  operationId: 'renderPrescription',
+  tags: ['prescriptions'],
+  security: secured,
+  description:
+    'Queues a PDF render of an approved (or voided, watermarked) revision. Refused with ' +
+    'PRESCRIPTION_NOT_APPROVED for a draft: rendering never makes a prescription final, and a draft PDF ' +
+    'could be handed to a patient and then changed. Idempotent — a replay that renders identical bytes ' +
+    'changes nothing, and the existing PDF stays downloadable while a re-render is queued.',
+  request: { headers: tenantIdemHeaders, params: z.object({ id: Uuid }) },
+  responses: { 202: ok(RenderPrescriptionResponse, 'Render queued'), ...errorResponses },
+});

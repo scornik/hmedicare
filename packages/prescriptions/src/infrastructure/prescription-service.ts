@@ -4,6 +4,7 @@ import type { AuditMetadata, AuditPort } from '@hmedic/audit';
 import type { ClinicalAccessPolicy, ClinicalActor } from '@hmedic/clinical';
 import type { Metrics } from '@hmedic/observability';
 import type { PrescriptionOutbox } from './events';
+import { enqueuePrescriptionRender } from './render/render-jobs';
 import {
   ATTESTATION_VERSION,
   type ClinicalStatus,
@@ -786,5 +787,28 @@ export class PrescriptionService {
       rowVersion: row.rowVersion,
       items: items.map((i) => ({ id: i.id, ...this.itemInput(i) })),
     };
+  }
+  /**
+   * Queues a PDF render of a final revision (RX-005).
+   *
+   * The caller has already proved it may read this prescription. Everything else — that the revision is
+   * final, that an existing PDF stays downloadable — belongs to `enqueuePrescriptionRender`, which the
+   * worker's job handler shares, so the rule cannot drift between the route and the queue.
+   */
+  async requestRender(
+    tenantId: string,
+    prescriptionId: string,
+    correlationId?: string,
+  ): Promise<{ jobId: string; renderStatus: string; documentId: string | null }> {
+    const queued = await enqueuePrescriptionRender(
+      this.deps.prisma,
+      { tenantId, prescriptionId, correlationId },
+      this.clock,
+    );
+    const row = await this.deps.prisma.prescription.findFirstOrThrow({
+      where: { tenantId, id: prescriptionId },
+      select: { renderedDocumentId: true },
+    });
+    return { ...queued, documentId: row.renderedDocumentId };
   }
 }

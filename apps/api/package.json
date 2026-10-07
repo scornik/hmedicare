@@ -18,6 +18,7 @@
     "@hmedic/http-kit": "workspace:*",
     "@hmedic/jobs": "workspace:*",
     "@hmedic/kernel": "workspace:*",
+    "@hmedic/laboratory-documents": "workspace:*",
     "@hmedic/localization": "workspace:*",
     "@hmedic/observability": "workspace:*",
     "@hmedic/patient": "workspace:*",

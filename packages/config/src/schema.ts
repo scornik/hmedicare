@@ -156,6 +156,14 @@ export const authSection = {
   OTP_PEPPER: secret32,
   RATE_LIMIT_PEPPER: secret32,
   CSRF_SECRET: secret32,
+  /**
+   * Signs document download tokens (FILE-STORAGE-IMPLEMENTATION.md §2.5). Optional so a deployment with
+   * no document storage still boots; the download route refuses when it is absent rather than signing
+   * with a default, because a predictable signing key is the same as no signature at all.
+   */
+  DOWNLOAD_TOKEN_SECRET: secret32.optional(),
+  /** Seconds a download token stays valid. Short on purpose: the token is single use and per revision. */
+  DOWNLOAD_TOKEN_TTL_SECONDS: int(60, 10, 900),
   SESSION_IDLE_TIMEOUT_HOURS_WEB: int(12, 1),
   SESSION_IDLE_TIMEOUT_HOURS_MOBILE: int(720, 1),
   SESSION_ABSOLUTE_TIMEOUT_DAYS_WEB: int(7, 1),

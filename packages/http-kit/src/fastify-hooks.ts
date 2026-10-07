@@ -86,7 +86,14 @@ export function registerHttpHooks(fastify: FastifyInstance, runtime: HttpRuntime
   fastify.addHook('onSend', (request, reply, payload, done) => {
     const override = request.hm?.statusOverride;
     if (override !== undefined && reply.statusCode < 400) void reply.status(override);
-    for (const [name, value] of Object.entries(headers)) void reply.header(name, value);
+    for (const [name, value] of Object.entries(headers)) {
+      // `content-security-policy` is a default rather than an override, the way `cache-control` below
+      // already is: a route serving something other than JSON may need to *add* a directive, and a
+      // blanket reset here would silently undo it. Only ever tightened — a handler that sets this is
+      // expected to keep the directives above and extend them (the document download adds `sandbox`).
+      if (name === 'content-security-policy' && reply.hasHeader(name)) continue;
+      void reply.header(name, value);
+    }
     if (!reply.hasHeader('cache-control')) void reply.header('cache-control', 'no-store');
     // A 304 carries no body (RFC 9110 §15.4.5). The handler still returned an envelope, because Nest has
     // no way to skip it, so the payload is dropped here rather than serialized and thrown away downstream.

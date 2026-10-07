@@ -38,6 +38,9 @@ export function testEnv(overrides: Record<string, string | undefined> = {}): Rec
     OTP_PEPPER: generateSecret(),
     RATE_LIMIT_PEPPER: generateSecret(),
     CSRF_SECRET: generateSecret(),
+    // Document downloads are signed, so a test that exercises them needs a key. Generated per call like
+    // every other secret here; a test that wants the unconfigured deployment overrides it to undefined.
+    DOWNLOAD_TOKEN_SECRET: generateSecret(),
     PUSH_TOKEN_KEK: generateSecret(),
     PUSH_TOKEN_KEK_ID: 'test-push-1',
     PROVIDER_CREDENTIAL_KEK: generateSecret(),

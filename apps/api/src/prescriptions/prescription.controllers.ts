@@ -182,4 +182,29 @@ export class PrescriptionController {
       clinicalReviewerDoctorProfileId: dto.clinicalReviewerDoctorProfileId ?? null,
     });
   }
+  /**
+   * Queues a PDF of a final revision (RX-005).
+   *
+   * Refused for a draft at the request rather than inside the job: a caller asking for a PDF of
+   * something unapproved should be told now, not by a job that dead-letters out of sight. Rendering
+   * never changes `clinical_status`, so this cannot make a prescription final.
+   */
+  @Post('prescriptions/:id/render')
+  @HttpCode(202)
+  @RequirePermission('prescription.read')
+  @Idempotent()
+  async render(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id') prescriptionId: string,
+    @Req() req: FastifyRequest,
+  ): Promise<{ jobId: string; renderStatus: string; documentId: string | null }> {
+    // Read authorization first, through the same policy every other prescription route uses: a PDF is
+    // the prescription, so being allowed to see one is being allowed to see the other.
+    const prescription = await this.svc.prescriptions.get(
+      await this.actor(actor, tenant, req),
+      prescriptionId,
+    );
+    return this.svc.prescriptions.requestRender(tenant.tenantId, prescription.id, req.id);
+  }
 }

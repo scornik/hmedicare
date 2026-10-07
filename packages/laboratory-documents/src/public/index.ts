@@ -6,6 +6,18 @@ export {
   type StoredObject,
 } from '../application/object-storage-port';
 export {
+  type DocumentDescriptor,
+  type DocumentDownloadDeps,
+  DocumentDownloadService,
+  safeFileName,
+} from '../infrastructure/document-download';
+export {
+  DOWNLOAD_TOKEN_USED,
+  type DownloadTokenClaims,
+  type DownloadTokenDeps,
+  DownloadTokenService,
+} from '../infrastructure/download-tokens';
+export {
   DOCUMENT_CATEGORIES,
   type DocumentCategory,
   STORAGE_KEY_RE,
