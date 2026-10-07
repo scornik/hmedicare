@@ -1,9 +1,11 @@
 import type { PrismaClient } from '@hmedic/database';
+import type { ObjectStoragePort } from '@hmedic/laboratory-documents';
 import type { JobRegistry, JobRunner } from '@hmedic/jobs';
 import type { Logger } from '@hmedic/observability';
 import { registerMedicationImportJobs } from '../infrastructure/medication-import/jobs';
 import { MedicationSearchService } from '../infrastructure/medication-search';
 import { registerMedicationUsageJobs } from '../infrastructure/usage-jobs';
+import { registerPrescriptionRenderJobs } from '../infrastructure/render/render-jobs';
 import type { StagedDatasetConfig } from '../infrastructure/medication-import/staged-datasets';
 
 export interface PrescriptionWorkerDeps {
@@ -15,6 +17,12 @@ export interface PrescriptionWorkerDeps {
   /** `MEDICATION_IMPORT_EXCLUDE_VETERINARY`, the default a request may override. */
   excludeVeterinary?: boolean;
   staging: StagedDatasetConfig;
+  /**
+   * Object storage for rendered PDFs. Optional: a deployment with no storage root configured still
+   * imports a catalog and prescribes, it just cannot render. Registering the job type without a store
+   * would accept render requests and then fail every one of them.
+   */
+  storage?: ObjectStoragePort;
   logger?: Logger;
 }
 
@@ -36,4 +44,13 @@ export function registerPrescriptionJobs(
     search: new MedicationSearchService(deps.prisma),
     logger: deps.logger,
   });
+  // `RenderPrescriptionPdf`: only when a store exists, so an unconfigured deployment refuses the
+  // request up front instead of queueing work that cannot finish.
+  if (deps.storage) {
+    registerPrescriptionRenderJobs(registry, runner, {
+      prisma: deps.prisma,
+      storage: deps.storage,
+      logger: deps.logger,
+    });
+  }
 }

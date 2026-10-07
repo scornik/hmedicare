@@ -39,14 +39,14 @@ const TABLES = [
   // empty catalog by accident. Only the tenant-scoped rows that point into them go.
   'patient_medications',
   'medication_usage_stats',
-  // 0010 documents: children of patients and encounters. Versions first — they carry the FK to the
-  // document row. Nothing yet points at `documents` from the other direction, so they go above 0009.
-  'document_versions',
-  'documents',
   // 0009 prescriptions: children of encounters and of the catalog, so they go before both. Items first,
   // then the prescriptions they hang off.
   'prescription_items',
   'prescriptions',
+  // 0010 documents, *after* prescriptions: `prescriptions.rendered_document_id` points here, so a
+  // document deleted first would fail that foreign key. Versions before the documents they belong to.
+  'document_versions',
+  'documents',
   // 0008 clinical_observations: children of encounters, so they go before them.
   'symptom_observations',
   'diagnoses',

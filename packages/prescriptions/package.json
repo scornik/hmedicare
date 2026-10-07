@@ -36,6 +36,7 @@
     "@hmedic/database": "workspace:*",
     "@hmedic/jobs": "workspace:*",
     "@hmedic/kernel": "workspace:*",
+    "@hmedic/laboratory-documents": "workspace:*",
     "@hmedic/localization": "workspace:*",
     "@hmedic/observability": "workspace:*",
     "@nestjs/common": "11.2.5",
@@ -45,6 +46,7 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@hmedic/storage-adapters-disk": "workspace:*",
     "@types/pdfmake": "^0.3.3"
   }
 }

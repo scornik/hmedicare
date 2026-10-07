@@ -12,3 +12,5 @@ export * from '../infrastructure/usage-jobs';
 export * from '../infrastructure/prescription-service';
 export * from '../infrastructure/medication-catalog-admin';
 export * from '../infrastructure/medication-gate-chain';
+export * from '../infrastructure/render/prescription-pdf';
+export * from '../infrastructure/render/render-jobs';

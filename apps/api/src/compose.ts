@@ -86,6 +86,18 @@ import {
   createRuntime,
   sessionModeCheck,
 } from '@hmedic/http-kit';
+import { DiskObjectStorage } from '@hmedic/storage-adapters-disk';
+
+/**
+ * Object storage for generated documents, or null when the deployment has no storage root.
+ *
+ * `STORAGE_DISK_ROOT` is optional, and a deployment without it still prescribes — it just cannot render
+ * a PDF. Null rather than a throwing stub, so the render job is never registered in a process that
+ * could not finish it.
+ */
+function createDocumentStorage(config: { STORAGE_DISK_ROOT?: string | undefined }) {
+  return config.STORAGE_DISK_ROOT ? new DiskObjectStorage({ root: config.STORAGE_DISK_ROOT }) : undefined;
+}
 
 /**
  * API composition root (REPOSITORY-STRUCTURE §2.3): wires configuration, the shared HTTP layer and the
@@ -223,6 +235,7 @@ export async function buildApi(
     productionAllowed: config.MEDICATION_IMPORT_PRODUCTION_ALLOWED,
     excludeVeterinary: config.MEDICATION_IMPORT_EXCLUDE_VETERINARY,
     staging: catalogStaging,
+    storage: createDocumentStorage(config),
     logger: runtime.logger,
   };
   const jobs =

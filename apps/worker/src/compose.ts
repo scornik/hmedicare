@@ -17,6 +17,7 @@ import {
 import { composeSchedulingAndQueue, registerQueueJobs } from '@hmedic/queue';
 import { RECORD_MEDICATION_USAGE, medicationGateChainSource } from '@hmedic/prescriptions';
 import { registerPrescriptionJobs } from '@hmedic/prescriptions/worker';
+import { DiskObjectStorage } from '@hmedic/storage-adapters-disk';
 
 /**
  * Worker composition root (API-IMPLEMENTATION §2): health, metrics and the cron kick only. Context job
@@ -79,6 +80,11 @@ export async function buildWorker(
           root: config.STORAGE_DISK_ROOT,
           prefix: config.MEDICATION_DATASET_STORAGE_PREFIX,
         },
+        // Rendering belongs here for the same reason the import does: it is work nobody is waiting on
+        // inside a request.
+        storage: config.STORAGE_DISK_ROOT
+          ? new DiskObjectStorage({ root: config.STORAGE_DISK_ROOT })
+          : undefined,
         logger: runtime.logger,
       });
       return registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger });
