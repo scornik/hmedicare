@@ -276,8 +276,10 @@ async function mockApi(page: Page, overrides: Partial<State> = {}): Promise<Stat
     if (path === `/prescriptions/${RX}/render` && req.method() === 'POST') {
       const first = state.prescriptions[0];
       if (!first) return json(route, 404, { code: 'RESOURCE_NOT_FOUND' });
+      // Queueing does not produce the document — the job does. The mock said otherwise at first, which
+      // made the test racy: the panel's refetch could replace "being created" with the download button
+      // before the assertion ran. The test now finishes the job itself, where it can say when.
       const already = first.renderedDocumentId !== null;
-      if (!already) first.renderedDocumentId = DOCUMENT;
       return json(route, 202, {
         data: {
           jobId: '00000000-0000-4000-8000-00000000000b',
@@ -558,9 +560,14 @@ test('the PDF is offered only once a render has produced one', async ({ page }) 
   await expect(page.getByTestId('rx-pdf-download')).toBeHidden();
 
   await page.getByTestId('rx-render').click();
-  // The job is queued, not finished: the wording follows what the server reported.
+  // The job is queued, not finished: the wording follows what the server reported, and no download is
+  // offered for a file that does not exist yet.
   await expect(page.getByTestId('rx-pdf-pending')).toContainText('being created');
+  await expect(page.getByTestId('rx-pdf-download')).toBeHidden();
 
+  // The worker finishes.
+  state.prescriptions[0]!.renderedDocumentId = DOCUMENT;
   await page.reload();
   await expect(page.getByTestId('rx-pdf-download')).toBeVisible();
+  await expect(page.getByTestId('rx-pdf-pending')).toBeHidden();
 });
