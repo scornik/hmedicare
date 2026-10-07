@@ -56,6 +56,7 @@ describe('schema sections', () => {
       // Documents follow prescriptions; timeline is appended afterward in MVP order.
       '0010',
       '0011',
+      '0021',
     ]);
     expect(cumulativeSchema(schema, '0001')).not.toContain('model Tenant ');
     expect(cumulativeSchema(schema, '0002')).toContain('model Tenant ');

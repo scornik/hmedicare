@@ -12,6 +12,7 @@ export interface RetentionConfig {
   jobRetentionSucceededDays: number;
   jobRetentionFailedDays: number;
   outboxRetentionDays: number;
+  timelineProjectionVersion?: number;
 }
 
 export const RETENTION_RULES = {
@@ -56,8 +57,14 @@ export const RETENTION_RULES = {
     params: (now, c) => [new Date(now.getTime() - c.jobRetentionFailedDays * DAY)],
   },
   outbox_events: {
-    sql: "DELETE FROM outbox_events WHERE status = 'PUBLISHED' AND published_at < ? LIMIT ?",
-    params: (now, c) => [new Date(now.getTime() - c.outboxRetentionDays * DAY)],
+    sql: `DELETE FROM outbox_events WHERE status = 'PUBLISHED' AND published_at < ?
+      AND (tenant_id IS NULL OR EXISTS (SELECT 1 FROM timeline_projection_receipts r
+        WHERE r.tenant_id = outbox_events.tenant_id AND r.source_event_id = outbox_events.id
+          AND r.projection_version = ?)) LIMIT ?`,
+    params: (now, c) => [
+      new Date(now.getTime() - c.outboxRetentionDays * DAY),
+      c.timelineProjectionVersion ?? 1,
+    ],
   },
   // Append-only table with a documented retention (400 days): deletion only through this rule.
   sms_balance_snapshots: {

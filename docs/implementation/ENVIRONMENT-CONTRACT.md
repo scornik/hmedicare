@@ -226,3 +226,7 @@ The build refuses any `VITE_*` name matching `SECRET|KEY|TOKEN|PASSWORD`.
 - Secrets never appear in logs, seed data, fixtures, CI output or generated API contracts.
 - **Stage 3.2:** CI never receives `ZAMANIT_*` keys, `AAMARPAY_*` credentials (not even the published sandbox values) or `ZAMANIT_LIVE_SMOKE=true`. CI uses `SMS_PROVIDER=mock` and `PAYMENT_GATEWAY_ADAPTER=mock`.
 - Rotation procedures: DEPLOYMENT §7.
+
+### Timeline projection activation
+
+`TIMELINE_PROJECTION_VERSION` is an API/worker server setting, default `1`, integer `1..32767`. Change both applications together only after a source/outbox rebuild and per-patient count/source-metadata parity across all tenants. Rebuild never updates this setting. Pause writers for the final activation check; pending receipt gaps or unfinished source-backfill jobs mean history is not complete. Old projection rows and durable receipts remain; reads must filter by the active version. See EVENT-ARCHITECTURE §5 and BUILD-TAKEOVER.md.

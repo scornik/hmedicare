@@ -9,9 +9,9 @@ Legend:
 
 ## Timeline takeover (2026-10-07)
 
-Continued from `eef0d0a` in the local checkout. **TL-001 is implemented locally:** migration 0011, the append-only hash-chained repository, tenant/patient redaction boundaries, and the verifier source. This is not a completed or tagged timeline checkpoint. TL-002 (projector/rebuild) and TL-003 (API/clients) remain open. The runtime chain source is activated with the projector, not before it.
+Continued from `eef0d0a` on local branch `codex/timeline-foundation`. **TL-001 and TL-002 are implemented locally:** the append-only timeline foundation, owner metadata adapters, background projection/source backfill, scoped redaction markers, versioned rebuild comparison, and exact receipt-based outbox retention. TL-002 validation passed: 165 integration tests on MariaDB 10.6, 82 focused integration tests on MariaDB 11.8, and 469 unit/architecture tests. The preceding 11.8 queue/scheduling/job regression run also passed 122 tests. Affected app/package compilation, timeline/security-support test compilation, repository lint/format/dependency checks, secret scan and all 18 migration checks passed. The full release checkpoint gate has not been run. These changes are not merged, deployed or tagged as a completed timeline checkpoint. **TL-003 remains open:** authorized doctor/patient API, contracts and client views.
 
-Analysis, scope, and validation are recorded in [BUILD-TAKEOVER.md](BUILD-TAKEOVER.md). C-57 reserves follow-up migration 0020. The existing outbox retention rule needs a timeline-progress guard before projector activation.
+The projector and timeline chain verifier are registered in the API embedded/cron runner and standalone worker. Rebuild compares per-patient counts and source metadata, leaves original rows intact, and never changes active configuration. See [BUILD-TAKEOVER.md](BUILD-TAKEOVER.md) for operations and validation. C-57 reserves follow-up migration 0020; C-58 adds durable receipts in 0021 and defines aggregate redaction/checkpoint semantics.
 
 ## 1. Checkpoint status
 

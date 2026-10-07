@@ -36,6 +36,7 @@ const SELF_REFERENCING: Readonly<Record<string, string>> = {
 /** Tables owned by Stage 4/5 migrations, in delete-safe order (children first). */
 const TABLES = [
   // 0011 timeline: projection rows and checkpoints reference patients and tenants.
+  'timeline_projection_receipts',
   'timeline_events',
   'projection_checkpoints',
   // 0019 medication_catalog. The global catalog tables are not truncated between tests: they hold no

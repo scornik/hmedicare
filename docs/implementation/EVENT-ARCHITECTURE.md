@@ -96,15 +96,13 @@ Runner loop: claim jobs -> handler -> complete / retry / dead letter
 
 ## 5. Timeline projection
 
-- The projector maps committed events to `timeline_events` rows. The unique key `(tenant_id, source_event_id, event_type, projection_version)` makes projection idempotent. Each row stores `source_type`/`source_id` so readers resolve the **source record**.
-- **Redaction** (`DocumentRedacted`, a clinical entered-in-error) **inserts** a `REDACTED` marker row referencing the original timeline row. It never updates rows (append-only, hash-chained; `DATABASE-IMPLEMENTATION.md` §4.3).
-- **Checkpoints:** `projection_checkpoints` per tenant records the last projected outbox `occurred_at` and event id. AI retrieval uses it to detect a stale projection (`AI-IMPLEMENTATION.md` §8).
-- **Rebuild:**
-  1. write a new `projection_version` into the same table, from retained outbox events (30 days) **plus** a source-table backfill job for older history;
-  2. compare counts per patient;
-  3. flip `TIMELINE_PROJECTION_VERSION` config.
-  
-  Old-version rows remain, and readers filter by the active version.
+- Source contexts expose public metadata adapters. The projector stores safe template summaries and identifiers only. Signed note revisions and immutable queue ledger rows are separate source records; repeated mutable status events resolve the same record. Live primary rows name the triggering outbox event. Source backfill and missing original anchors use deterministic UUIDv7 identifiers at the source timestamp, stable across retries and projection versions.
+- **Redaction:** append one `REDACTED` marker for the withdrawn source, retaining the original-row FK. Readers suppress its source entries; an encounter marker also masks descendant entries naming that encounter (C-58). Originals remain immutable. Markers cannot cross tenant, patient or version boundaries.
+- **Receipts:** `timeline_projection_receipts` records `PROJECTED` or intentionally `IGNORED` for each tenant/event/version, atomically with rows and checkpoint. No outbox FK or automatic receipt TTL. Drafts are never timeline rows. Supported events with unknown event versions or unresolved source records fail without receipts.
+- **Checkpoints:** `projection_checkpoints`, namespace `timeline:v<version>`, records the last completed visible prefix in outbox timestamp/id order. A late earlier commit can regress the prefix. Freshness consumers must additionally check exact pending receipt gaps and unfinished source bootstrap jobs; the checkpoint timestamp alone is insufficient.
+- **Retention:** published tenant events expire only after their exact active-version receipt exists, regardless of later successes. Global events remain age-based. The cutoff is `OUTBOX_RETENTION_DAYS` (default 14 in runtime configuration).
+- **Jobs:** `ProjectTimelineEvent` subscribes to supported events; `ProjectTimelineBacklog` runs each minute to acknowledge unprojected events and catch missed delivery. `BackfillTimelineSources` uses bounded, resumable source pages to recover older history. All run on the `timeline` queue. New queue events carry an explicit ledger identifier; ambiguous legacy source timestamps fail closed.
+- **Rebuild:** write a higher version from retained outbox events plus all source metadata; compare per-patient counts **and source identities/metadata**, then review differences before activating `TIMELINE_PROJECTION_VERSION` on both API and worker. The rebuild command never changes configuration. Old-version rows remain. Pause writers for final parity/activation, and check every tenant. See BUILD-TAKEOVER.md for the command and recovery procedure.
 
 ## 6. Dead letters and operations
 

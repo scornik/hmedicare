@@ -61,6 +61,7 @@ export function composeJobs(
     jobRetentionSucceededDays: config.JOB_RETENTION_SUCCEEDED_DAYS,
     jobRetentionFailedDays: config.JOB_RETENTION_FAILED_DAYS,
     outboxRetentionDays: config.OUTBOX_RETENTION_DAYS,
+    timelineProjectionVersion: config.TIMELINE_PROJECTION_VERSION,
   };
   const periodic: PeriodicJob[] = [
     ...registerMaintenance(registry, runner, prisma, retention, { clock, logger }),

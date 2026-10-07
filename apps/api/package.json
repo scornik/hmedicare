@@ -33,7 +33,8 @@
     "nestjs-zod": "5.5.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
-    "zod": "3.25.76"
+    "zod": "3.25.76",
+    "@hmedic/timeline": "workspace:*"
   },
   "devDependencies": {
     "@hmedic/communication": "workspace:*",

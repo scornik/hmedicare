@@ -167,6 +167,7 @@ export const DB_ENUMS = {
     'REDACTED',
   ],
   'timeline_events.visibility': ['CLINICAL', 'PATIENT_SHARED', 'OPERATIONAL'],
+  'timeline_projection_receipts.outcome': ['PROJECTED', 'IGNORED'],
 } as const;
 
 export type DbEnumKey = keyof typeof DB_ENUMS;

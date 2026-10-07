@@ -16,6 +16,30 @@
     },
     {
       "path": "../kernel"
+    },
+    {
+      "path": "../clinical"
+    },
+    {
+      "path": "../prescriptions"
+    },
+    {
+      "path": "../queue"
+    },
+    {
+      "path": "../scheduling"
+    },
+    {
+      "path": "../laboratory-documents"
+    },
+    {
+      "path": "../jobs"
+    },
+    {
+      "path": "../observability"
+    },
+    {
+      "path": "../config"
     }
   ]
 }

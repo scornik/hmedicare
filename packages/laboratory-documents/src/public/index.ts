@@ -26,3 +26,4 @@ export {
   buildStorageKey,
   categorySegment,
 } from '../domain/storage-keys';
+export { DocumentHistoryMetadata } from '../infrastructure/history-metadata';

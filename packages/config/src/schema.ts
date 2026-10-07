@@ -104,6 +104,7 @@ export const jobsSection = {
   JOB_RETENTION_SUCCEEDED_DAYS: int(14, 1),
   JOB_RETENTION_FAILED_DAYS: int(90, 1),
   OUTBOX_RETENTION_DAYS: int(30, 1),
+  TIMELINE_PROJECTION_VERSION: int(1, 1, 32767),
   IDEMPOTENCY_TTL_HOURS: int(24, 1),
   INTERNAL_CRON_TOKEN: secret32.optional(),
   /** SMS-002/HOST diagnostics on the worker; staging only, off by default (ENVIRONMENT-CONTRACT). */

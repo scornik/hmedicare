@@ -2135,3 +2135,21 @@ model ProjectionCheckpoint {
   @@id([projectionName, tenantId])
   @@map("projection_checkpoints")
 }
+
+// ---------------------------------------------------------------- 0021 timeline_receipts
+// C-58: exact acknowledgements survive outbox retention; no FK to the expiring event row.
+model TimelineProjectionReceipt {
+  /// @ascii
+  tenantId         String   @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  sourceEventId    String   @map("source_event_id") @db.VarChar(36)
+  projectionVersion Int     @map("projection_version") @db.SmallInt
+  occurredAt       DateTime @map("occurred_at") @db.DateTime(3)
+  processedAt      DateTime @map("processed_at") @db.DateTime(3)
+  /// @ascii
+  outcome          String   @db.VarChar(16)
+
+  @@id([tenantId, sourceEventId, projectionVersion])
+  @@index([tenantId, projectionVersion, occurredAt, sourceEventId], map: "ix_timeline_receipts_progress")
+  @@map("timeline_projection_receipts")
+}

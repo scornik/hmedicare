@@ -15,15 +15,30 @@
       "development": "./src/nest/index.ts",
       "types": "./dist/nest/index.d.ts",
       "default": "./dist/nest/index.js"
+    },
+    "./worker": {
+      "development": "./src/nest/worker-module.ts",
+      "default": "./dist/nest/worker-module.js",
+      "types": "./dist/nest/worker-module.d.ts"
     }
   },
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
+    "timeline:rebuild": "node dist/cli/rebuild.js"
   },
   "dependencies": {
     "@hmedic/audit": "workspace:*",
     "@hmedic/database": "workspace:*",
-    "@hmedic/kernel": "workspace:*"
+    "@hmedic/kernel": "workspace:*",
+    "@hmedic/clinical": "workspace:*",
+    "@hmedic/prescriptions": "workspace:*",
+    "@hmedic/queue": "workspace:*",
+    "@hmedic/scheduling": "workspace:*",
+    "@hmedic/laboratory-documents": "workspace:*",
+    "@hmedic/jobs": "workspace:*",
+    "@hmedic/observability": "workspace:*",
+    "@hmedic/config": "workspace:*",
+    "zod": "3.25.76"
   }
 }

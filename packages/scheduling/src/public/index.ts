@@ -10,3 +10,4 @@ export * from '../infrastructure/chamber-service';
 export * from '../infrastructure/schedule-service';
 export * from '../infrastructure/chamber-day-service';
 export * from '../infrastructure/appointment-service';
+export { SchedulingHistoryMetadata } from '../infrastructure/history-metadata';

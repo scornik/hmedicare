@@ -8,3 +8,4 @@ export * from '../infrastructure/serial-lifecycle';
 export * from '../infrastructure/queue-service';
 export * from '../infrastructure/jobs';
 export * from '../infrastructure/compose';
+export { QueueHistoryMetadata, SERIAL_HISTORY_CODES } from '../infrastructure/history-metadata';

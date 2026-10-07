@@ -1,6 +1,7 @@
 import { type Clock, newId } from '@hmedic/kernel';
 import type { Tx } from '@hmedic/database';
 import type { OutboxPort } from '@hmedic/jobs';
+import { SERIAL_HISTORY_CODES } from './history-metadata';
 
 /**
  * Queue outbox events (Stage 5 prompt §5). Ids, codes, numbers and dates only; consumers (notifications,
@@ -39,6 +40,16 @@ export class QueueOutbox {
   ) {}
 
   async emit(tx: Tx, e: QueueOutboxInput): Promise<string> {
+    const code = SERIAL_HISTORY_CODES[e.name];
+    const source =
+      e.aggregateType === 'serial' && code
+        ? await tx.queueEvent.findFirst({
+            where: { tenantId: e.tenantId, serialId: e.aggregateId, eventType: code },
+            select: { id: true, occurredAt: true },
+            orderBy: { seq: 'desc' },
+          })
+        : null;
+    if (code && !source) throw new Error('queue outbox requires a committed source event');
     return this.outbox.append(tx, {
       eventName: e.name,
       eventVersion: 1,
@@ -49,8 +60,8 @@ export class QueueOutbox {
       causationId: null,
       actorId: e.actorId,
       idempotencyKey: e.idempotencyKey ?? null,
-      payload: e.payload,
-      occurredAt: this.clock.now(),
+      payload: { ...e.payload, ...(source ? { queueEventId: source.id } : {}) },
+      occurredAt: source?.occurredAt ?? this.clock.now(),
     });
   }
 }

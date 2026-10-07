@@ -52,6 +52,9 @@
     },
     {
       "path": "../../packages/tenant-org"
+    },
+    {
+      "path": "../../packages/timeline"
     }
   ]
 }

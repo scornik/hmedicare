@@ -240,3 +240,15 @@ describe('assertPublicViteEnv', () => {
     expect(() => assertPublicViteEnv(['VITE_API_KEY'])).toThrow(ConfigError);
   });
 });
+
+describe('TIMELINE_PROJECTION_VERSION', () => {
+  it('defaults to one and accepts an explicitly activated version', () => {
+    expect(loadConfig('api', testEnv()).TIMELINE_PROJECTION_VERSION).toBe(1);
+    expect(
+      loadConfig('worker', testEnv({ TIMELINE_PROJECTION_VERSION: '2' })).TIMELINE_PROJECTION_VERSION,
+    ).toBe(2);
+  });
+  it.each(['0', '-1', '1.5', '32768', 'invalid'])('rejects invalid version %s', (value) => {
+    expect(() => loadConfig('api', testEnv({ TIMELINE_PROJECTION_VERSION: value }))).toThrow(ConfigError);
+  });
+});

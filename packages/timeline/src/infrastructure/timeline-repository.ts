@@ -52,7 +52,7 @@ export function timelineHashInput(row: {
 
 /** No update/delete API: a correction or removal appends another row (ADR-014). */
 export class TimelineRepository {
-  async append(tx: Tx, tenant: TenantContext, input: TimelineAppendInput, now: Date) {
+  async append(tx: Tx, tenant: Pick<TenantContext, 'tenantId'>, input: TimelineAppendInput, now: Date) {
     if (
       ![tenant.tenantId, input.patientId, input.sourceId, input.sourceEventId].every((id) => ID.test(id)) ||
       !DB_ENUMS['timeline_events.event_type'].includes(input.eventType) ||

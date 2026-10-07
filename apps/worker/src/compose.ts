@@ -1,3 +1,5 @@
+import { registerTimelineJobs } from '@hmedic/timeline/worker';
+import { timelineChainSource } from '@hmedic/timeline';
 import { type DynamicModule, Module } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import type { ServerConfig } from '@hmedic/config';
@@ -87,10 +89,18 @@ export async function buildWorker(
           : undefined,
         logger: runtime.logger,
       });
-      return registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger });
+      return [
+        ...registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger }),
+        ...registerTimelineJobs(registry, runner, subscriptions, {
+          prisma: runtime.prisma,
+          version: config.TIMELINE_PROJECTION_VERSION,
+          clock: runtime.clock,
+          logger: runtime.logger,
+        }),
+      ];
     },
     // http-kit never imports a context, so the medication gate chain is handed down from here.
-    [medicationGateChainSource],
+    [medicationGateChainSource, timelineChainSource],
   );
   runtime.smsDiagnostics = config.DIAGNOSTICS_ENABLED ? createSmsDiagnostics(runtime, sms) : null;
   runtime.runnerLoop = jobs?.loop ?? null;

@@ -363,6 +363,9 @@ importers:
       '@hmedic/storage-adapters-disk':
         specifier: workspace:*
         version: link:../../packages/storage-adapters/disk
+      '@hmedic/timeline':
+        specifier: workspace:*
+        version: link:../../packages/timeline
       '@nestjs/common':
         specifier: 11.2.5
         version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -491,6 +494,9 @@ importers:
       '@hmedic/storage-adapters-disk':
         specifier: workspace:*
         version: link:../../packages/storage-adapters/disk
+      '@hmedic/timeline':
+        specifier: workspace:*
+        version: link:../../packages/timeline
       '@nestjs/common':
         specifier: 11.2.5
         version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -1070,12 +1076,39 @@ importers:
       '@hmedic/audit':
         specifier: workspace:*
         version: link:../audit
+      '@hmedic/clinical':
+        specifier: workspace:*
+        version: link:../clinical
+      '@hmedic/config':
+        specifier: workspace:*
+        version: link:../config
       '@hmedic/database':
         specifier: workspace:*
         version: link:../database
+      '@hmedic/jobs':
+        specifier: workspace:*
+        version: link:../jobs
       '@hmedic/kernel':
         specifier: workspace:*
         version: link:../kernel
+      '@hmedic/laboratory-documents':
+        specifier: workspace:*
+        version: link:../laboratory-documents
+      '@hmedic/observability':
+        specifier: workspace:*
+        version: link:../observability
+      '@hmedic/prescriptions':
+        specifier: workspace:*
+        version: link:../prescriptions
+      '@hmedic/queue':
+        specifier: workspace:*
+        version: link:../queue
+      '@hmedic/scheduling':
+        specifier: workspace:*
+        version: link:../scheduling
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
 
   tooling/eslint-plugin-hmedic: {}
 

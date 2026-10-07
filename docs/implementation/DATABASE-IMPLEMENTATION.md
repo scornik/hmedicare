@@ -97,6 +97,7 @@
 | 0019 | `medication_catalog` | `medications`, `medication_generics`, `medication_generic_links`, `medication_manufacturers`, `medication_aliases`, `medication_price_observations`, `medication_usage_stats`, `medication_dataset_imports`, `medication_dataset_gate_attestations`, `patient_medications` (catalog redesigned in Stage 3.2, ADR-020; split out of 0008 in Stage 6, C-52) |
 
 | 0020 | `follow_up` | `follow_up_plans`, `follow_up_tasks` (reserved by C-57; not yet implemented) |
+| 0021 | `timeline_receipts` | `timeline_projection_receipts`, exact event/version projection acknowledgements (C-58) |
 
 **Billing:** payments and platform subscriptions are MVP since Stage 3.2 (ADR-019 supersedes audit row S3-13). Insurance, claims and complex invoicing remain Future, with no tables.
 
@@ -529,13 +530,15 @@ Notation: `FK→t(tenant_id,id)` means a composite tenant FK `(tenant_id, <col>)
 - `occurred_at ts`, `source_type key(48)`, `source_id id36`
 - `summary text(300)` (non-sensitive template text), `visibility code(16)` CHECK `CLINICAL|PATIENT_SHARED|OPERATIONAL`
 - `structured_refs json:TimelineRefs`, `projection_version SMALLINT`
-- `source_event_id id36` (outbox event id), `redacts_timeline_event_id id36 NULL` (only for `REDACTED` markers), `redaction_reason_code key(32) NULL`
+- `source_event_id id36` (outbox event id or deterministic source-backfill/anchor UUIDv7), `redacts_timeline_event_id id36 NULL` (only for `REDACTED` markers), `redaction_reason_code key(32) NULL`
 - `prev_row_hash` (NULL at genesis), `row_hash`; chain key `timeline:<tenant_id>:<patient_id>`.
 - UNIQUE `(tenant_id, patient_id, seq)`, UNIQUE `(tenant_id, source_event_id, event_type, projection_version)` (idempotent projection)
 - Index `ix_timeline_patient (tenant_id, patient_id, occurred_at, id)`; composite FK `(tenant_id, patient_id, redacts_timeline_event_id)` ensures a redaction targets this patient only.
-- **Strictly append-only.** A redaction **inserts** a `REDACTED` marker row referencing the original. Read models exclude originals that have a marker, and the marker shows "entry removed" per visibility policy. No row is ever updated.
+- **Strictly append-only.** A redaction **inserts** a `REDACTED` marker row referencing the original. Read models exclude entries for the marked source and, for an encounter marker, all descendant entries naming that encounter, and the marker shows "entry removed" per visibility policy. No row is ever updated.
 
 **`projection_checkpoints`**: `projection_name key(64)`, `tenant_id id36`, PK `(projection_name, tenant_id)`; `last_outbox_occurred_at ts`, `last_event_id id36`, `projection_version SMALLINT`, `updated_at ts`.
+
+**`timeline_projection_receipts`** (0021): PK `(tenant_id, source_event_id, projection_version)`; `occurred_at ts`, `processed_at ts`, `outcome code(16)` CHECK `PROJECTED|IGNORED`, positive projection version and tenant FK. No outbox FK: receipts survive outbox retention. Progress index `(tenant_id, projection_version, occurred_at, source_event_id)`. The receipt commits with projection rows and the `timeline:v<version>` completed-prefix checkpoint. Exact receipt anti-joins detect late gaps; checkpoint timestamps alone are insufficient. No automatic receipt deletion.
 
 **`follow_up_plans`** (std): `patient_id FK→patients(tenant_id,id)`, `source_encounter_id FK→encounters(tenant_id,id)`, `doctor_profile_id FK→doctor_profiles(tenant_id,id)`, `due_start_date date`, `due_end_date date NULL`, `reason text(300)`, `instructions text(1000) NULL`, `status code(16)` CHECK `PLANNED|BOOKED|COMPLETED|CANCELLED|MISSED`, `appointment_id id36 NULL` FK, `serial_id id36 NULL` FK. CHECK `due_end_date IS NULL OR due_end_date >= due_start_date`.
 
@@ -861,7 +864,7 @@ Enforcement (no triggers):
 | `refresh_tokens` | delete where session deleted, or `expires_at < now − 30 days` | same |
 | `password_reset_tokens`, `email_verification_tokens` | delete `expires_at < now − 1 day` | same |
 | `jobs` | delete `SUCCEEDED`/`CANCELLED` older than `JOB_RETENTION_SUCCEEDED_DAYS` (14), `FAILED` older than `JOB_RETENTION_FAILED_DAYS` (90); never `DEAD` | same |
-| `outbox_events` | delete `PUBLISHED` older than 30 days and ≤ all projection checkpoints | same |
+| `outbox_events` | delete `PUBLISHED` older than `OUTBOX_RETENTION_DAYS` (runtime default 14) only with an exact active-version timeline receipt; global events are age-based | same |
 | `upload_sessions` + parts | `OPEN` past `expires_at` → `EXPIRED`, delete temp parts via storage port | `ExpireUploadSessions` (hourly) |
 | `ai_usage_counters` | delete `window_start < now − 35 days` | `MaintenanceTtlCleanup` |
 | AI raw outputs (object storage) | delete objects older than tenant `raw_output_retention_days` | `PurgeAIRawOutputs` (daily) |
