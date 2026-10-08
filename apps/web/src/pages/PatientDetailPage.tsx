@@ -1,3 +1,4 @@
+import { TimelinePanel } from '../timeline/TimelinePanel';
 import { type FormEvent, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { ApiError, getTenant, useTenantContext } from '../api';
@@ -72,6 +73,7 @@ export function PatientDetailPage() {
                 </ul>
               </dd>
             </dl>
+            {ctx.data?.permissions.includes('timeline.read') && <TimelinePanel key={p.id} patientId={p.id} />}
             {canMerge && p.status === 'ACTIVE' && <MergeOpener sourcePatientId={p.id} />}
           </>
         )}

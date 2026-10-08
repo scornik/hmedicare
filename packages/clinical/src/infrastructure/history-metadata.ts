@@ -11,6 +11,7 @@ export class ClinicalHistoryMetadata {
         select: {
           id: true,
           patientId: true,
+          chamberId: true,
           startedAt: true,
           completedAt: true,
           status: true,
@@ -24,6 +25,7 @@ export class ClinicalHistoryMetadata {
         aggregateId: r.id,
         patientId: r.patientId,
         encounterId: r.id,
+        chamberId: r.chamberId,
         visibility: 'CLINICAL' as const,
       };
       return [

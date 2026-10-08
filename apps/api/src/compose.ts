@@ -1,3 +1,6 @@
+import { TimelineController } from './timeline/timeline.controller';
+import { TimelineReadModule } from '@hmedic/timeline/nest';
+import { TimelineReader, timelineSources } from '@hmedic/timeline';
 import { registerTimelineJobs } from '@hmedic/timeline/worker';
 import { timelineChainSource } from '@hmedic/timeline';
 import { type DynamicModule, Module } from '@nestjs/common';
@@ -133,6 +136,14 @@ export class ApiModule {
         SchedulingWriteModule.forRoot(scheduling),
         QueueWriteModule.forRoot(queue),
         ClinicalWriteModule.forRoot(clinical),
+        TimelineReadModule.forRoot(
+          new TimelineReader(
+            runtime.prisma,
+            timelineSources(runtime.prisma),
+            runtime.config.TIMELINE_PROJECTION_VERSION,
+            runtime.config.CSRF_SECRET,
+          ),
+        ),
         PrescriptionWriteModule.forRoot(prescriptions),
         // Only when this deployment has document storage. Without it the routes are absent rather than
         // present and failing, so a client discovers the capability from the API rather than from a 409.
@@ -163,6 +174,7 @@ export class ApiModule {
         EncounterController,
         SerialEncounterController,
         PatientEncounterController,
+        TimelineController,
         EncounterNoteController,
         DiagnosisController,
         PrescriptionController,

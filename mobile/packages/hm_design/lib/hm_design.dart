@@ -1,6 +1,8 @@
 /// HMedic design system: theme and a few shared widgets.
 library;
 
+export 'src/timeline_view.dart';
+
 import 'package:flutter/material.dart';
 
 class HmTheme {

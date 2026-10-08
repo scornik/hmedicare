@@ -21,6 +21,7 @@ import 'clients/guardianships_client.dart';
 import 'clients/me_client.dart';
 import 'clients/serials_client.dart';
 import 'clients/patient_accounts_client.dart';
+import 'clients/timeline_client.dart';
 import 'clients/health_client.dart';
 
 /// HMedic API `v1.0.0`.
@@ -55,6 +56,7 @@ class HmApiClient {
   MeClient? _me;
   SerialsClient? _serials;
   PatientAccountsClient? _patientAccounts;
+  TimelineClient? _timeline;
   HealthClient? _health;
 
   PlatformClient get platform => _platform ??= PlatformClient(_dio, baseUrl: _baseUrl);
@@ -90,6 +92,8 @@ class HmApiClient {
   SerialsClient get serials => _serials ??= SerialsClient(_dio, baseUrl: _baseUrl);
 
   PatientAccountsClient get patientAccounts => _patientAccounts ??= PatientAccountsClient(_dio, baseUrl: _baseUrl);
+
+  TimelineClient get timeline => _timeline ??= TimelineClient(_dio, baseUrl: _baseUrl);
 
   HealthClient get health => _health ??= HealthClient(_dio, baseUrl: _baseUrl);
 }

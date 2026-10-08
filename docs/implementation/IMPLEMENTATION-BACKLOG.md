@@ -179,7 +179,7 @@ Each task lists: **ID · Phase · Module · Dependencies · Files/packages · DB
 |---|---|---|---|---|---|---|---|---|---|---|
 | TL-001 | 8 | timeline | JOB-006, FOUND-012 | migration 0011 (timeline_events, projection_checkpoints); locally implemented 2026-10-07, see BUILD-TAKEOVER | as listed | — | — | append-only + chain | Tables per §3.11 | Low |
 | TL-002 | 8 | timeline | TL-001 | projector, aggregate redaction, source backfill, versioned rebuild; implemented locally 2026-10-07 (BUILD-TAKEOVER) | timeline_projection_receipts (0021, C-58) | — | — | idempotent projection, atomic receipts/retention, rebuild source parity | Timeline rebuildable | Med |
-| TL-003 | 8 | timeline | TL-002, ID-005, PAT-007 | timeline API (doctor/patient views) | — | `/patients/{id}/timeline` | timeline views | source resolution, redaction hidden | Views correct | Med |
+| TL-003 | 8 | timeline | TL-002, ID-005, PAT-007 | timeline API and doctor/patient views; implemented locally 2026-10-08 (BUILD-TAKEOVER) | — | `/patients/{id}/timeline` | timeline views | source resolution, redaction hidden | Views correct | Med |
 | FUP-001 | 8 | follow-up | CLIN-002, QUEUE-004 | follow-up plans/tasks + booking facade | follow_up_plans/tasks (0020, C-57) | follow-up routes | follow-up UI | linked future serial, Dhaka due dates | Follow-up creates linked serial | Low |
 
 ## Phase 9 — Communication and telemedicine

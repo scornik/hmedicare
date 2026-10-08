@@ -21,11 +21,9 @@ Continue in the roadmap's order: timeline, follow-up/notifications, remote sessi
 - Updated synthetic test cleanup for the new FK relationships.
 - Resolved the timeline/follow-up migration split as C-57; 0020 is reserved for follow-up. Applied historical migrations are untouched.
 
-## Remaining timeline work
+## Timeline continuation status
 
-TL-001 has local implementation and focused validation; the full timeline checkpoint is not complete. The chain source will be registered in the runtime when the projector is activated. TL-002 needs event subscriptions, an idempotent projector, source resolution through public ports, redaction handling, checkpoint advancement, and retained-event/source-backfill rebuild comparison. TL-003 needs authorized cursor API, generated contracts/clients, and doctor/patient views. These are not complete, and no timeline checkpoint tag has been created.
-
-Before activating projection, fix the existing outbox TTL rule so unpublished-to-timeline events cannot be deleted. Checkpoint semantics must account for out-of-order processing and retries; the maximum observed timestamp alone cannot prove every earlier event was projected. Retained events alone are insufficient for rebuilding history older than 30 days.
+TL-001–003 are implemented locally. Source projection, chain verification, exact receipt retention, source backfill/rebuild comparison, authorized cursor API and doctor/patient views are active in the build. The full release checkpoint and timeline tag remain outstanding; validation is recorded below.
 
 Other inherited gaps remain as recorded in IMPLEMENTATION-STATUS: phone PDF opening, uploads/scanning/S3, release verification, staging, and owner decisions. This change does not close the real-patient-data gate.
 
@@ -62,7 +60,7 @@ pnpm --filter @hmedic/timeline run timeline:rebuild --tenant <tenant-UUID> --ver
 
 `TIMELINE_PROJECTION_VERSION` defaults to 1 and must match in the API and worker. The command writes a higher version, prints per-patient counts and source-metadata parity, and exits 0 for parity, 2 for differences, or 1 on failure. It never changes configuration. Old rows and their chain hashes remain. Run with writers paused for the activation check; resolve differences and verify every tenant before changing the active version on both apps. In normal live traffic, concurrent source changes can cause a mismatch and require another check. Interrupted rebuilds can be safely rerun.
 
-A marker masks all entries for its source within the same tenant, patient and projection version. An encounter marker also masks descendants whose structured references name that encounter. The original-row FK and all original rows remain intact. TL-003 must apply `isTimelineEntryRedacted` before visibility/pagination, so a clinical encounter marker also suppresses related patient-shared records without revealing the clinical marker itself.
+A marker masks all entries for its source within the same tenant, patient and projection version. An encounter marker also masks descendants whose structured references name that encounter. The original-row FK and all original rows remain intact. TL-003 applies `isTimelineEntryRedacted` before visibility/pagination, so a clinical encounter marker also suppresses related patient-shared records without revealing the clinical marker itself.
 
 ### TL-002 validation (2026-10-07)
 
@@ -71,4 +69,16 @@ A marker masks all entries for its source within the same tenant, patient and pr
 - All unit and architecture tests: **469/469**. Compilation of affected packages and both app roots, timeline tests, and shared security/support tests passed. Repository ESLint, Prettier, dependency-cruiser (437 modules), secrets scan, migration immutability and all **18 normalized migration** checks passed. Frozen-lockfile install and Prisma generation completed successfully after test processes released the Windows engine file.
 - One initial document fixture lacked the schema-required scanner identity. Correcting the fixture made that test pass; product checks were not relaxed. Windows refused Prisma engine replacement during an overlapping test run; the install succeeded after tests finished.
 
-TL-002 is complete locally. The full release checkpoint script, merge/push, deployment and checkpoint tagging have not been performed. TL-003 remains open. Its reader must apply scoped redactions before pagination/visibility, resolve sources through their public ports, enforce doctor/patient authorization, and check pending receipts plus source-bootstrap completion for freshness. Existing phone PDF, staging, host-duration, Bangla review, production walkthrough and credential/access follow-ups remain as recorded in the prior handover.
+TL-002 is complete locally. The full release checkpoint script, merge/push, deployment and checkpoint tagging have not been performed. TL-003 was completed locally on 2026-10-08; its implementation and validation are recorded below. Existing phone PDF, staging, host-duration, Bangla review, production walkthrough and credential/access follow-ups remain as recorded in the prior handover.
+
+### TL-003 authorized read views (2026-10-08)
+
+`GET /api/v1/patients/{id}/timeline` resolves every entry through its source owner's metadata port. Assigned doctors can read clinical history; reception reads operational entries; clinic administrators and nurses honor chamber/clinic scope. Patient SELF links and guardians with VIEW_RECORDS see only currently patient-shared records. Account links, guardianship, membership, assignment and scope are checked on each request. Successful reads append TIMELINE_READ audit metadata without record contents.
+
+All scoped redaction markers are applied before audience filtering and pagination, including markers hidden from the requesting audience. The reader also checks live source withdrawal and encounter ancestry, so revoked source records disappear while projection is behind. Missing source references fail closed. Responses contain safe labels and resolved identifiers; no note prose, prescription lines, document titles or chain internals are returned. Redaction marker responses have no source reference.
+
+Cursors use authenticated AES-256-GCM encryption with a domain-separated key derived from the existing CSRF_SECRET. They expire after 15 minutes and bind tenant, patient, user, audience, membership/guardian scope and active projection version. Chronological order uses occurredAt/id, with an initial sequence watermark excluding later appends. Scanning is capped at 1,000 rows per request; a continuation can lead to an empty page when intervening rows are hidden. Freshness checks exact missing event receipts and completed source-bootstrap jobs, not the timestamp checkpoint alone. Purged bootstrap job records conservatively show history as updating until bootstrap runs again.
+
+The web patient details and consultation workspace expose the panel to permitted staff. Doctor and patient mobile apps use a generated typed endpoint and an online-only shared view. English/Bangla event labels, Dhaka timestamps, refresh, pagination, empty/error states and an updating notice are included. Mobile context changes discard late responses; refresh/access errors clear displayed records. Timeline data is not added to the mobile persistent/offline cache. Native-speaker Bangla review remains the existing H-7 release follow-up.
+
+Validation: 469 unit/architecture tests; repository ESLint, secret scan, 18 migration lint checks; affected TypeScript app/package and API test compilation; generated OpenAPI parity; clean mobile analysis; all 24 web flows, including two timeline flows with desktop/phone screenshot review; native workspace tests including two timeline widget tests. MariaDB 10.6 passed all 35 timeline repository/projector/HTTP tests; MariaDB 11.8 passed 26 repository/projector tests and all 9 HTTP tests in the final rerun. The full release checkpoint, push/merge, deployment and checkpoint tag remain separate work.

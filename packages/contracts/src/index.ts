@@ -12,3 +12,4 @@ export * from './clinical';
 export * from './prescriptions';
 export * from './openapi';
 export * from './documents';
+export * from './timeline';

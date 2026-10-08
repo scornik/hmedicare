@@ -1363,6 +1363,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/{id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPatientTimeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/duplicate-check": {
         parameters: {
             query?: never;
@@ -3915,6 +3931,46 @@ export interface components {
             source: "PATIENT_REPORTED" | "CLINICIAN_OBSERVED" | "AI_APPROVED";
             /** @enum {string} */
             status: "ACTIVE" | "ENTERED_IN_ERROR";
+        };
+        TimelineEntry: {
+            eventType: string;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            id: string;
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            occurredAt: string;
+            source: {
+                /**
+                 * Format: uuid
+                 * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+                 */
+                aggregateId: string;
+                /**
+                 * Format: uuid
+                 * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+                 */
+                encounterId: string | null;
+                /**
+                 * Format: uuid
+                 * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+                 */
+                id: string;
+                type: string;
+            } | null;
+            summary: string;
+            /** @enum {string} */
+            visibility: "CLINICAL" | "OPERATIONAL" | "PATIENT_SHARED";
+        };
+        TimelinePage: {
+            items: components["schemas"]["TimelineEntry"][];
+            nextCursor: string | null;
+            projectionVersion: number;
+            stale: boolean;
         };
         UpdateChamberDayPolicyRequest: {
             expectedQueueOrderVersion: number;
@@ -14315,6 +14371,109 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["MergeCase"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getPatientTimeline: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header: {
+                "X-Patient-Context"?: string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized source references, newest first. Patient contexts need VIEW_RECORDS and see shared entries only. Cursor expires after 15 minutes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["TimelinePage"];
                         meta: components["schemas"]["ResponseMeta"];
                     };
                 };

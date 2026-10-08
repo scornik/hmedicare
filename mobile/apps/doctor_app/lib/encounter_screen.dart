@@ -208,6 +208,23 @@ class _DoctorEncounterScreenState extends ConsumerState<DoctorEncounterScreen> {
     }
   }
 
+  Future<void> _timeline(HmStrings s) async {
+    final tenant = ref.read(activeTenantProvider);
+    if (tenant == null) return;
+    try {
+      final r = await ref
+          .read(apiClientProvider)
+          .encounters
+          .getEncounter(id: widget.encounterId, xTenantId: tenant);
+      if (!mounted || ref.read(activeTenantProvider) != tenant) return;
+      await context.push('/patients/${r.data.patientId}/timeline');
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.t('timeline_failed'))));
+      }
+    }
+  }
+
   Future<void> _complete() async {
     final tenantId = ref.read(activeTenantProvider);
     if (tenantId == null) return;
@@ -281,7 +298,14 @@ class _DoctorEncounterScreenState extends ConsumerState<DoctorEncounterScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(s.t('consultation')),
-        actions: [_SaveBadge(state: _state, strings: s)],
+        actions: [
+          _SaveBadge(state: _state, strings: s),
+          IconButton(
+            tooltip: s.t('timeline_title'),
+            icon: const Icon(Icons.history),
+            onPressed: () => _timeline(s),
+          ),
+        ],
       ),
       body: draft.when(
         loading: () => const Center(child: CircularProgressIndicator()),

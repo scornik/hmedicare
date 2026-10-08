@@ -6,6 +6,26 @@ class HmStrings {
 
   static const Map<String, Map<String, String>> all = {
     'bn': {
+      'timeline_amended': 'নোট সংশোধিত',
+      'timeline_appointment': 'অ্যাপয়েন্টমেন্ট',
+      'timeline_denied': 'এই ইতিহাস দেখার অনুমতি নেই।',
+      'timeline_diagnosis': 'রোগ নির্ণয় নথিভুক্ত',
+      'timeline_doctor_note': 'নোট স্বাক্ষরিত',
+      'timeline_document': 'নথি যুক্ত হয়েছে',
+      'timeline_empty': 'এখনও কোনো ইতিহাস নেই।',
+      'timeline_encounter_completed': 'পরামর্শ সম্পন্ন',
+      'timeline_encounter_started': 'পরামর্শ শুরু',
+      'timeline_failed': 'ইতিহাস দেখা যায়নি। আবার চেষ্টা করুন।',
+      'timeline_more': 'আরও দেখুন',
+      'timeline_prescription_finalized': 'প্রেসক্রিপশন অনুমোদিত',
+      'timeline_record': 'রেকর্ড হালনাগাদ',
+      'timeline_REDACTED': 'এন্ট্রি সরানো হয়েছে',
+      'timeline_refresh': 'আবার দেখুন',
+      'timeline_serial': 'সিরিয়াল হালনাগাদ',
+      'timeline_stale': 'ইতিহাস হালনাগাদ হচ্ছে। কিছু তথ্য এখনও আসতে পারে।',
+      'timeline_symptom': 'উপসর্গ নথিভুক্ত',
+      'timeline_title': 'রোগীর ইতিহাস',
+
       'doctorApp': 'এইচমেডিক ডাক্তার',
       'patientApp': 'এইচমেডিক',
       'loginTitle': 'লগইন',
@@ -138,6 +158,26 @@ class HmStrings {
       'dCANCELLED': 'বাতিল',
     },
     'en': {
+      'timeline_amended': 'Note amended',
+      'timeline_appointment': 'Appointment',
+      'timeline_denied': 'You do not have access to this history.',
+      'timeline_diagnosis': 'Diagnosis recorded',
+      'timeline_doctor_note': 'Note signed',
+      'timeline_document': 'Document available',
+      'timeline_empty': 'No history yet.',
+      'timeline_encounter_completed': 'Consultation completed',
+      'timeline_encounter_started': 'Consultation started',
+      'timeline_failed': 'Could not load history. Try again.',
+      'timeline_more': 'Load more',
+      'timeline_prescription_finalized': 'Prescription approved',
+      'timeline_record': 'Record updated',
+      'timeline_REDACTED': 'Entry removed',
+      'timeline_refresh': 'Refresh',
+      'timeline_serial': 'Serial updated',
+      'timeline_stale': 'History is being updated. Recent entries may still be arriving.',
+      'timeline_symptom': 'Symptom recorded',
+      'timeline_title': 'Patient timeline',
+
       'doctorApp': 'HMedic Doctor',
       'patientApp': 'HMedic',
       'loginTitle': 'Sign in',
@@ -279,4 +319,8 @@ class HmStrings {
   static HmStrings of(BuildContext context) => HmStrings.forLocale(Localizations.localeOf(context));
 
   String t(String key) => _m[key] ?? all['bn']![key] ?? key;
+  String timelineEntryLabel(String eventType, String summary) {
+    final key = summary == 'Note amended' ? 'timeline_amended' : 'timeline_$eventType';
+    return _m.containsKey(key) ? t(key) : t('timeline_record');
+  }
 }

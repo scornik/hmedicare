@@ -1,3 +1,4 @@
+import 'timeline_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,6 +41,10 @@ class _DoctorAppState extends ConsumerState<DoctorApp> {
     routes: [
       GoRoute(path: '/login', builder: (_, _) => const DoctorLoginScreen()),
       GoRoute(path: '/home', builder: (_, _) => const DoctorHomeScreen()),
+      GoRoute(
+        path: '/patients/:patientId/timeline',
+        builder: (_, state) => DoctorTimelineScreen(patientId: state.pathParameters['patientId']!),
+      ),
       GoRoute(path: '/days', builder: (_, _) => const DoctorDaysScreen()),
       GoRoute(
         path: '/queue/:chamberDayId',

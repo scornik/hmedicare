@@ -57,6 +57,11 @@ class PatientProfileScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
+            tooltip: s.t('timeline_title'),
+            icon: const Icon(Icons.history),
+            onPressed: () => context.go('/timeline'),
+          ),
+          IconButton(
             key: const Key('mySerial'),
             tooltip: s.t('mySerial'),
             icon: const Icon(Icons.confirmation_number_outlined),
@@ -87,6 +92,11 @@ class PatientProfileScreen extends ConsumerWidget {
                   leading: const Icon(Icons.family_restroom),
                   content: Text(s.t('actingFor').replaceFirst('{name}', ctx.patientDisplayName)),
                   actions: [
+                    IconButton(
+                      tooltip: s.t('timeline_title'),
+                      icon: const Icon(Icons.history),
+                      onPressed: () => context.go('/timeline'),
+                    ),
                     TextButton(onPressed: () => context.go('/contexts'), child: Text(s.t('switchProfile'))),
                   ],
                 ),

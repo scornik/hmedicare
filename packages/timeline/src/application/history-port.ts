@@ -8,6 +8,7 @@ export interface HistoryReference {
   occurredAt: Date;
   visibility: 'CLINICAL' | 'PATIENT_SHARED' | 'OPERATIONAL';
   encounterId?: string;
+  chamberId?: string;
   eventCode?: string;
   redactedAt?: Date | null;
   redactionReason?: 'ENTERED_IN_ERROR' | 'DOCUMENT_REDACTED' | 'VOIDED';

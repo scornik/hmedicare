@@ -7,7 +7,7 @@ export class SchedulingHistoryMetadata {
     if (kind !== 'appointment') return [];
     const r = await this.prisma.appointment.findFirst({
       where: { tenantId, id },
-      select: { id: true, patientId: true, createdAt: true },
+      select: { id: true, patientId: true, createdAt: true, chamberId: true },
     });
     return r
       ? [
@@ -16,6 +16,7 @@ export class SchedulingHistoryMetadata {
             sourceId: r.id,
             aggregateId: r.id,
             patientId: r.patientId,
+            chamberId: r.chamberId,
             eventName: 'AppointmentBooked',
             occurredAt: r.createdAt,
             visibility: 'OPERATIONAL' as const,

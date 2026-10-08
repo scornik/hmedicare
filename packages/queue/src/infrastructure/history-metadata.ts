@@ -24,9 +24,14 @@ export class QueueHistoryMetadata {
     if (!first?.serialId) return [];
     const serial = await this.prisma.serial.findFirst({
       where: { tenantId, id: first.serialId },
-      select: { patientId: true },
+      select: { patientId: true, chamberDayId: true },
     });
     if (!serial) return [];
+    const day = await this.prisma.chamberDay.findFirst({
+      where: { tenantId, id: serial.chamberDayId },
+      select: { chamberId: true },
+    });
+    if (!day) return [];
     // Walk-in issuance commits check-in/waiting ledger rows together but emits only SerialIssued.
     const rows =
       first.eventType === 'SERIAL_ISSUED'
@@ -48,6 +53,7 @@ export class QueueHistoryMetadata {
       eventName: 'QueueRecord',
       eventCode: r.eventType,
       patientId: serial.patientId,
+      chamberId: day.chamberId,
       occurredAt: r.occurredAt,
       visibility: 'OPERATIONAL' as const,
     }));

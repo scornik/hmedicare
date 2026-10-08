@@ -1,3 +1,4 @@
+import { TimelinePanel } from '../timeline/TimelinePanel';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { ApiError, getTenant } from '../api';
@@ -294,6 +295,9 @@ export function ConsultationWorkspacePage() {
           signed={signed}
         />
 
+        {encounter.data && (
+          <TimelinePanel key={encounter.data.patientId} patientId={encounter.data.patientId} />
+        )}
         <section className="card" aria-labelledby="history-heading">
           <h2 id="history-heading">{t('encounter.history')}</h2>
           {history.isPending && <p>{t('common.loading')}</p>}
