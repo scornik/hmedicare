@@ -65,6 +65,7 @@ export interface CreateAppointmentInput {
   slotId?: string | null;
   reason?: string | null;
   source?: 'ADVANCE_BOOKING' | 'FOLLOW_UP';
+  followUpPlanId?: string;
 }
 
 export interface AppointmentListFilter {
@@ -389,6 +390,7 @@ export class AppointmentService {
     input: CreateAppointmentInput,
     opts: {
       idempotencyKey?: string | null;
+      beforeBook?: (tx: Tx) => Promise<void>;
       onCommit?: (tx: Tx, view: AppointmentView) => Promise<void>;
     } = {},
   ): Promise<AppointmentView> {
@@ -419,6 +421,7 @@ export class AppointmentService {
     return withTransaction(
       this.prisma,
       async (tx) => {
+        if (opts.beforeBook) await opts.beforeBook(tx);
         const ensured = await this.days.ensure(tx, tenantId, chamber.id, input.localDate, who.userId);
         await lockRow(tx, 'chamber_days', ensured.row.id, tenantId);
         if (ensured.created) await this.days.recordMaterialized(tx, ensured.row, who.userId);
@@ -440,6 +443,12 @@ export class AppointmentService {
           today,
           now,
         });
+        if (input.followUpPlanId) {
+          await tx.appointment.update({
+            where: { id: appointment.id },
+            data: { followUpPlanId: input.followUpPlanId },
+          });
+        }
         const [view] = await this.views(tenantId, [appointment], tx);
         if (opts.onCommit) await opts.onCommit(tx, view!);
         return view!;

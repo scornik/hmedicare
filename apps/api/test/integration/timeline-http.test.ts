@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { beforeAll, afterAll, beforeEach, describe, it, expect } from 'vitest';
+import { beforeAll, afterAll, beforeEach, describe, it, expect, vi } from 'vitest';
 import { loadConfig, type ServerConfig } from '@hmedic/config';
 import { testEnv } from '@hmedic/config/testing';
 import { AppError, FixedClock, newId } from '@hmedic/kernel';
@@ -391,5 +391,156 @@ describe('authorized timeline HTTP', () => {
     });
     expect((await reader.list(access)).stale).toBe(true);
     await expect(reader.list(access, { cursor: 'invalid' })).rejects.toBeInstanceOf(AppError);
+  });
+});
+
+describe('follow-up HTTP authorization and timeline projection', () => {
+  const input = {
+    dueStartDate: '2030-10-10',
+    reason: 'SYNTHETIC Follow-up reason',
+    instructions: 'SYNTHETIC Follow-up instructions',
+  };
+  it('creates once on replay, updates with row version, and keeps text out of the timeline', async () => {
+    const key = newId(),
+      path = () => `/api/v1/encounters/${encounterId}/follow-ups`;
+    const completion = vi
+      .spyOn(api.runtime.idempotency, 'complete')
+      .mockRejectedValue(new Error('outside-transaction completion must not run'));
+    const [first, second] = await (async () => {
+      try {
+        const first = await request(server)
+          .post(path())
+          .set(doctor)
+          .set('Idempotency-Key', key)
+          .send(input)
+          .expect(201);
+        const second = await request(server)
+          .post(path())
+          .set(doctor)
+          .set('Idempotency-Key', key)
+          .send(input)
+          .expect(201);
+        expect(completion).not.toHaveBeenCalled();
+        return [first, second];
+      } finally {
+        completion.mockRestore();
+      }
+    })();
+    expect(second.body.data.id).toBe(first.body.data.id);
+    expect(await api.runtime.prisma.followUpPlan.count()).toBe(1);
+    await request(server)
+      .patch(`/api/v1/follow-ups/${first.body.data.id}`)
+      .set(doctor)
+      .send({ expectedRowVersion: 1, status: 'COMPLETED' })
+      .expect(200);
+    await request(server)
+      .patch(`/api/v1/follow-ups/${first.body.data.id}`)
+      .set(doctor)
+      .send({ expectedRowVersion: 1, reason: 'stale' })
+      .expect(409);
+    await new TimelineProjector(api.runtime.prisma, timelineSources(api.runtime.prisma)).backfill(
+      base.tenantId,
+    );
+    const r = await request(server).get(url()).set(doctor).expect(200);
+    expect(r.body.data.items.some((i: { eventType: string }) => i.eventType === 'follow_up')).toBe(true);
+    expect(JSON.stringify(r.body)).not.toContain(input.reason);
+    expect(JSON.stringify(r.body)).not.toContain(input.instructions);
+  });
+  it('denies clinical creation by patients, reception and unassigned doctors', async () => {
+    const path = `/api/v1/encounters/${encounterId}/follow-ups`;
+    await account();
+    await request(server)
+      .post(path)
+      .set(patientHeaders())
+      .set('Idempotency-Key', newId())
+      .send(input)
+      .expect(403);
+    for (const role of ['receptionist', 'doctor'] as const) {
+      const other = await staff(role);
+      await request(server)
+        .post(path)
+        .set(other.headers)
+        .set('Idempotency-Key', newId())
+        .send(input)
+        .expect(403);
+    }
+  });
+  it('allows scoped reads but prevents reception from reading clinical reason/instructions', async () => {
+    await request(server)
+      .post(`/api/v1/encounters/${encounterId}/follow-ups`)
+      .set(doctor)
+      .set('Idempotency-Key', newId())
+      .send(input)
+      .expect(201);
+    const reception = await staff('receptionist');
+    await request(server)
+      .get(`/api/v1/encounters/${encounterId}/follow-ups`)
+      .set(reception.headers)
+      .expect(403);
+    const nurse = await staff('nurse');
+    const response = await request(server)
+      .get(`/api/v1/encounters/${encounterId}/follow-ups`)
+      .set(nurse.headers)
+      .expect(200);
+    expect(response.body.data[0].reason).toBe(input.reason);
+  });
+  it('books once for a verified SELF context and commits its replay inside the booking transaction', async () => {
+    const date = new Date(api.runtime.clock.now().getTime() + 2 * 86_400_000 + 6 * 3_600_000)
+      .toISOString()
+      .slice(0, 10);
+    await api.runtime.prisma.doctorScheduleRule.create({
+      data: {
+        id: newId(),
+        tenantId: base.tenantId,
+        doctorProfileId: base.doctorProfileId,
+        chamberId: base.chamberId,
+        ruleType: 'WEEKLY',
+        weekday: new Date(date).getUTCDay(),
+        localStartTime: new Date('1970-01-01T18:00:00Z'),
+        localEndTime: new Date('1970-01-01T20:00:00Z'),
+        effectiveFrom: new Date(date),
+        createdAt: api.runtime.clock.now(),
+        updatedAt: api.runtime.clock.now(),
+      },
+    });
+    const plan = (
+      await request(server)
+        .post(`/api/v1/encounters/${encounterId}/follow-ups`)
+        .set(doctor)
+        .set('Idempotency-Key', newId())
+        .send({ ...input, dueStartDate: date })
+        .expect(201)
+    ).body.data;
+    await account();
+    const key = newId(),
+      body = { chamberId: base.chamberId, localDate: date, careMode: 'PHYSICAL', expectedRowVersion: 1 };
+    const completion = vi
+      .spyOn(api.runtime.idempotency, 'complete')
+      .mockRejectedValue(new Error('outside-transaction completion must not run'));
+    try {
+      const first = await request(server)
+        .post(`/api/v1/follow-ups/${plan.id}/book`)
+        .set(patientHeaders())
+        .set('Idempotency-Key', key)
+        .send(body)
+        .expect(201);
+      const second = await request(server)
+        .post(`/api/v1/follow-ups/${plan.id}/book`)
+        .set(patientHeaders())
+        .set('Idempotency-Key', key)
+        .send(body)
+        .expect(201);
+      expect(second.body.data.id).toBe(first.body.data.id);
+      expect(first.body.data.bookedOnBehalf).toBe('SELF');
+      expect(completion).not.toHaveBeenCalled();
+      expect(await api.runtime.prisma.appointment.count({ where: { followUpPlanId: plan.id } })).toBe(1);
+      expect(await api.runtime.prisma.followUpPlan.findUnique({ where: { id: plan.id } })).toMatchObject({
+        status: 'BOOKED',
+        appointmentId: first.body.data.id,
+        serialId: first.body.data.serial.id,
+      });
+    } finally {
+      completion.mockRestore();
+    }
   });
 });

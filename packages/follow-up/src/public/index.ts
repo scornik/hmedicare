@@ -1,2 +1,3 @@
-// Public surface of the follow-up context (REPOSITORY-STRUCTURE.md §2.2).
-export {};
+export * from '../domain/plan';
+export * from '../infrastructure/follow-up-service';
+export { FollowUpHistoryMetadata } from '../infrastructure/history-metadata';

@@ -13,3 +13,4 @@ export * from './prescriptions';
 export * from './openapi';
 export * from './documents';
 export * from './timeline';
+export * from './follow-up';

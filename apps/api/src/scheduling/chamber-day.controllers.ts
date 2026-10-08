@@ -78,7 +78,7 @@ class CursorQueryDto extends createZodDto(
   }),
 ) {}
 
-function bookingActor(
+export function bookingActor(
   actor: ActorContext,
   req: FastifyRequest,
   ctx: ResolvedPatientContext | undefined,

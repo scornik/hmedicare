@@ -1,6 +1,8 @@
+import { FollowUpPanel } from '../follow-up/FollowUpPanel';
 import { TimelinePanel } from '../timeline/TimelinePanel';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
+import { currentUser } from '../auth/session';
 import { ApiError, getTenant } from '../api';
 import { TopBar } from '../components/TopBar';
 import { useI18n } from '../i18n/i18n';
@@ -322,6 +324,14 @@ export function ConsultationWorkspacePage() {
         </section>
 
         <PrescriptionPanel encounterId={encounterId} />
+        {encounter.data && (
+          <FollowUpPanel
+            key={[tenant, currentUser()?.id, encounterId].join(':')}
+            encounterId={encounterId}
+            chamberId={encounter.data.chamberId}
+            canWrite={encounter.data.status !== 'ENTERED_IN_ERROR'}
+          />
+        )}
 
         {/* Stages 10 and 11. Labelled and empty on purpose: a mocked panel here would teach a doctor
             to expect something that does not exist yet. */}

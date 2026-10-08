@@ -1,0 +1,11 @@
+ALTER TABLE `follow_up_plans` ADD CONSTRAINT `chk_follow_up_plans_status` CHECK (status IN ('PLANNED','BOOKED','COMPLETED','CANCELLED','MISSED'));
+ALTER TABLE `follow_up_plans` ADD CONSTRAINT `chk_follow_up_plans_dates` CHECK (due_end_date IS NULL OR due_end_date >= due_start_date);
+ALTER TABLE `follow_up_plans` ADD CONSTRAINT `chk_follow_up_plans_reason` CHECK (CHAR_LENGTH(TRIM(reason)) > 0);
+ALTER TABLE `follow_up_plans` ADD CONSTRAINT `chk_follow_up_plans_booking` CHECK ((appointment_id IS NULL AND serial_id IS NULL AND status <> 'BOOKED') OR (appointment_id IS NOT NULL AND serial_id IS NOT NULL AND status <> 'PLANNED'));
+ALTER TABLE `follow_up_plans` ADD CONSTRAINT `chk_follow_up_plans_version` CHECK (row_version > 0);
+ALTER TABLE `follow_up_plans` ADD CONSTRAINT `fk_follow_up_plans_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`);
+ALTER TABLE `follow_up_plans` ADD CONSTRAINT `fk_follow_up_plans_patient` FOREIGN KEY (`tenant_id`,`patient_id`) REFERENCES `patients` (`tenant_id`,`id`);
+ALTER TABLE `follow_up_plans` ADD CONSTRAINT `fk_follow_up_plans_encounter` FOREIGN KEY (`tenant_id`,`source_encounter_id`) REFERENCES `encounters` (`tenant_id`,`id`);
+ALTER TABLE `follow_up_plans` ADD CONSTRAINT `fk_follow_up_plans_doctor` FOREIGN KEY (`tenant_id`,`doctor_profile_id`) REFERENCES `doctor_profiles` (`tenant_id`,`id`);
+ALTER TABLE `follow_up_plans` ADD CONSTRAINT `fk_follow_up_plans_appointment` FOREIGN KEY (`tenant_id`,`appointment_id`) REFERENCES `appointments` (`tenant_id`,`id`);
+ALTER TABLE `follow_up_plans` ADD CONSTRAINT `fk_follow_up_plans_serial` FOREIGN KEY (`tenant_id`,`serial_id`) REFERENCES `serials` (`tenant_id`,`id`);

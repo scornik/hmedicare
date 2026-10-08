@@ -330,6 +330,9 @@ importers:
       '@hmedic/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@hmedic/follow-up':
+        specifier: workspace:*
+        version: link:../../packages/follow-up
       '@hmedic/http-kit':
         specifier: workspace:*
         version: link:../../packages/http-kit
@@ -666,7 +669,35 @@ importers:
         specifier: 6.19.3
         version: 6.19.3(typescript@5.9.3)
 
-  packages/follow-up: {}
+  packages/follow-up:
+    dependencies:
+      '@hmedic/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@hmedic/clinical':
+        specifier: workspace:*
+        version: link:../clinical
+      '@hmedic/database':
+        specifier: workspace:*
+        version: link:../database
+      '@hmedic/jobs':
+        specifier: workspace:*
+        version: link:../jobs
+      '@hmedic/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@hmedic/localization':
+        specifier: workspace:*
+        version: link:../localization
+      '@hmedic/scheduling':
+        specifier: workspace:*
+        version: link:../scheduling
+      '@nestjs/common':
+        specifier: 11.2.5
+        version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
 
   packages/http-kit:
     dependencies:
@@ -1085,6 +1116,9 @@ importers:
       '@hmedic/database':
         specifier: workspace:*
         version: link:../database
+      '@hmedic/follow-up':
+        specifier: workspace:*
+        version: link:../follow-up
       '@hmedic/jobs':
         specifier: workspace:*
         version: link:../jobs

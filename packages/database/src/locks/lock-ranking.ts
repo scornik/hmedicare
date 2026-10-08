@@ -32,6 +32,9 @@ export const LOCK_RANKING: Readonly<Record<string, number>> = {
   chambers: 30,
   doctor_schedule_rules: 32,
   appointment_slots: 34,
+  // Follow-up booking locks its plan before entering the existing day/serial transaction.
+  follow_up_plans: 38,
+  follow_up_tasks: 39,
   chamber_days: 40,
   appointments: 42,
   serials: 44,

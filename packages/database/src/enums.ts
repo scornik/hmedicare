@@ -168,6 +168,9 @@ export const DB_ENUMS = {
   ],
   'timeline_events.visibility': ['CLINICAL', 'PATIENT_SHARED', 'OPERATIONAL'],
   'timeline_projection_receipts.outcome': ['PROJECTED', 'IGNORED'],
+  'follow_up_plans.status': ['PLANNED', 'BOOKED', 'COMPLETED', 'CANCELLED', 'MISSED'],
+  'follow_up_tasks.status': ['OPEN', 'DONE', 'CANCELLED'],
+  'follow_up_tasks.task_type': ['REMINDER', 'CALL', 'BOOKING_ASSIST'],
 } as const;
 
 export type DbEnumKey = keyof typeof DB_ENUMS;

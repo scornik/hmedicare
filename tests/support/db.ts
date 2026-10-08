@@ -16,7 +16,7 @@ export function openTestDatabase(
 /** A raw connection for tests that need session-level control (locks, EXPLAIN, information_schema). */
 export async function rawConnection(root = false): Promise<mariadb.Connection> {
   const url = root ? inject('rootDatabaseUrl') : testDatabaseUrl();
-  return mariadb.createConnection({ ...parseDatabaseUrl(url), timezone: '+00:00' });
+  return mariadb.createConnection({ ...parseDatabaseUrl(url), timezone: '+00:00', connectTimeout: 10_000 });
 }
 
 /**
@@ -35,6 +35,8 @@ const SELF_REFERENCING: Readonly<Record<string, string>> = {
 
 /** Tables owned by Stage 4/5 migrations, in delete-safe order (children first). */
 const TABLES = [
+  'follow_up_tasks',
+  'follow_up_plans',
   // 0011 timeline: projection rows and checkpoints reference patients and tenants.
   'timeline_projection_receipts',
   'timeline_events',

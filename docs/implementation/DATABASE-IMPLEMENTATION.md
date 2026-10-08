@@ -96,7 +96,7 @@
 | 0018 | `subscriptions` | `subscription_plans`, `subscriptions`, `subscription_invoices` (Stage 3.2, ADR-019) |
 | 0019 | `medication_catalog` | `medications`, `medication_generics`, `medication_generic_links`, `medication_manufacturers`, `medication_aliases`, `medication_price_observations`, `medication_usage_stats`, `medication_dataset_imports`, `medication_dataset_gate_attestations`, `patient_medications` (catalog redesigned in Stage 3.2, ADR-020; split out of 0008 in Stage 6, C-52) |
 
-| 0020 | `follow_up` | `follow_up_plans`, `follow_up_tasks` (reserved by C-57; not yet implemented) |
+| 0020 | `follow_up` | `follow_up_plans`, `follow_up_tasks` (implemented 2026-10-08; C-57) |
 | 0021 | `timeline_receipts` | `timeline_projection_receipts`, exact event/version projection acknowledgements (C-58) |
 
 **Billing:** payments and platform subscriptions are MVP since Stage 3.2 (ADR-019 supersedes audit row S3-13). Insurance, claims and complex invoicing remain Future, with no tables.

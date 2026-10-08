@@ -23,6 +23,7 @@ const TYPES: Readonly<Record<string, TimelineEventType>> = {
   AppointmentBooked: 'appointment',
   QueueRecord: 'serial',
   DocumentScanCompleted: 'document',
+  FollowUpPlanCreated: 'follow_up',
 };
 const ALIASES: Readonly<Record<string, string>> = {
   EncounterInterrupted: 'EncounterStarted',
@@ -34,6 +35,8 @@ const ALIASES: Readonly<Record<string, string>> = {
   AppointmentCancelled: 'AppointmentBooked',
   AppointmentRescheduled: 'AppointmentBooked',
   DocumentRedacted: 'DocumentScanCompleted',
+  FollowUpPlanUpdated: 'FollowUpPlanCreated',
+  FollowUpBooked: 'FollowUpPlanCreated',
 };
 const SERIAL_CODES: Readonly<Record<string, string>> = {
   SerialIssued: 'SERIAL_ISSUED',

@@ -2153,3 +2153,68 @@ model TimelineProjectionReceipt {
   @@index([tenantId, projectionVersion, occurredAt, sourceEventId], map: "ix_timeline_receipts_progress")
   @@map("timeline_projection_receipts")
 }
+
+// ---------------------------------------------------------------- 0020 follow_up
+model FollowUpPlan {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  patientId String @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  sourceEncounterId String @map("source_encounter_id") @db.VarChar(36)
+  /// @ascii
+  doctorProfileId String @map("doctor_profile_id") @db.VarChar(36)
+  dueStartDate DateTime @map("due_start_date") @db.Date
+  dueEndDate DateTime? @map("due_end_date") @db.Date
+  reason String @db.VarChar(300)
+  instructions String? @db.VarChar(1000)
+  /// @ascii
+  status String @db.VarChar(16)
+  /// @ascii
+  appointmentId String? @map("appointment_id") @db.VarChar(36)
+  /// @ascii
+  serialId String? @map("serial_id") @db.VarChar(36)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String? @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String? @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId,id], map: "uq_follow_up_plans_tenant_id")
+  @@index([tenantId,patientId,dueStartDate,id], map: "ix_follow_up_plans_patient")
+  @@index([tenantId,sourceEncounterId], map: "ix_follow_up_plans_encounter")
+  @@index([tenantId,status,dueStartDate], map: "ix_follow_up_plans_due")
+  @@map("follow_up_plans")
+}
+
+model FollowUpTask {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  followUpPlanId String @map("follow_up_plan_id") @db.VarChar(36)
+  /// @ascii
+  taskType String @map("task_type") @db.VarChar(24)
+  dueAt DateTime @map("due_at") @db.DateTime(3)
+  /// @ascii
+  status String @db.VarChar(16)
+  /// @ascii
+  assignedUserId String? @map("assigned_user_id") @db.VarChar(36)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String? @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String? @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId,id], map: "uq_follow_up_tasks_tenant_id")
+  @@index([tenantId,followUpPlanId], map: "ix_follow_up_tasks_plan")
+  @@index([tenantId,status,dueAt,id], map: "ix_follow_up_tasks_due")
+  @@map("follow_up_tasks")
+}

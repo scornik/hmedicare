@@ -1,3 +1,6 @@
+import { FollowUpController } from './follow-up/follow-up.controller';
+import { FollowUpService } from '@hmedic/follow-up';
+import { FollowUpModule } from '@hmedic/follow-up/nest';
 import { TimelineController } from './timeline/timeline.controller';
 import { TimelineReadModule } from '@hmedic/timeline/nest';
 import { TimelineReader, timelineSources } from '@hmedic/timeline';
@@ -136,6 +139,15 @@ export class ApiModule {
         SchedulingWriteModule.forRoot(scheduling),
         QueueWriteModule.forRoot(queue),
         ClinicalWriteModule.forRoot(clinical),
+        FollowUpModule.forRoot(
+          new FollowUpService(
+            runtime.prisma,
+            runtime.audit,
+            clinical.access,
+            scheduling.appointments,
+            runtime.clock,
+          ),
+        ),
         TimelineReadModule.forRoot(
           new TimelineReader(
             runtime.prisma,
@@ -150,6 +162,7 @@ export class ApiModule {
         ...(documents ? [DocumentModule.forRoot(documents)] : []),
       ],
       controllers: [
+        FollowUpController,
         AuthController,
         SessionController,
         MeController,

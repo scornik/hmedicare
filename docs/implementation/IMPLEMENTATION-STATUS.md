@@ -13,6 +13,13 @@ Continued from `eef0d0a` on local branch `codex/timeline-foundation`. **TL-001 a
 
 The projector and timeline chain verifier are registered in the API embedded/cron runner and standalone worker. Rebuild compares per-patient counts and source metadata, leaves original rows intact, and never changes active configuration. See [BUILD-TAKEOVER.md](BUILD-TAKEOVER.md) for operations and validation. C-57 reserves follow-up migration 0020; C-58 adds durable receipts in 0021 and defines aggregate redaction/checkpoint semantics.
 
+## Follow-up core (2026-10-08)
+
+**FUP-001 core is implemented locally:** migration 0020, doctor-authored plans, Dhaka reminder tasks, optimistic updates, atomic linked appointment/serial booking, authorized API and consultation web controls. Clinical reads/writes enforce assignment/scope; patient/guardian booking uses the existing verified context and booking scope. Creation/booking also commit their replay response atomically. Source-owner metadata projects a generic follow-up label without clinical prose.
+
+Validation: 479 unit/architecture tests; 61 integration regressions on MariaDB 11.8 followed by 10 follow-up and 12 HTTP tests, and four final follow-up HTTP checks including atomic verified SELF booking; MariaDB 10.6 passed 10 follow-up and 12 HTTP tests, plus the final three atomic replay/authorization HTTP checks. Earlier 10.6 timeline repository/projector coverage passed 26 tests. All 25 web flows passed, including follow-up creation/booking/stale updates, followed by focused reruns for permission/wording changes and desktop/phone screenshot review. Affected TypeScript builds, test compilation, lint, migration/dependency/secret checks and OpenAPI generation passed. Generated Flutter clients now contain 131 operations; mobile analysis and workspace tests were rerun.
+
+Automated notifications, consent/channel/retry handling and delivery status remain COM-001–003/SMS-006–007. Task management and native follow-up screens, plus richer web booking selection, remain client completion work. Full release gating, merge/push/deployment and checkpoint tagging remain outstanding. See [FOLLOW-UP-IMPLEMENTATION.md](FOLLOW-UP-IMPLEMENTATION.md).
 ## 1. Checkpoint status
 
 | Checkpoint | Scope | Status | Tag |

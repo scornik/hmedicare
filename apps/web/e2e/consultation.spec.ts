@@ -105,7 +105,15 @@ async function mockApi(page: Page, overrides: Partial<State> = {}): Promise<Stat
         data: {
           tenantId: TENANT,
           role: 'doctor',
-          permissions: ['encounter.read', 'note.write', 'note.sign', 'diagnosis.write', 'patient.read'],
+          permissions: [
+            'encounter.read',
+            'note.write',
+            'note.sign',
+            'diagnosis.write',
+            'patient.read',
+            'followup.write',
+            'appointment.write',
+          ],
         },
       });
 
@@ -570,4 +578,66 @@ test('the PDF is offered only once a render has produced one', async ({ page }) 
   await page.reload();
   await expect(page.getByTestId('rx-pdf-download')).toBeVisible();
   await expect(page.getByTestId('rx-pdf-pending')).toBeHidden();
+});
+
+test('follow-up creation, linked booking and stale status updates', async ({ page }) => {
+  await mockApi(page);
+  let plan: Record<string, unknown> | null = null,
+    stale = false;
+  await page.route('**/api/v1/encounters/*/follow-ups', async (route) => {
+    if (route.request().method() === 'OPTIONS')
+      return route.fulfill({
+        status: 204,
+        headers: {
+          ...cors,
+          'access-control-allow-methods': 'GET, POST, PATCH, OPTIONS',
+          'access-control-allow-headers':
+            'authorization, content-type, x-tenant-id, idempotency-key, x-csrf-token',
+        },
+      });
+    if (route.request().method() === 'GET') return json(route, 200, { data: plan ? [plan] : [] });
+    expect(route.request().headers()['idempotency-key']).toBeTruthy();
+    plan = { ...route.request().postDataJSON(), id: RX, status: 'PLANNED', rowVersion: 1 };
+    return json(route, 201, { data: plan });
+  });
+  await page.route('**/api/v1/follow-ups/**', async (route) => {
+    if (route.request().method() === 'OPTIONS')
+      return route.fulfill({
+        status: 204,
+        headers: {
+          ...cors,
+          'access-control-allow-methods': 'GET, POST, PATCH, OPTIONS',
+          'access-control-allow-headers':
+            'authorization, content-type, x-tenant-id, idempotency-key, x-csrf-token',
+        },
+      });
+    expect(route.request().postDataJSON().expectedRowVersion).toBe(plan?.rowVersion);
+    if (route.request().url().endsWith('/book')) {
+      plan = { ...plan, status: 'BOOKED', rowVersion: 2 };
+      return json(route, 201, { data: { id: NOTE, serial: { id: NOTE } } });
+    }
+    if (stale) return json(route, 409, { code: 'STALE_VERSION' });
+    plan = { ...plan, status: route.request().postDataJSON().status, rowVersion: 3 };
+    return json(route, 200, { data: plan });
+  });
+  await open(page);
+  const panel = page.getByTestId('follow-up-panel');
+  await expect(panel).toContainText('No follow-up plans yet');
+  await panel.getByLabel('Due start date', { exact: true }).fill('2030-10-10');
+  await panel.getByLabel('Reason', { exact: true }).fill('SYNTHETIC follow-up');
+  await panel.getByLabel('Instructions', { exact: true }).fill('SYNTHETIC directions');
+  await panel.getByRole('button', { name: 'Create plan', exact: true }).click();
+  await expect(panel).toContainText('SYNTHETIC follow-up');
+  await panel.getByRole('button', { name: 'Book physical visit on start date' }).click();
+  await expect(panel).toContainText('Booked');
+  await panel.screenshot({ path: 'test-results/follow-up-desktop.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await panel.screenshot({ path: 'test-results/follow-up-phone.png' });
+  stale = true;
+  await panel.getByRole('button', { name: 'Complete plan', exact: true }).click();
+  await expect(panel.getByRole('alert')).toContainText('This record changed');
+  await expect(panel).toContainText('Booked');
+  stale = false;
+  await panel.getByRole('button', { name: 'Cancel plan', exact: true }).click();
+  await expect(panel).toContainText('Cancelled');
 });
