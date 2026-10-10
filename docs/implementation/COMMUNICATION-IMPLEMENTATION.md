@@ -193,3 +193,14 @@ The authenticated communication-link API now resolves only a live SELF or guardi
 Validation: the existing 20 HTTP cases passed on MariaDB 10.6 and 11.8, and all four new authorization/expiry/configuration cases passed on both after correcting an expiry fixture. The full 508 unit/architecture checks passed; five web unit checks include the safe return-path case. Ten existing browser cases and all three new reminder-link cases passed. The 390-pixel phone screenshot was reviewed. TypeScript builds, Dart analysis, lint, dependency checks (480 modules/2,051 dependencies), generated-contract parity, 21 migration checks, migration immutability and secret scanning passed.
 
 Outgoing SMS links and expired-row maintenance remain open. This work is on codex/timeline-foundation, unmerged and undeployed; no external SMS was sent.
+
+## Follow-up SMS links and retention (2026-10-10)
+
+Non-production API and worker SMS composition now includes reminder links when SHORT_LINK_PEPPER is configured. Both processes must use the same key and WEB_PUBLIC_URL origin. The generic pinned English/Bangla message carries only /r/<opaque-token>; configured path/query/fragment are discarded, and userinfo or unsupported URL schemes are rejected. Missing key retains the generic reminder without a URL.
+
+Link issuance follows the account rate check and runs outside the send-preparation transaction to preserve patient/source lock ordering. Preparation then rechecks live consent and source eligibility before any paid provider call. Rendering validates the final segment budget before creating an attempt. Tokens never enter jobs, attempts, audit or outbox payloads. A cancelled or interrupted send can leave an unused hash until retention removes it; unknown-outcome retries retain the existing single-resend policy. The existing bounded TTL job now deletes links strictly older than seven days after expiry using the indexed expiry column.
+
+Validation: 509 unit/architecture tests passed. All 63 communication and worker integration checks passed on both MariaDB 10.6 and 11.8, including English/Bangla link resolution, token privacy, rate denial, consent withdrawal after issuance and final segment-budget rejection. Builds/test compilation, repository lint, dependency boundaries (480 modules/2,052 dependencies) and secret scanning passed. Cleanup boundary validation is recorded separately below.
+
+Production reminder scanning and this SMS composition remain disabled. Other business triggers, authorized channel failure fallback, native notification screens and release enablement remain open. No external SMS or deployment was performed.
+Cleanup validation: the new bounded-delete test passed on MariaDB 10.6 and 11.8. It removes one expired row per batch, retains the exact seven-day boundary and preserves a resolvable live link.

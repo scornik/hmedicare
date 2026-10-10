@@ -368,6 +368,9 @@ export async function buildApi(
                   rateLimiter: runtime.rateLimiter,
                   maxSendsPerMinute: config.ZAMANIT_MAX_SENDS_PER_MINUTE,
                   metrics: runtime.metrics,
+                  reminderLinks: shortLinks
+                    ? { issuer: shortLinks, webPublicUrl: config.WEB_PUBLIC_URL }
+                    : undefined,
                 },
                 new PatientCommunicationSource(),
                 reminderSource,

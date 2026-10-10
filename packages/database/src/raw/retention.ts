@@ -48,6 +48,10 @@ export const RETENTION_RULES = {
     sql: 'DELETE FROM email_verification_tokens WHERE expires_at < ? LIMIT ?',
     params: (now) => [new Date(now.getTime() - DAY)],
   },
+  communication_short_links: {
+    sql: 'DELETE FROM communication_short_links WHERE expires_at < ? LIMIT ?',
+    params: (now) => [new Date(now.getTime() - 7 * DAY)],
+  },
   jobs_succeeded: {
     sql: "DELETE FROM jobs WHERE status IN ('SUCCEEDED', 'CANCELLED') AND finished_at < ? LIMIT ?",
     params: (now, c) => [new Date(now.getTime() - c.jobRetentionSucceededDays * DAY)],

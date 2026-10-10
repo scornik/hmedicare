@@ -1,4 +1,4 @@
-import { type Clock, newId, systemClock } from '@hmedic/kernel';
+import { AppError, type Clock, newId, systemClock } from '@hmedic/kernel';
 import { type PrismaClient, type Tx, lockRow, withTransaction } from '@hmedic/database';
 import type { PrismaAuditPort } from '@hmedic/audit';
 import {
@@ -34,6 +34,10 @@ export interface TransactionalSmsDeps {
   maxSendsPerMinute: number;
   metrics?: Metrics;
   clock?: Clock;
+  reminderLinks?: {
+    issuer: { issue(tenantId: string, communicationId: string): Promise<{ token: string }> };
+    webPublicUrl: string;
+  };
 }
 const terminal = new Set(['SENT', 'DELIVERED', 'READ', 'FAILED', 'CANCELLED']);
 /** Dedicated non-idempotent SMS path. Payloads hold IDs; contact and secret resolution stays in process. */
@@ -211,6 +215,34 @@ export class TransactionalSmsDelivery {
     );
     if (!rate.allowed)
       throw new RateLimitedJobError(new Date(this.clock.now().getTime() + rate.retryAfterSeconds * 1000));
+    if (this.deps.reminderLinks) {
+      // Issue in a separate transaction before preparation: both lock the same patient/source.
+      // Rate-limited jobs create no links. Preparation still rechecks consent and source afterward.
+      let token: string;
+      try {
+        token = (await this.deps.reminderLinks.issuer.issue(tenantId, id)).token;
+      } catch (error) {
+        if (error instanceof AppError && error.code === 'RESOURCE_NOT_FOUND')
+          return this.fail(tenantId, id, 'SMS_SOURCE_INELIGIBLE');
+        throw error;
+      }
+      try {
+        const url = new URL(this.deps.reminderLinks.webPublicUrl);
+        if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password)
+          throw Error('reminder URL');
+        url.pathname = `/r/${token}`;
+        url.search = '';
+        url.hash = '';
+        text = renderTemplate(
+          snapshot.templateKey,
+          snapshot.locale as SmsLocale,
+          { appName: 'HMedic', shortLink: url.toString() },
+          snapshot.templateVersion,
+        ).trim();
+      } catch {
+        return this.fail(tenantId, id, 'SMS_TEMPLATE_INVALID');
+      }
+    }
     const prepared = await withTransaction(prisma, async (tx) => {
       if (!(await lockRow(tx, 'patients', snapshot.patientId!, tenantId))) return null;
       const preference = await tx.communicationPreference.findFirst({

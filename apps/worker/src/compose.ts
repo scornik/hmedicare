@@ -1,5 +1,6 @@
 import {
   CommunicationService,
+  CommunicationShortLinks,
   TransactionalSmsDelivery,
   type CommunicationProvider,
 } from '@hmedic/communication';
@@ -74,6 +75,15 @@ export async function buildWorker(
   const { runtime, database } = createRuntime('worker', config, overrides);
   const sms = createSmsServices(runtime);
   const reminderSource = new FollowUpReminderSource(runtime.prisma, runtime.clock);
+  const shortLinks = config.SHORT_LINK_PEPPER
+    ? new CommunicationShortLinks(
+        runtime.prisma,
+        runtime.audit,
+        reminderSource,
+        config.SHORT_LINK_PEPPER,
+        runtime.clock,
+      )
+    : null;
   const notificationProviders = new Map<string, CommunicationProvider>([
     ['email', new MockEmailAdapter(config.LOG_HASH_PEPPER)],
     ['whatsapp', new MockWhatsAppAdapter(config.LOG_HASH_PEPPER)],
@@ -110,6 +120,9 @@ export async function buildWorker(
             rateLimiter: runtime.rateLimiter,
             maxSendsPerMinute: config.ZAMANIT_MAX_SENDS_PER_MINUTE,
             metrics: runtime.metrics,
+            reminderLinks: shortLinks
+              ? { issuer: shortLinks, webPublicUrl: config.WEB_PUBLIC_URL }
+              : undefined,
           },
           new PatientCommunicationSource(),
           reminderSource,

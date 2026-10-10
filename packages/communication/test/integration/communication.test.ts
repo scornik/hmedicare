@@ -6,6 +6,7 @@ import { SecretEnvelope, kekFromBase64 } from '@hmedic/secrets';
 import { registerTransactionalSmsJobs } from '../../src/nest/transactional-sms-jobs';
 import { createHmac } from 'node:crypto';
 import { newId } from '@hmedic/kernel';
+import { deleteExpiredBatch } from '@hmedic/database';
 import { PrismaAuditPort } from '@hmedic/audit';
 import { PatientCommunicationSource } from '@hmedic/patient';
 import { FollowUpReminderSource } from '@hmedic/follow-up';
@@ -440,7 +441,7 @@ describe('communication intents and delivery', () => {
   });
 });
 
-async function smsFixture(maxSendsPerMinute = 30) {
+async function smsFixture(maxSendsPerMinute = 30, webPublicUrl?: string) {
   const f = await fixture();
   await db.prisma.patientConsent.update({ where: { id: f.consentId }, data: { purpose: 'sms' } });
   await db.prisma.patientContact.update({
@@ -463,6 +464,14 @@ async function smsFixture(maxSendsPerMinute = 30) {
     smsClock,
   );
   const provider = new MockSmsAdapter();
+  const links = new CommunicationShortLinks(
+    db.prisma,
+    new PrismaAuditPort(smsClock),
+    new FollowUpReminderSource(db.prisma, smsClock),
+    'synthetic-sms-link-key-at-least-32-bytes',
+    smsClock,
+  );
+  const rateLimiter = new RateLimiter(db.prisma, config.RATE_LIMIT_PEPPER, smsClock);
   const delivery = new TransactionalSmsDelivery(
     {
       prisma: db.prisma,
@@ -470,9 +479,10 @@ async function smsFixture(maxSendsPerMinute = 30) {
       provider,
       platform: platformSmsCredential('synthetic-platform-key', 'HMEDIC'),
       vault,
-      rateLimiter: new RateLimiter(db.prisma, config.RATE_LIMIT_PEPPER, smsClock),
+      rateLimiter,
       maxSendsPerMinute,
       clock: smsClock,
+      reminderLinks: webPublicUrl ? { issuer: links, webPublicUrl } : undefined,
     },
     new PatientCommunicationSource(),
     new FollowUpReminderSource(db.prisma, smsClock),
@@ -482,9 +492,107 @@ async function smsFixture(maxSendsPerMinute = 30) {
   service.enableTransactionalSms(delivery);
   const intent = await service.requestReminder({ ...f.input, channel: 'sms' });
   const identity = { communicationId: intent.id, credentialScope: 'PLATFORM' as const, credentialId: null };
-  return { ...f, vault, provider, delivery, intent, identity, advance, registry, smsClock };
+  return {
+    ...f,
+    vault,
+    provider,
+    delivery,
+    intent,
+    identity,
+    advance,
+    registry,
+    smsClock,
+    links,
+    rateLimiter,
+  };
 }
 describe('transactional SMS worker', () => {
+  it.each(['en-BD', 'bn-BD'])(
+    'sends an opaque authorized reminder URL in %s without persisting it',
+    async (locale) => {
+      const f = await smsFixture(30, 'https://app.example.test/ignored?private=value#ignored');
+      await db.prisma.communication.update({ where: { id: f.intent.id }, data: { locale } });
+      let text = '';
+      const send = f.provider.send.bind(f.provider);
+      f.provider.send = async (input) => {
+        text = input.text;
+        return send(input);
+      };
+      await service.deliver(f.tenantId, f.intent.id);
+      await f.delivery.execute(f.tenantId, f.identity);
+      const match = text.match(/https:\/\/app\.example\.test\/r\/([A-Za-z0-9]{22})/);
+      expect(match).not.toBeNull();
+      expect(text).not.toMatch(/private=value|ignored|1700000099/);
+      expect(await f.links.resolve(f.tenantId, f.patientId, match![1]!, { userId: f.userId })).toEqual({
+        targetType: 'PATIENT_TIMELINE',
+        patientId: f.patientId,
+      });
+      const rows = [
+        await db.prisma.communicationShortLink.findMany(),
+        await db.prisma.communicationAttempt.findMany(),
+        await db.prisma.job.findMany(),
+        await db.prisma.auditLog.findMany(),
+        await db.prisma.outboxEvent.findMany(),
+      ];
+      expect(
+        JSON.stringify(rows, (_key, value: unknown) =>
+          typeof value === 'bigint' ? value.toString() : value,
+        ),
+      ).not.toContain(match![1]);
+      expect(f.provider.sent).toHaveLength(1);
+    },
+  );
+  it('creates no reminder link or attempt while rate limited', async () => {
+    const f = await smsFixture(1, 'https://app.example.test');
+    await f.rateLimiter.consume(
+      { scope: 'sms:transactional', limit: 1, windowSeconds: 60 },
+      'sms:PLATFORM:platform',
+    );
+    await expect(f.delivery.execute(f.tenantId, f.identity)).rejects.toBeInstanceOf(RateLimitedJobError);
+    expect(await db.prisma.communicationShortLink.count()).toBe(0);
+    expect(await db.prisma.communicationAttempt.count()).toBe(0);
+    expect(f.provider.sent).toHaveLength(0);
+  });
+  it('rechecks consent after link creation before sending', async () => {
+    const f = await smsFixture(30, 'https://app.example.test');
+    const issue = f.links.issue.bind(f.links);
+    f.links.issue = async (...args) => {
+      const result = await issue(...args);
+      await db.prisma.patientConsent.update({
+        where: { id: f.consentId },
+        data: { status: 'WITHDRAWN', withdrawnAt: f.smsClock.now() },
+      });
+      return result;
+    };
+    await f.delivery.execute(f.tenantId, f.identity);
+    expect(f.provider.sent).toHaveLength(0);
+    expect(await db.prisma.communicationAttempt.count()).toBe(0);
+    expect((await db.prisma.communication.findUniqueOrThrow({ where: { id: f.intent.id } })).status).toBe(
+      'CANCELLED',
+    );
+  });
+  it('fails over-budget link text before creating a paid attempt', async () => {
+    const f = await smsFixture(30, `https://app.example.test/${'x'.repeat(600)}`);
+    // The origin, not an arbitrary path/query, is used. A long hostname still exceeds the template budget.
+    const delivery = new TransactionalSmsDelivery(
+      {
+        prisma: db.prisma,
+        audit: new PrismaAuditPort(f.smsClock),
+        provider: f.provider,
+        platform: platformSmsCredential('synthetic-platform-key', 'HMEDIC'),
+        vault: f.vault,
+        rateLimiter: f.rateLimiter,
+        maxSendsPerMinute: 30,
+        clock: f.smsClock,
+        reminderLinks: { issuer: f.links, webPublicUrl: `https://${'x'.repeat(600)}.example.test` },
+      },
+      new PatientCommunicationSource(),
+      new FollowUpReminderSource(db.prisma, f.smsClock),
+    );
+    await expect(delivery.execute(f.tenantId, f.identity)).rejects.toThrow('SMS_TEMPLATE_INVALID');
+    expect(await db.prisma.communicationAttempt.count()).toBe(0);
+    expect(f.provider.sent).toHaveLength(0);
+  });
   it('dispatches an account-keyed identifier-only job and records acceptance without claiming delivery', async () => {
     const f = await smsFixture();
     await service.deliver(f.tenantId, f.intent.id);
@@ -853,6 +961,23 @@ describe('communication short links', () => {
     );
     return { ...f, intent, links, time, actor: { userId: f.userId, actingAs: 'SELF' as const } };
   }
+  it('cleans links in bounded batches only after the seven-day post-expiry retention', async () => {
+    const f = await setup();
+    await f.links.issue(f.tenantId, f.intent.id, 60);
+    await f.links.issue(f.tenantId, f.intent.id, 60);
+    await f.links.issue(f.tenantId, f.intent.id, 86400);
+    f.time.value = new Date(clock.now().getTime() + 8 * 86400000);
+    const live = await f.links.issue(f.tenantId, f.intent.id, 60);
+    const cfg = { jobRetentionSucceededDays: 30, jobRetentionFailedDays: 90, outboxRetentionDays: 30 };
+    for (const expected of [1, 1, 0])
+      expect(await deleteExpiredBatch(db.prisma, 'communication_short_links', f.time.now(), cfg, 1)).toBe(
+        expected,
+      );
+    expect(await db.prisma.communicationShortLink.count()).toBe(2);
+    await expect(f.links.resolve(f.tenantId, f.patientId, live.token, f.actor)).resolves.toMatchObject({
+      patientId: f.patientId,
+    });
+  });
   it('stores only a keyed hash and resolves metadata after live source checks', async () => {
     const f = await setup(),
       issued = await f.links.issue(f.tenantId, f.intent.id);
