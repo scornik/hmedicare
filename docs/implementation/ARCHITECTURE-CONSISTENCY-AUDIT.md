@@ -158,3 +158,9 @@ Each has a default and fallback so Stage 4 is not blocked.
 | ID | Conflict | Sources | Risk | Resolution |
 |---|---|---|---|---|
 | C-59 | Section 0012 combines communication and later remote-session work, and its append-only webhook ledger includes a nullable mapping that cannot be filled by mutation after an early receipt. | DATABASE §3.12, COMMUNICATION §2/§4, append-only lint | Remote sessions would force editing applied communication SQL; an early receipt could require changing an immutable ledger row. | 0012 creates only communication tables; reserve 0022 for telemedicine. Bind known attempts at insert. Store the exact received payload SHA-256 alongside each verified receipt to reject changed replays. For an unmatched receipt, keep the original row intact: a later identical replay can advance the locked attempt monotonically and append the audit/outbox acknowledgement. Never mutate the webhook ledger or any clinical/scheduling record. |
+
+### Follow-up communication link targets (2026-10-10)
+
+| ID | Conflict | Sources | Risk | Resolution |
+|---|---|---|---|---|
+| C-60 | Follow-up reminders now exist, but the original short-link target constraint has no communication-intent target. | COMMUNICATION §6.3, migration 0012, follow-up SMS implementation | Reusing a different target type would misrepresent the record; changing applied migration 0012 would break deployment history. | Add COMMUNICATION in new migration 0023, retaining all five existing target types and keeping 0022 reserved for telemedicine. The initial internal resolver rechecks a caller-authorized patient context and the live follow-up source, returning only the patient timeline target. Tokens locate records and never grant access. API/login/client composition and SMS links remain disabled until those flows are built. |

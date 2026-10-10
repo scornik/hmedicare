@@ -99,6 +99,7 @@
 
 | 0020 | `follow_up` | `follow_up_plans`, `follow_up_tasks` (implemented 2026-10-08; C-57) |
 | 0021 | `timeline_receipts` | `timeline_projection_receipts`, exact event/version projection acknowledgements (C-58) |
+| 0023 | `communication_link_targets` | Add COMMUNICATION to the short-link target check, retaining prior target types (C-60) |
 
 **Billing:** payments and platform subscriptions are MVP since Stage 3.2 (ADR-019 supersedes audit row S3-13). Insurance, claims and complex invoicing remain Future, with no tables.
 
@@ -551,7 +552,7 @@ Notation: `FK→t(tenant_id,id)` means a composite tenant FK `(tenant_id, <col>)
 
 **`communication_attempts`** (std): `communication_id FK→communications(tenant_id,id)`, `attempt_number SMALLINT`, `provider_adapter key(32)`, `provider_message_id key(191) NULL`, `status code(16)`, `error_class key(64) NULL`, **Stage 3.2 SMS columns:** `credential_scope code(16) NULL` CHECK `PLATFORM|TENANT`, `credential_id id36 NULL` FK→provider_credentials(tenant_id,id), `encoding code(8) NULL` CHECK `text|unicode`, `segments_estimated SMALLINT NULL`, `outcome_class key(32) NULL` (`ACCEPTED`/`REJECTED`/`PROVIDER_UNAVAILABLE`/`UNKNOWN_OUTCOME`), `possible_duplicate bool`, `sent_at ts NULL`, `delivered_at ts NULL`, `read_at ts NULL`, `failed_at ts NULL`, `provider_meta json:RedactedProviderMeta NULL`. UNIQUE `(tenant_id, communication_id, attempt_number)`; index `(provider_adapter, provider_message_id)`.
 
-**`communication_short_links`** (Stage 3.2): `id id36 PK`, `tenant_id id36` FK→tenants(id), `token_hash hash64` UNIQUE (HMAC-SHA-256 of the 22-char random token with `SHORT_LINK_PEPPER`), `target_type code(24)` CHECK `SERIAL|APPOINTMENT|PAYMENT_INTENT|PRESCRIPTION|DOCUMENT_LIST`, `target_id id36`, `created_at ts`, `expires_at ts`, `first_used_at ts NULL`. Index `(expires_at)`. Resolving a link requires login and the normal authorization for the target; the link itself grants nothing.
+**`communication_short_links`** (Stage 3.2): `id id36 PK`, `tenant_id id36` FK→tenants(id), `token_hash hash64` UNIQUE (HMAC-SHA-256 of the 22-char random token with `SHORT_LINK_PEPPER`), `target_type code(24)` CHECK `SERIAL|APPOINTMENT|PAYMENT_INTENT|PRESCRIPTION|DOCUMENT_LIST|COMMUNICATION` (0023; C-60), `target_id id36`, `created_at ts`, `expires_at ts`, `first_used_at ts NULL`. Index `(expires_at)`. Resolving a link requires login and the normal authorization for the target; the link itself grants nothing.
 
 **`communication_preferences`** (std): `patient_id FK`, `channel code(16)`, `contact_id id36 NULL` FK→patient_contacts(tenant_id,id), `preference code(16)` CHECK `OPT_IN|OPT_OUT`, `consent_version INT`, `effective_from ts`, `effective_to ts NULL`.
 

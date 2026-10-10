@@ -20,6 +20,7 @@ import {
   NonRetryableJobError,
 } from '@hmedic/jobs';
 import {
+  CommunicationShortLinks,
   SmsAccountService,
   TransactionalSmsDelivery,
   platformSmsCredential,
@@ -829,5 +830,125 @@ describe('tenant SMS account management', () => {
     expect(result.latest?.balance).toBe('130.00');
     expect(result.dailySpendEstimate).toEqual([{ day: '2026-10-10', estimateBdt: '30.00' }]);
     expect(result.truncated).toBe(false);
+  });
+});
+
+describe('communication short links', () => {
+  const key = 'synthetic-short-link-key-at-least-32-bytes';
+  async function setup() {
+    const f = await fixture();
+    const intent = await service.requestReminder(f.input);
+    const time = {
+      value: clock.now(),
+      now() {
+        return this.value;
+      },
+    };
+    const links = new CommunicationShortLinks(
+      db.prisma,
+      new PrismaAuditPort(time),
+      new FollowUpReminderSource(db.prisma, time),
+      key,
+      time,
+    );
+    return { ...f, intent, links, time, actor: { userId: f.userId, actingAs: 'SELF' as const } };
+  }
+  it('stores only a keyed hash and resolves metadata after live source checks', async () => {
+    const f = await setup(),
+      issued = await f.links.issue(f.tenantId, f.intent.id);
+    expect(issued.token).toMatch(/^[A-Za-z0-9]{22}$/);
+    expect(issued.expiresAt).toBe('2026-10-17T04:00:00.000Z');
+    const stored = await db.prisma.communicationShortLink.findFirstOrThrow();
+    expect(stored.tokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(JSON.stringify(stored)).not.toContain(issued.token);
+    expect(await f.links.resolve(f.tenantId, f.patientId, issued.token, f.actor)).toEqual({
+      targetType: 'PATIENT_TIMELINE',
+      patientId: f.patientId,
+    });
+    expect((await db.prisma.communicationShortLink.findFirstOrThrow()).firstUsedAt).toEqual(clock.now());
+    expect(
+      JSON.stringify(await db.prisma.auditLog.findMany(), (_key, value: unknown) =>
+        typeof value === 'bigint' ? value.toString() : value,
+      ),
+    ).not.toContain(issued.token);
+  });
+  it('sets first-use only once across concurrent opens without consuming the link', async () => {
+    const f = await setup(),
+      issued = await f.links.issue(f.tenantId, f.intent.id);
+    await Promise.all([1, 2].map(() => f.links.resolve(f.tenantId, f.patientId, issued.token, f.actor)));
+    f.time.value = new Date(clock.now().getTime() + 60000);
+    await f.links.resolve(f.tenantId, f.patientId, issued.token, f.actor);
+    expect((await db.prisma.communicationShortLink.findFirstOrThrow()).firstUsedAt).toEqual(clock.now());
+  });
+  it('rejects malformed, cross-tenant and cross-patient tokens without marking them used', async () => {
+    const f = await setup(),
+      issued = await f.links.issue(f.tenantId, f.intent.id);
+    for (const [tenant, patient, token] of [
+      [f.tenantId, f.patientId, 'bad-token'],
+      [newId(), f.patientId, issued.token],
+      [f.tenantId, newId(), issued.token],
+    ])
+      await expect(f.links.resolve(tenant!, patient!, token!, f.actor)).rejects.toMatchObject({
+        code: 'RESOURCE_NOT_FOUND',
+      });
+    expect((await db.prisma.communicationShortLink.findFirstOrThrow()).firstUsedAt).toBeNull();
+  });
+  it('rejects expiry exactly at the deadline and invalidates tokens when the key changes', async () => {
+    const f = await setup(),
+      issued = await f.links.issue(f.tenantId, f.intent.id, 60);
+    const rotated = new CommunicationShortLinks(
+      db.prisma,
+      new PrismaAuditPort(f.time),
+      new FollowUpReminderSource(db.prisma, f.time),
+      key + '-rotated',
+      f.time,
+    );
+    await expect(rotated.resolve(f.tenantId, f.patientId, issued.token, f.actor)).rejects.toMatchObject({
+      code: 'RESOURCE_NOT_FOUND',
+    });
+    f.time.value = new Date(issued.expiresAt);
+    await expect(f.links.resolve(f.tenantId, f.patientId, issued.token, f.actor)).rejects.toMatchObject({
+      code: 'RESOURCE_NOT_FOUND',
+    });
+    expect((await db.prisma.communicationShortLink.findFirstOrThrow()).firstUsedAt).toBeNull();
+  });
+  it.each(['plan', 'encounter', 'communication', 'patient'])('denies an invalidated %s', async (target) => {
+    const f = await setup(),
+      issued = await f.links.issue(f.tenantId, f.intent.id);
+    if (target === 'plan')
+      await db.prisma.followUpPlan.update({ where: { id: f.planId }, data: { status: 'CANCELLED' } });
+    if (target === 'encounter')
+      await db.prisma.encounter.update({
+        where: { id: f.encounterId },
+        data: { status: 'ENTERED_IN_ERROR', enteredInErrorReason: 'SYNTHETIC wrong encounter' },
+      });
+    if (target === 'communication')
+      await db.prisma.communication.update({ where: { id: f.intent.id }, data: { status: 'CANCELLED' } });
+    if (target === 'patient')
+      await db.prisma.patient.update({ where: { id: f.patientId }, data: { status: 'INACTIVE' } });
+    await expect(f.links.resolve(f.tenantId, f.patientId, issued.token, f.actor)).rejects.toMatchObject({
+      code: 'RESOURCE_NOT_FOUND',
+    });
+    await expect(f.links.issue(f.tenantId, f.intent.id)).rejects.toMatchObject({
+      code: 'RESOURCE_NOT_FOUND',
+    });
+    expect((await db.prisma.communicationShortLink.findFirstOrThrow()).firstUsedAt).toBeNull();
+  });
+  it('bounds TTL and rejects an undersized signing key', async () => {
+    const f = await setup();
+    for (const ttl of [0, -1, 604801, 0.5])
+      await expect(f.links.issue(f.tenantId, f.intent.id, ttl)).rejects.toMatchObject({
+        code: 'VALIDATION_FAILED',
+      });
+    expect(
+      () =>
+        new CommunicationShortLinks(
+          db.prisma,
+          new PrismaAuditPort(clock),
+          new FollowUpReminderSource(db.prisma, clock),
+          'short',
+        ),
+    ).toThrow('32 bytes');
+    expect(await db.prisma.communicationShortLink.count()).toBe(0);
   });
 });
