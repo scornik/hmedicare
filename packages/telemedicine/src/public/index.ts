@@ -1,2 +1,3 @@
-// Public surface of the telemedicine context (REPOSITORY-STRUCTURE.md §2.2).
-export {};
+export * from '../domain/session';
+export type { TelemedicineProvider, ParticipantEvent } from '../application/provider';
+export { MockTelemedicineProvider, type MockVideoScenario } from '../infrastructure/mock-provider';

@@ -126,3 +126,9 @@ Validation: 509 unit/architecture tests passed. All 63 communication and worker 
 
 Production reminder scanning and this SMS composition remain disabled. Other business triggers, authorized channel failure fallback, native notification screens and release enablement remain open. No external SMS or deployment was performed.
 Cleanup validation: the new bounded-delete test passed on MariaDB 10.6 and 11.8. It removes one expired row per batch, retains the exact seven-day boundary and preserves a resolvable live link.
+
+## Remote-session provider foundation (2026-10-10)
+
+The previously empty telemedicine package now provides the provider port, terminal lifecycle rules, disabled recording and a five-minute/session-expiry join-token policy. A local/CI mock supports scoped opaque tokens, refresh, creation timeout/unavailability, unauthorized participant rejection, end-session failure/retry and duplicate or changed participant-event replays. No clinical identifiers are required at the provider boundary.
+
+Validation: all 522 unit/architecture tests passed, including 13 new remote-session tests; package build/test compilation, lint, dependency boundaries (484 modules/2,060 dependencies) and secret scanning passed. No dependency or database migration changed. TELE-001/002 remain partial: durable persistence, application authorization, HTTP routes and remote-session clients are not composed yet. No live provider or deployment was enabled.

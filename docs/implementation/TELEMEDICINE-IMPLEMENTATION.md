@@ -3,7 +3,7 @@
 **Stage 3.1 update (2026-09-17).**
 - The platform origin on Hostinger does not accept inbound WebSockets (ADR-013), so signaling and media are hosted by the selected video provider.
 - Participant events use provider webhooks or client-reported HTTP events.
-- Routes: `API-IMPLEMENTATION.md` §3.9. Tables: `DATABASE-IMPLEMENTATION.md` migration 0012.
+- Routes: `API-IMPLEMENTATION.md` §3.9. Tables: `DATABASE-IMPLEMENTATION.md` reserved migration 0022 (C-59).
 
 ## 1. Provider port
 
@@ -50,3 +50,13 @@
   - duplicate event ids;
   - end-session failure.
 - No real video credential is required to pass CI.
+
+## 6. Provider and lifecycle foundation (2026-10-10)
+
+The telemedicine package now exposes the provider port and framework-free lifecycle policy. PENDING can become ACTIVE or FAILED; ACTIVE can become ENDED or EXPIRED; terminal states cannot reopen. Expiry prevents joins without completing an encounter. Join-token policy caps each issuance at five minutes or the remaining session lifetime, whichever is shorter. Recording remains DISABLED.
+
+MockTelemedicineProvider is a local/CI in-memory adapter with opaque session/participant identifiers, opaque scoped tokens, request replay checking, timeout/unavailability/authorization scenarios, token refresh, safe end-session retry and participant-event replay checking. Identical events deduplicate; changed replays fail. Late leave events remain recordable after ending a session. It performs no media or external network operation and is not composed into HTTP or production.
+
+Validation: all 522 unit/architecture tests passed, including 13 remote-session cases. Package build/test compilation, repository lint, dependency boundaries (484 modules/2,060 dependencies) and secret scanning passed. No dependency, API operation or applied database migration changed.
+
+TELE-001/002 remain partial. Durable session/participant/event persistence, encounter assignment and patient JOIN_TELEMEDICINE checks, create/join/end HTTP routes, clients, readiness and audio/video fallback UI still need implementation. A real video provider must be selected before live sessions are enabled.
