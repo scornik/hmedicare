@@ -22,6 +22,7 @@ import 'clients/guardianships_client.dart';
 import 'clients/me_client.dart';
 import 'clients/serials_client.dart';
 import 'clients/patient_accounts_client.dart';
+import 'clients/communication_client.dart';
 import 'clients/timeline_client.dart';
 import 'clients/health_client.dart';
 
@@ -58,6 +59,7 @@ class HmApiClient {
   MeClient? _me;
   SerialsClient? _serials;
   PatientAccountsClient? _patientAccounts;
+  CommunicationClient? _communication;
   TimelineClient? _timeline;
   HealthClient? _health;
 
@@ -96,6 +98,8 @@ class HmApiClient {
   SerialsClient get serials => _serials ??= SerialsClient(_dio, baseUrl: _baseUrl);
 
   PatientAccountsClient get patientAccounts => _patientAccounts ??= PatientAccountsClient(_dio, baseUrl: _baseUrl);
+
+  CommunicationClient get communication => _communication ??= CommunicationClient(_dio, baseUrl: _baseUrl);
 
   TimelineClient get timeline => _timeline ??= TimelineClient(_dio, baseUrl: _baseUrl);
 
