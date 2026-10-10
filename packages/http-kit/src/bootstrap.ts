@@ -89,6 +89,8 @@ export async function createHttpApp(
   const app = await NestFactory.create<NestFastifyApplication>(rootModule as never, adapter, {
     logger: new PinoNestLogger(runtime),
     bufferLogs: false,
+    // Provider webhook signatures authenticate the exact received bytes.
+    rawBody: true,
     abortOnError: false,
   });
   app.setGlobalPrefix('api/v1', { exclude: ['health/*path', 'internal/*path'] });
