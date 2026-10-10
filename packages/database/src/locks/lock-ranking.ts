@@ -54,6 +54,8 @@ export const LOCK_RANKING: Readonly<Record<string, number>> = {
   // only ever mutated under their parent's lock, which is what makes an approved prescription immutable
   // rather than merely un-edited.
   prescriptions: 59,
+  telemedicine_sessions: 61,
+  telemedicine_participants: 63,
   // 60 – auth and platform rows
   sessions: 60,
   refresh_tokens: 60,

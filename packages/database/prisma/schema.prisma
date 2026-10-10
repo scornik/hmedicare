@@ -2376,3 +2376,97 @@ model ProviderWebhookEvent {
   @@unique([providerAdapter,providerEventId], map: "uq_provider_webhook_events_event")
   @@map("provider_webhook_events")
 }
+
+// ---------------------------------------------------------------- 0022 telemedicine
+model TelemedicineSession {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  encounterId String @map("encounter_id") @db.VarChar(36)
+  /// @ascii
+  providerAdapter String @map("provider_adapter") @db.VarChar(32)
+  /// @ascii
+  providerSessionId String? @map("provider_session_id") @db.VarChar(191)
+  /// @ascii
+  status String @db.VarChar(16)
+  issuedAt DateTime @map("issued_at") @db.DateTime(3)
+  expiresAt DateTime @map("expires_at") @db.DateTime(3)
+  endedAt DateTime? @map("ended_at") @db.DateTime(3)
+  /// @ascii
+  endedReason String? @map("ended_reason") @db.VarChar(32)
+  /// @ascii
+  recordingPolicy String @default("DISABLED") @map("recording_policy") @db.VarChar(16)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String? @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String? @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+  @@unique([tenantId,id], map: "uq_telemedicine_sessions_tenant_id")
+  @@unique([providerAdapter,providerSessionId], map: "uq_telemedicine_provider_session")
+  @@index([tenantId,encounterId,createdAt], map: "ix_telemedicine_encounter")
+  @@index([status,expiresAt], map: "ix_telemedicine_expiry")
+  @@map("telemedicine_sessions")
+}
+
+model TelemedicineParticipant {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  sessionId String @map("session_id") @db.VarChar(36)
+  /// @ascii
+  participantType String @map("participant_type") @db.VarChar(16)
+  /// @ascii
+  participantUserId String @map("participant_user_id") @db.VarChar(36)
+  /// @ascii
+  participantPatientId String? @map("participant_patient_id") @db.VarChar(36)
+  /// @ascii
+  role String @db.VarChar(16)
+  /// @ascii
+  authorizationState String @map("authorization_state") @db.VarChar(16)
+  joinCount Int @default(0) @map("join_count") @db.UnsignedSmallInt
+  leaveCount Int @default(0) @map("leave_count") @db.UnsignedSmallInt
+  reconnectCount Int @default(0) @map("reconnect_count") @db.UnsignedSmallInt
+  lastJoinedAt DateTime? @map("last_joined_at") @db.DateTime(3)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String? @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String? @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+  @@unique([tenantId,id], map: "uq_telemedicine_participants_tenant_id")
+  @@unique([tenantId,sessionId,id], map: "uq_telemedicine_participants_session_id")
+  @@unique([tenantId,sessionId,participantType,participantUserId], map: "uq_telemedicine_participant_identity")
+  @@map("telemedicine_participants")
+}
+
+/// Append-only receipt ledger. Retains replay identity independently of outbox retention (C-61).
+model TelemedicineParticipantEvent {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  sessionId String @map("session_id") @db.VarChar(36)
+  /// @ascii
+  participantId String @map("participant_id") @db.VarChar(36)
+  /// @ascii
+  providerAdapter String @map("provider_adapter") @db.VarChar(32)
+  /// @ascii
+  providerEventId String @map("provider_event_id") @db.VarChar(191)
+  /// @ascii
+  kind String @db.VarChar(16)
+  occurredAt DateTime @map("occurred_at") @db.DateTime(3)
+  receivedAt DateTime @map("received_at") @db.DateTime(3)
+  /// @ascii
+  payloadSha256 String @map("payload_sha256") @db.VarChar(64)
+  @@unique([providerAdapter,providerEventId], map: "uq_telemedicine_participant_event")
+  @@index([tenantId,sessionId,receivedAt], map: "ix_telemedicine_events_session")
+  @@map("telemedicine_participant_events")
+}

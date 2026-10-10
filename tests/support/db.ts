@@ -34,8 +34,11 @@ const SELF_REFERENCING: Readonly<Record<string, string>> = {
   prescriptions: 'supersedes_prescription_id',
 };
 
-/** Tables owned by Stage 4/5 migrations, in delete-safe order (children first). */
+/** Tenant fixtures in delete-safe order (children first). */
 const TABLES = [
+  'telemedicine_participant_events',
+  'telemedicine_participants',
+  'telemedicine_sessions',
   'provider_webhook_events',
   'communication_attempts',
   'communication_preferences',

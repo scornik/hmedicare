@@ -6,6 +6,7 @@
  * database package's retention helper, not through a delegate call.
  */
 const APPEND_ONLY_DELEGATES = new Set([
+  'telemedicineParticipantEvent',
   'auditLog',
   'platformGateDecision',
   'smsBalanceSnapshot',

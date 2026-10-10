@@ -52,6 +52,8 @@ describe('hmedic/no-append-only-mutation', () => {
       { code: 'await tx.auditLog.update({ where, data });', errors: [{ messageId: 'mutation' }] },
       { code: 'await prisma.auditLog.deleteMany({});', errors: [{ messageId: 'mutation' }] },
       { code: 'await tx.platformGateDecision.upsert({});', errors: [{ messageId: 'mutation' }] },
+      { code: 'await tx.telemedicineParticipantEvent.update({});', errors: [{ messageId: 'mutation' }] },
+      { code: 'await tx.telemedicineParticipantEvent.deleteMany({});', errors: [{ messageId: 'mutation' }] },
     ],
   });
 });

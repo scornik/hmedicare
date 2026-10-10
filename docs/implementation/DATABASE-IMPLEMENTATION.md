@@ -88,7 +88,7 @@
 | 0010 | `documents_labs` | `documents`, `document_versions`, `upload_sessions`, `upload_session_parts`, `lab_reports`, `lab_results` |
 | 0011 | `timeline` | `timeline_events`, `projection_checkpoints`. Created during takeover (2026-10-07). Follow-up tables are reserved for a separate 0020 migration (C-57). |
 | 0012 | `communication` | `communications`, `communication_attempts` (+ SMS columns), `communication_preferences`, `provider_webhook_events`, `communication_short_links` (implemented 2026-10-10) |
-| 0022 | `telemedicine` | `telemedicine_sessions`, `telemedicine_participants` (reserved; C-59) |
+| 0022 | `telemedicine` | `telemedicine_sessions`, `telemedicine_participants`, `telemedicine_participant_events` (C-59/C-61) |
 | 0013 | `ai` | `tenant_ai_policies`, `tenant_ai_policy_events`, `ai_data_use_acknowledgements`, `ai_provider_credentials`, `ai_credential_fallbacks`, `ai_model_catalog`, `ai_usage_counters`, `ai_usage_ledger`, `ai_jobs`, `ai_transcripts`, `ai_drafts`, `ai_suggestions`, `ai_approvals`; `ALTER TABLE diagnoses ADD ai_approval_id` + composite FK |
 | 0014 | `operations_integrity` | `integrity_chain_checkpoints`, `backup_runs`, `restore_drills`; maintenance indexes proven by query plans |
 | 0015 | `platform_credentials` | `platform_operators`, `platform_gate_decisions`, `provider_credentials` (Stage 3.2; created in Phase 2b) |
@@ -560,7 +560,9 @@ Notation: `FK→t(tenant_id,id)` means a composite tenant FK `(tenant_id, <col>)
 
 **`telemedicine_sessions`** (std): `encounter_id FK→encounters(tenant_id,id)`, `provider_adapter key(32)`, `provider_session_id key(191) NULL`, `status code(16)` CHECK `PENDING|ACTIVE|ENDED|FAILED|EXPIRED`, `issued_at ts`, `expires_at ts`, `ended_at ts NULL`, `ended_reason code(32) NULL`, `recording_policy code(16)` CHECK `DISABLED` (MVP). Generated `active_encounter_key = IF(status IN ('PENDING','ACTIVE'), encounter_id, NULL)`; UNIQUE `uq_telemed_active (tenant_id, active_encounter_key)`. UNIQUE `(provider_adapter, provider_session_id)`.
 
-**`telemedicine_participants`** (std): `session_id FK→telemedicine_sessions(tenant_id,id)`, `participant_type code(16)`, `participant_user_id id36 NULL`, `participant_patient_id id36 NULL`, `role code(16)`, `authorization_state code(16)`, `join_count SMALLINT`, `leave_count SMALLINT`, `reconnect_count SMALLINT`, `last_joined_at ts NULL`.
+**`telemedicine_participants`** (std; C-61): `session_id FK→telemedicine_sessions(tenant_id,id)`, `participant_type code(16)` CHECK `STAFF|PATIENT_CONTEXT`, required `participant_user_id id36 FK→users(id)`, `participant_patient_id id36 NULL FK→patients(tenant_id,id)`, `role code(16)` CHECK `DOCTOR|STAFF|PATIENT|GUARDIAN`, `authorization_state code(16)` CHECK `AUTHORIZED|REVOKED`, unsigned `join_count`, `leave_count`, `reconnect_count SMALLINT` default 0, `last_joined_at ts NULL`. Staff rows have no patient ID and use DOCTOR/STAFF; patient-context rows require the authorized patient ID and PATIENT/GUARDIAN. Unique `(tenant_id,session_id,participant_type,participant_user_id)` and `(tenant_id,session_id,id)`.
+
+**`telemedicine_participant_events`** (append-only; C-61): `id id36 PK`, `tenant_id id36`, `session_id id36`, `participant_id id36`, `provider_adapter key(32)`, `provider_event_id key(191)`, `kind code(16)` CHECK `JOINED|LEFT|RECONNECTED`, `occurred_at ts`, `received_at ts`, `payload_sha256 hash64`. Unique `(provider_adapter,provider_event_id)`; composite FK `(tenant_id,session_id,participant_id)` prevents binding a participant from a different session. The hash covers only opaque IDs, kind and occurrence time. Receipts deduplicate counters and reject changed replays independently of outbox retention.
 
 ### 3.13 AI (0013) (ADR-017; `AI-IMPLEMENTATION.md`)
 

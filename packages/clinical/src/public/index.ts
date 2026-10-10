@@ -9,3 +9,4 @@ export * from '../infrastructure/note-service';
 export * from '../infrastructure/diagnosis-service';
 export * from '../infrastructure/compose';
 export { ClinicalHistoryMetadata } from '../infrastructure/history-metadata';
+export { RemoteEncounterSource } from '../infrastructure/remote-encounter-source';

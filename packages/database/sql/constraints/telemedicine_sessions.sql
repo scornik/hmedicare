@@ -1,0 +1,10 @@
+ALTER TABLE `telemedicine_sessions` ADD COLUMN `active_encounter_key` VARCHAR(36) CHARACTER SET ascii COLLATE ascii_bin AS (IF(status IN ('PENDING','ACTIVE'), encounter_id, NULL)) PERSISTENT;
+CREATE UNIQUE INDEX `uq_telemed_active` ON `telemedicine_sessions` (`tenant_id`,`active_encounter_key`);
+ALTER TABLE `telemedicine_sessions` ADD CONSTRAINT `fk_telemedicine_sessions_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`);
+ALTER TABLE `telemedicine_sessions` ADD CONSTRAINT `fk_telemedicine_sessions_encounter` FOREIGN KEY (`tenant_id`,`encounter_id`) REFERENCES `encounters` (`tenant_id`,`id`);
+ALTER TABLE `telemedicine_sessions` ADD CONSTRAINT `chk_telemedicine_sessions_status` CHECK (status IN ('PENDING','ACTIVE','ENDED','FAILED','EXPIRED'));
+ALTER TABLE `telemedicine_sessions` ADD CONSTRAINT `chk_telemedicine_sessions_recording` CHECK (recording_policy = 'DISABLED');
+ALTER TABLE `telemedicine_sessions` ADD CONSTRAINT `chk_telemedicine_sessions_expiry` CHECK (expires_at > issued_at);
+ALTER TABLE `telemedicine_sessions` ADD CONSTRAINT `chk_telemedicine_sessions_provider` CHECK (status <> 'ACTIVE' OR provider_session_id IS NOT NULL);
+ALTER TABLE `telemedicine_sessions` ADD CONSTRAINT `chk_telemedicine_sessions_end` CHECK ((status = 'ENDED' AND ended_at IS NOT NULL AND ended_reason IS NOT NULL) OR (status <> 'ENDED' AND ended_at IS NULL AND ended_reason IS NULL));
+ALTER TABLE `telemedicine_sessions` ADD CONSTRAINT `chk_telemedicine_sessions_version` CHECK (row_version > 0);
