@@ -10,6 +10,8 @@ enum CommunicationChannel {
   email('email'),
   @JsonValue('whatsapp')
   whatsapp('whatsapp'),
+  @JsonValue('sms')
+  sms('sms'),
   /// Default value for all unparsed values, allows backward compatibility when adding new values on the backend.
   $unknown(null);
 

@@ -40,7 +40,7 @@ export function CommunicationPanel({ patientId, canWrite }: { patientId: string;
       return result.data.data;
     },
   });
-  async function update(channel: 'email' | 'whatsapp', allow: boolean) {
+  async function update(channel: 'email' | 'whatsapp' | 'sms', allow: boolean) {
     setBusy(true);
     setFailed(false);
     const previous = preferences.data?.find((item) => item.channel === channel);
@@ -94,7 +94,7 @@ export function CommunicationPanel({ patientId, canWrite }: { patientId: string;
         <fieldset disabled={busy || !canWrite}>
           <legend>{t('communication.preferences')}</legend>
           <p className="muted">{t('communication.consentRequired')}</p>
-          {(['email', 'whatsapp'] as const).map((channel) => {
+          {(['email', 'whatsapp', 'sms'] as const).map((channel) => {
             const preference = preferences.data.find((item) => item.channel === channel);
             return (
               <label key={channel} className="communication-channel">

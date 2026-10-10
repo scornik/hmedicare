@@ -4,8 +4,16 @@ import {
   COMMUNICATION_SERVICE,
   COMMUNICATION_PROVIDERS,
 } from './communication/communication.controller';
-import { CommunicationService, type CommunicationProvider } from '@hmedic/communication';
-import { registerDeliveryJobs, registerReminderJobs } from '@hmedic/communication/worker';
+import {
+  CommunicationService,
+  TransactionalSmsDelivery,
+  type CommunicationProvider,
+} from '@hmedic/communication';
+import {
+  registerDeliveryJobs,
+  registerReminderJobs,
+  registerTransactionalSmsJobs,
+} from '@hmedic/communication/worker';
 import { PatientCommunicationSource } from '@hmedic/patient';
 import { FollowUpReminderSource } from '@hmedic/follow-up';
 import { MockEmailAdapter, MockWhatsAppAdapter } from '@hmedic/communication-adapters-mock';
@@ -310,8 +318,27 @@ export async function buildApi(
       ? composePlatformJobs(
           runtime,
           sms,
-          ({ registry, runner, subscriptions }) => {
+          ({ registry, runner, subscriptions, vault }) => {
             // PrescriptionApproved feeds the tenant prescribing boost (EVENT-ARCHITECTURE §4).
+            if (config.APP_ENV !== 'production') {
+              const smsDelivery = new TransactionalSmsDelivery(
+                {
+                  prisma: runtime.prisma,
+                  audit: runtime.audit,
+                  clock: runtime.clock,
+                  provider: sms.provider,
+                  platform: sms.platform,
+                  vault,
+                  rateLimiter: runtime.rateLimiter,
+                  maxSendsPerMinute: config.ZAMANIT_MAX_SENDS_PER_MINUTE,
+                  metrics: runtime.metrics,
+                },
+                new PatientCommunicationSource(),
+                reminderSource,
+              );
+              registerTransactionalSmsJobs(registry, runner, smsDelivery, runtime.prisma, runtime.clock);
+              communication.enableTransactionalSms(smsDelivery);
+            }
             registerDeliveryJobs(registry, runner, subscriptions, communication);
             subscriptions.subscribe('PrescriptionApproved', { handler: RECORD_MEDICATION_USAGE });
             registerPrescriptionJobs(registry, runner, catalogJobDeps);

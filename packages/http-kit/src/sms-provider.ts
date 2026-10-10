@@ -82,6 +82,7 @@ export function composePlatformJobs(
     registry: JobRegistry;
     runner: JobRunner | null;
     subscriptions: SubscriptionRegistry;
+    vault: ReturnType<typeof createProviderCredentialVault>;
   }) => PeriodicJob[] = () => [],
   /** Context-owned append-only chains; see `composeJobs`. */
   chainSources: readonly ChainSource[] = [],
@@ -101,7 +102,7 @@ export function composePlatformJobs(
         vault,
       }),
       ...registerProviderCredentialJobs(registry, runner, vault),
-      ...extend({ registry, runner, subscriptions }),
+      ...extend({ registry, runner, subscriptions, vault }),
     ],
     chainSources,
   );

@@ -1,6 +1,6 @@
 import { bearerAuth, registry, z } from './registry';
 import { Uuid, Timestamp, TenantIdHeader, IdempotencyKeyHeader, envelope, errorResponses } from './common';
-const Channel = registry.register('CommunicationChannel', z.enum(['email', 'whatsapp']));
+const Channel = registry.register('CommunicationChannel', z.enum(['email', 'whatsapp', 'sms']));
 const Status = registry.register(
   'CommunicationStatus',
   z.enum([

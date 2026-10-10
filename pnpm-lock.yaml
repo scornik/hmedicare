@@ -634,6 +634,9 @@ importers:
       '@hmedic/patient':
         specifier: workspace:*
         version: link:../patient
+      '@hmedic/secrets':
+        specifier: workspace:*
+        version: link:../secrets
 
   packages/communication-adapters/mock:
     dependencies:

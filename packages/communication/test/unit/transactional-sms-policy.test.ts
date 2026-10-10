@@ -35,6 +35,17 @@ describe('transactional SMS decision policy', () => {
       ).possibleDuplicate,
     ).toBe(true);
   });
+  it('does not extend the single unknown retry after unavailable or balance rejection', () => {
+    for (const result of [
+      { outcome: 'PROVIDER_UNAVAILABLE', errorClass: 'PROVIDER_UNAVAILABLE' },
+      { outcome: 'REJECTED', errorClass: 'INSUFFICIENT_BALANCE' },
+    ] as const)
+      expect(transactionalSmsDecision(result, { ...history, unknownOutcomes: 1 }, now)).toMatchObject({
+        communicationStatus: 'FAILED',
+        retry: 'NONE',
+        possibleDuplicate: true,
+      });
+  });
   it('bounds provider-unavailable retries to five failures', () => {
     const result = { outcome: 'PROVIDER_UNAVAILABLE', errorClass: 'PROVIDER_UNAVAILABLE' } as const;
     expect(transactionalSmsDecision(result, { ...history, unavailableFailures: 3 }, now).retry).toBe(

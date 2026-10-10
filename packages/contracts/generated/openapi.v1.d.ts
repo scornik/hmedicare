@@ -2275,7 +2275,7 @@ export interface components {
             updatedAt: string;
         };
         /** @enum {string} */
-        CommunicationChannel: "email" | "whatsapp";
+        CommunicationChannel: "email" | "whatsapp" | "sms";
         /** @enum {string} */
         CommunicationPreferenceValue: "OPT_IN" | "OPT_OUT";
         CommunicationPreferenceView: {

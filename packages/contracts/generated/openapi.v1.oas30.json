@@ -1083,7 +1083,8 @@
       "CommunicationChannel": {
         "enum": [
           "email",
-          "whatsapp"
+          "whatsapp",
+          "sms"
         ],
         "type": "string"
       },

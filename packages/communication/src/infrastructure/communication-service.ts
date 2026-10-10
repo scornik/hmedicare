@@ -1,3 +1,4 @@
+import type { TransactionalSmsDelivery } from './transactional-sms-delivery';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { AppError, type Clock, newId, systemClock } from '@hmedic/kernel';
@@ -20,7 +21,7 @@ const CreateReminder = z
     tenantId: z.string().uuid(),
     patientId: z.string().uuid(),
     planId: z.string().uuid(),
-    channel: z.enum(['email', 'whatsapp']),
+    channel: z.enum(['email', 'whatsapp', 'sms']),
     locale: z.enum(['en-BD', 'bn-BD']),
     idempotencyKey: z.string().min(1).max(191),
     task: z.object({ id: z.string().uuid(), rowVersion: z.number().int().positive() }).strict().optional(),
@@ -41,6 +42,17 @@ export interface CommunicationActor {
 }
 export class CommunicationService {
   private readonly outbox: OutboxPort;
+  private sms: TransactionalSmsDelivery | null = null;
+  enableTransactionalSms(delivery: TransactionalSmsDelivery) {
+    if (this.sms) throw new Error('transactional SMS already bound');
+    this.sms = delivery;
+  }
+  reminderChannels(): ReadonlyArray<'email' | 'whatsapp' | 'sms'> {
+    return [
+      ...(['email', 'whatsapp'] as const).filter((channel) => this.providers.has(channel)),
+      ...(this.sms ? ['sms' as const] : []),
+    ];
+  }
   constructor(
     private readonly prisma: PrismaClient,
     private readonly audit: PrismaAuditPort,
@@ -63,7 +75,12 @@ export class CommunicationService {
       orderBy: [{ effectiveFrom: 'desc' }, { id: 'desc' }],
     });
   }
-  private async recipient(tx: Tx, tenantId: string, patientId: string, channel: 'email' | 'whatsapp') {
+  private async recipient(
+    tx: Tx,
+    tenantId: string,
+    patientId: string,
+    channel: 'email' | 'whatsapp' | 'sms',
+  ) {
     // Patient lock serializes preference mutations and contact selection; recipient owner takes it again safely.
     if (!(await lockRow(tx, 'patients', patientId, tenantId))) return null;
     const preference = await this.preference(tx, tenantId, patientId, channel);
@@ -102,7 +119,8 @@ export class CommunicationService {
     const parsed = CreateReminder.safeParse(raw);
     if (!parsed.success) throw new AppError('VALIDATION_FAILED');
     const input = parsed.data;
-    if (!this.providers.has(input.channel)) throw new AppError('FEATURE_DISABLED');
+    if (input.channel === 'sms' ? !this.sms : !this.providers.has(input.channel))
+      throw new AppError('FEATURE_DISABLED');
     return withTransaction(this.prisma, async (tx) => {
       if (!(await lockRow(tx, 'patients', input.patientId, input.tenantId)))
         throw new AppError('RESOURCE_NOT_FOUND');
@@ -233,14 +251,14 @@ export class CommunicationService {
   async setPreference(
     tenantId: string,
     patientId: string,
-    channel: 'email' | 'whatsapp',
+    channel: 'email' | 'whatsapp' | 'sms',
     preference: 'OPT_IN' | 'OPT_OUT',
     consentVersion: number,
     contactId: string | null = null,
     actor?: CommunicationActor,
   ) {
     if (
-      !['email', 'whatsapp'].includes(channel) ||
+      !['email', 'whatsapp', 'sms'].includes(channel) ||
       !['OPT_IN', 'OPT_OUT'].includes(preference) ||
       !Number.isInteger(consentVersion) ||
       consentVersion < 1
@@ -298,6 +316,10 @@ export class CommunicationService {
     if (signal?.aborted) return;
     const snapshot = await this.prisma.communication.findFirst({ where: { tenantId, id } });
     if (!snapshot || terminal.has(snapshot.status)) return;
+    if (snapshot.channel === 'sms' && this.sms) {
+      await this.sms.enqueue(tenantId, id);
+      return;
+    }
     const supported = !!snapshot.patientId && ['email', 'whatsapp'].includes(snapshot.channel);
     const provider = supported ? this.providers.get(snapshot.channel) : undefined;
     if (!provider) {
@@ -338,7 +360,7 @@ export class CommunicationService {
         tx,
         tenantId,
         snapshot.patientId!,
-        snapshot.channel as 'email' | 'whatsapp',
+        snapshot.channel as 'email' | 'whatsapp' | 'sms',
       );
       const eligible = await this.reminders.eligible(tx, tenantId, snapshot.patientId!, snapshot.businessId);
       if (!(await lockRow(tx, 'communications', id, tenantId))) return null;

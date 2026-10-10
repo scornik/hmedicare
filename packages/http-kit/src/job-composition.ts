@@ -52,6 +52,7 @@ export function composeJobs(
   const subscriptions = new SubscriptionRegistry();
   const runner = new JobRunner(prisma, registry, {
     strategy: config.JOB_CLAIM_STRATEGY,
+    concurrencyLimitFor: (key) => (key.startsWith('sms:') ? config.ZAMANIT_MAX_CONCURRENCY : 1),
     app: runtime.app,
     clock,
     logger,

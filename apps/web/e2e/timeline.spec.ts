@@ -4,6 +4,7 @@ const tenant = '00000000-0000-4000-8000-00000000000a',
 async function prepare(page: Page, permissions = ['patient.read', 'timeline.read']) {
   let denied = false;
   let allowReminders = true;
+  let allowSms = true;
   const headers = {
     'access-control-allow-origin': 'http://localhost:4173',
     'access-control-allow-credentials': 'true',
@@ -85,11 +86,15 @@ async function prepare(page: Page, permissions = ['patient.read', 'timeline.read
       if (route.request().method() === 'PUT') {
         expect(route.request().headers()['x-tenant-id']).toBe(tenant);
         const body = route.request().postDataJSON();
-        expect(body.channel).toBe('email');
-        allowReminders = body.preference === 'OPT_IN';
-        return json({ ...preference, preference: body.preference });
+        expect(['email', 'sms']).toContain(body.channel);
+        if (body.channel === 'sms') allowSms = body.preference === 'OPT_IN';
+        else allowReminders = body.preference === 'OPT_IN';
+        return json({ ...preference, channel: body.channel, preference: body.preference });
       }
-      return json([preference]);
+      return json([
+        preference,
+        { ...preference, id: 'sms-preference', channel: 'sms', preference: allowSms ? 'OPT_IN' : 'OPT_OUT' },
+      ]);
     }
 
     if (path === `/patients/${patient}/timeline`) {
@@ -155,6 +160,11 @@ test('notification statuses, preference updates and revoked-access clearing', as
   await expect(email).toBeEnabled();
   await email.click();
   await expect(email).toBeChecked();
+  const sms = panel.getByRole('checkbox', { name: 'SMS', exact: true });
+  await expect(sms).toBeChecked();
+  await sms.click();
+  await expect(sms).not.toBeChecked();
+  await expect(sms).toBeEnabled();
   await page.screenshot({ path: 'test-results/communication-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect

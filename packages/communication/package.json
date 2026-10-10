@@ -39,6 +39,7 @@
   "devDependencies": {
     "@hmedic/patient": "workspace:*",
     "@hmedic/follow-up": "workspace:*",
-    "@hmedic/communication-adapters-mock": "workspace:*"
+    "@hmedic/communication-adapters-mock": "workspace:*",
+    "@hmedic/secrets": "workspace:*"
   }
 }

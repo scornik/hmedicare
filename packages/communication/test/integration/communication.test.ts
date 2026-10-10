@@ -1,11 +1,17 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { loadConfig, type ServerConfig } from '@hmedic/config';
+import { testEnv } from '@hmedic/config/testing';
+import { ProviderCredentialVault } from '@hmedic/provider-credentials';
+import { SecretEnvelope, kekFromBase64 } from '@hmedic/secrets';
+import { registerTransactionalSmsJobs } from '../../src/nest/transactional-sms-jobs';
 import { createHmac } from 'node:crypto';
 import { newId } from '@hmedic/kernel';
 import { PrismaAuditPort } from '@hmedic/audit';
 import { PatientCommunicationSource } from '@hmedic/patient';
 import { FollowUpReminderSource } from '@hmedic/follow-up';
-import { MockEmailAdapter } from '@hmedic/communication-adapters-mock';
+import { MockSmsAdapter, MockEmailAdapter } from '@hmedic/communication-adapters-mock';
 import {
+  RateLimiter,
   JobRegistry,
   JobRunner,
   OutboxPublisher,
@@ -13,7 +19,7 @@ import {
   RateLimitedJobError,
   NonRetryableJobError,
 } from '@hmedic/jobs';
-import { CommunicationService } from '../../src/public';
+import { TransactionalSmsDelivery, platformSmsCredential, CommunicationService } from '../../src/public';
 import { createDueReminders } from '../../src/nest/reminder-jobs';
 import { registerDeliveryJobs } from '../../src/nest/delivery-jobs';
 import { openTestDatabase, truncateAll } from '../../../../tests/support/db';
@@ -425,5 +431,307 @@ describe('communication intents and delivery', () => {
     ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     await service.deliver(other.tenantId, c.id);
     expect(await db.prisma.communicationAttempt.count()).toBe(0);
+  });
+});
+
+async function smsFixture(maxSendsPerMinute = 30) {
+  const f = await fixture();
+  await db.prisma.patientConsent.update({ where: { id: f.consentId }, data: { purpose: 'sms' } });
+  await db.prisma.patientContact.update({
+    where: { id: f.contactId },
+    data: { type: 'PHONE', normalizedValue: '+8801700000099', displayValue: '+8801700000099' },
+  });
+  let now = clock.now();
+  const smsClock = { now: () => new Date(now) };
+  const advance = (ms: number) => {
+    now = new Date(now.getTime() + ms);
+  };
+  const config = loadConfig<ServerConfig>('worker', testEnv());
+  const vault = new ProviderCredentialVault(
+    db.prisma,
+    new SecretEnvelope({
+      current: kekFromBase64(config.PROVIDER_CREDENTIAL_KEK_ID, config.PROVIDER_CREDENTIAL_KEK),
+    }),
+    config.PROVIDER_CREDENTIAL_FINGERPRINT_PEPPER,
+    new PrismaAuditPort(smsClock),
+    smsClock,
+  );
+  const provider = new MockSmsAdapter();
+  const delivery = new TransactionalSmsDelivery(
+    {
+      prisma: db.prisma,
+      audit: new PrismaAuditPort(smsClock),
+      provider,
+      platform: platformSmsCredential('synthetic-platform-key', 'HMEDIC'),
+      vault,
+      rateLimiter: new RateLimiter(db.prisma, config.RATE_LIMIT_PEPPER, smsClock),
+      maxSendsPerMinute,
+      clock: smsClock,
+    },
+    new PatientCommunicationSource(),
+    new FollowUpReminderSource(db.prisma, smsClock),
+  );
+  const registry = new JobRegistry();
+  registerTransactionalSmsJobs(registry, null, delivery, db.prisma, smsClock);
+  service.enableTransactionalSms(delivery);
+  const intent = await service.requestReminder({ ...f.input, channel: 'sms' });
+  const identity = { communicationId: intent.id, credentialScope: 'PLATFORM' as const, credentialId: null };
+  return { ...f, vault, provider, delivery, intent, identity, advance, registry, smsClock };
+}
+describe('transactional SMS worker', () => {
+  it('dispatches an account-keyed identifier-only job and records acceptance without claiming delivery', async () => {
+    const f = await smsFixture();
+    await service.deliver(f.tenantId, f.intent.id);
+    await service.deliver(f.tenantId, f.intent.id);
+    const jobs = await db.prisma.job.findMany({ where: { type: 'DeliverTransactionalSms' } });
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]!.concurrencyKey).toBe('sms:PLATFORM:platform');
+    expect(JSON.stringify(jobs[0]!.payload)).not.toMatch(/1700000099|synthetic-platform-key|shortLink/);
+    const runner = new JobRunner(db.prisma, f.registry, {
+      strategy: 'skip_locked',
+      app: 'sms-test',
+      clock: f.smsClock,
+      concurrencyLimitFor: () => 2,
+    });
+    runner.handle('DeliverTransactionalSms', (ctx) =>
+      f.delivery.execute(ctx.tenantId!, ctx.payload as unknown as typeof f.identity),
+    );
+    await runner.execute((await runner.claim('notifications', 1))[0]!);
+    await f.delivery.execute(f.tenantId, f.identity);
+    expect(f.provider.sent).toHaveLength(1);
+    const attempt = await db.prisma.communicationAttempt.findFirstOrThrow();
+    expect(attempt).toMatchObject({
+      status: 'SENT',
+      smsCredentialScope: 'PLATFORM',
+      outcomeClass: 'ACCEPTED',
+      possibleDuplicate: false,
+    });
+    expect((await db.prisma.communication.findUniqueOrThrow({ where: { id: f.intent.id } })).status).toBe(
+      'SENT',
+    );
+    expect(attempt.deliveredAt).toBeNull();
+  });
+  it('claims at most two transactional jobs for one credential account', async () => {
+    const f = await smsFixture();
+    await f.delivery.enqueue(f.tenantId, f.intent.id);
+    for (let index = 0; index < 2; index++) {
+      const intent = await service.requestReminder({
+        ...f.input,
+        channel: 'sms',
+        idempotencyKey: 'concurrency-' + index,
+      });
+      await f.delivery.enqueue(f.tenantId, intent.id);
+    }
+    const runner = new JobRunner(db.prisma, f.registry, {
+      strategy: 'skip_locked',
+      app: 'sms-concurrency',
+      clock: f.smsClock,
+      concurrencyLimitFor: (key) => (key.startsWith('sms:') ? 2 : 1),
+    });
+    const claimed = await runner.claim('notifications', 3);
+    expect(claimed).toHaveLength(2);
+    expect(await runner.claim('notifications', 3)).toHaveLength(0);
+    expect(await db.prisma.job.count({ where: { status: 'QUEUED', type: 'DeliverTransactionalSms' } })).toBe(
+      1,
+    );
+  });
+  it.each(['consent', 'contact', 'source', 'encounter', 'tenant'] as const)(
+    'rechecks %s before an SMS provider call',
+    async (change) => {
+      const f = await smsFixture();
+      if (change === 'consent')
+        await db.prisma.patientConsent.update({
+          where: { id: f.consentId },
+          data: { status: 'WITHDRAWN', withdrawnAt: clock.now() },
+        });
+      if (change === 'contact')
+        await db.prisma.patientContact.update({
+          where: { id: f.contactId },
+          data: { verificationStatus: 'UNVERIFIED', verifiedAt: null },
+        });
+      if (change === 'source')
+        await db.prisma.followUpPlan.update({ where: { id: f.planId }, data: { status: 'CANCELLED' } });
+      if (change === 'encounter')
+        await db.prisma.encounter.update({
+          where: { id: f.encounterId },
+          data: { status: 'ENTERED_IN_ERROR', enteredInErrorReason: 'SYNTHETIC wrong encounter' },
+        });
+      await f.delivery.execute(change === 'tenant' ? newId() : f.tenantId, f.identity);
+      expect(f.provider.sent).toHaveLength(0);
+      expect(await db.prisma.communicationAttempt.count()).toBe(0);
+    },
+  );
+  it('resends at most once after an unknown outcome and flags the accepted retry', async () => {
+    const f = await smsFixture();
+    f.provider.enqueue('unknown_outcome', 'success');
+    await expect(f.delivery.execute(f.tenantId, f.identity)).rejects.toMatchObject({
+      code: 'UNKNOWN_OUTCOME',
+    });
+    await f.delivery.execute(f.tenantId, f.identity);
+    await f.delivery.execute(f.tenantId, f.identity);
+    const attempts = await db.prisma.communicationAttempt.findMany({ orderBy: { attemptNumber: 'asc' } });
+    expect(attempts.map((a) => a.status)).toEqual(['UNKNOWN', 'SENT']);
+    expect(attempts[1]!.possibleDuplicate).toBe(true);
+    expect(f.provider.sent).toHaveLength(2);
+  });
+  it('stops after two unknown outcomes and never creates a third send', async () => {
+    const f = await smsFixture();
+    f.provider.defaultScenario = 'unknown_outcome';
+    await expect(f.delivery.execute(f.tenantId, f.identity)).rejects.toThrow();
+    await f.delivery.execute(f.tenantId, f.identity);
+    await f.delivery.execute(f.tenantId, f.identity);
+    expect(f.provider.sent).toHaveLength(2);
+    expect(await db.prisma.communicationAttempt.count({ where: { status: 'UNKNOWN' } })).toBe(2);
+  });
+  it('does not turn the single unknown retry into more provider-unavailable retries', async () => {
+    const f = await smsFixture();
+    f.provider.enqueue('unknown_outcome', 'provider_unavailable');
+    await expect(f.delivery.execute(f.tenantId, f.identity)).rejects.toThrow();
+    await expect(f.delivery.execute(f.tenantId, f.identity)).rejects.toBeInstanceOf(NonRetryableJobError);
+    await f.delivery.execute(f.tenantId, f.identity);
+    expect(f.provider.sent).toHaveLength(2);
+    expect((await db.prisma.communication.findUniqueOrThrow({ where: { id: f.intent.id } })).status).toBe(
+      'FAILED',
+    );
+  });
+  it('bounds unavailable sends to five attempts', async () => {
+    const f = await smsFixture();
+    f.provider.defaultScenario = 'provider_unavailable';
+    for (let i = 0; i < 4; i++) await expect(f.delivery.execute(f.tenantId, f.identity)).rejects.toThrow();
+    await expect(f.delivery.execute(f.tenantId, f.identity)).rejects.toBeInstanceOf(NonRetryableJobError);
+    await f.delivery.execute(f.tenantId, f.identity);
+    expect(f.provider.sent).toHaveLength(5);
+  });
+  it('revalidates SMS consent and preferences after queueing', async () => {
+    const f = await smsFixture();
+    await service.setPreference(f.tenantId, f.patientId, 'sms', 'OPT_OUT', 1);
+    await f.delivery.execute(f.tenantId, f.identity);
+    expect(f.provider.sent).toHaveLength(0);
+    expect(await db.prisma.communicationAttempt.count()).toBe(0);
+    expect((await db.prisma.communication.findUniqueOrThrow({ where: { id: f.intent.id } })).status).toBe(
+      'CANCELLED',
+    );
+  });
+  it('never uses the platform for a pending tenant credential or after pinned selection changes', async () => {
+    const f = await smsFixture();
+    const account = await f.vault.create({
+      tenantId: f.tenantId,
+      actorUserId: null,
+      providerKind: 'SMS',
+      providerCode: 'zamanit',
+      environment: 'na',
+      publicIdentifier: 'DEMO',
+      bundle: { apiKey: 'synthetic-tenant-key' },
+      last4Field: 'apiKey',
+    });
+    await expect(f.delivery.execute(f.tenantId, f.identity)).rejects.toBeInstanceOf(NonRetryableJobError);
+    expect(f.provider.sent).toHaveLength(0);
+    const other = await service.requestReminder({
+      ...f.input,
+      channel: 'sms',
+      idempotencyKey: 'new-account',
+    });
+    await expect(
+      f.delivery.execute(f.tenantId, {
+        communicationId: other.id,
+        credentialScope: 'TENANT',
+        credentialId: account.id,
+      }),
+    ).rejects.toBeInstanceOf(NonRetryableJobError);
+    expect(f.provider.sent).toHaveLength(0);
+  });
+  it('suspends an empty tenant account, waits without resends and expires after 24 hours', async () => {
+    const f = await smsFixture();
+    const account = await f.vault.create({
+      tenantId: f.tenantId,
+      actorUserId: null,
+      providerKind: 'SMS',
+      providerCode: 'zamanit',
+      environment: 'na',
+      publicIdentifier: 'DEMO',
+      bundle: { apiKey: 'synthetic-tenant-key' },
+      last4Field: 'apiKey',
+    });
+    await f.vault.setStatus(f.tenantId, account.id, 'ACTIVE', null);
+    const identity = { ...f.identity, credentialScope: 'TENANT' as const, credentialId: account.id };
+    f.provider.enqueue('e1006');
+    await expect(f.delivery.execute(f.tenantId, identity)).rejects.toBeInstanceOf(RateLimitedJobError);
+    expect((await f.vault.list(f.tenantId, 'SMS'))[0]!.status).toBe('SUSPENDED_BALANCE');
+    await expect(f.delivery.execute(f.tenantId, identity)).rejects.toBeInstanceOf(RateLimitedJobError);
+    expect(f.provider.sent).toHaveLength(1);
+    f.advance(86400000);
+    await expect(f.delivery.execute(f.tenantId, identity)).rejects.toBeInstanceOf(NonRetryableJobError);
+    expect(f.provider.sent).toHaveLength(1);
+  });
+  it('checks platform balance before retrying and never resends while balance is unresolved', async () => {
+    const f = await smsFixture();
+    f.provider.enqueue('e1006');
+    await expect(f.delivery.execute(f.tenantId, f.identity)).rejects.toBeInstanceOf(RateLimitedJobError);
+    f.provider.enqueue('unparsed_balance');
+    await expect(f.delivery.execute(f.tenantId, f.identity)).rejects.toBeInstanceOf(RateLimitedJobError);
+    expect(f.provider.sent).toHaveLength(1);
+    expect(await db.prisma.communicationAttempt.count()).toBe(1);
+    await f.delivery.execute(f.tenantId, f.identity);
+    expect(f.provider.sent).toHaveLength(2);
+  });
+  it('uses a tenant handle only for its own account and marks credential rejection invalid', async () => {
+    const f = await smsFixture();
+    const account = await f.vault.create({
+      tenantId: f.tenantId,
+      actorUserId: null,
+      providerKind: 'SMS',
+      providerCode: 'zamanit',
+      environment: 'na',
+      publicIdentifier: 'DEMO',
+      bundle: { apiKey: 'synthetic-tenant-key' },
+      last4Field: 'apiKey',
+    });
+    await f.vault.setStatus(f.tenantId, account.id, 'ACTIVE', null);
+    const original = f.provider.send.bind(f.provider);
+    f.provider.send = async (input) => {
+      expect(input.credential.scope).toBe('TENANT');
+      expect(input.credential.tenantId).toBe(f.tenantId);
+      expect(input.credential.senderId).toBe('DEMO');
+      await input.credential.withKey(async (key) => {
+        expect(key).toBe('synthetic-tenant-key');
+      });
+      return original(input);
+    };
+    f.provider.enqueue('e1001');
+    await expect(
+      f.delivery.execute(f.tenantId, { ...f.identity, credentialScope: 'TENANT', credentialId: account.id }),
+    ).rejects.toBeInstanceOf(NonRetryableJobError);
+    expect((await f.vault.list(f.tenantId, 'SMS'))[0]!.status).toBe('INVALID');
+    expect(f.provider.sent).toHaveLength(1);
+    expect((await db.prisma.communicationAttempt.findFirstOrThrow()).smsCredentialId).toBe(account.id);
+  });
+  it('waits at the account rate limit without recording a second send attempt', async () => {
+    const f = await smsFixture(1);
+    f.provider.enqueue('provider_unavailable');
+    await expect(f.delivery.execute(f.tenantId, f.identity)).rejects.toThrow();
+    await expect(f.delivery.execute(f.tenantId, f.identity)).rejects.toBeInstanceOf(RateLimitedJobError);
+    expect(f.provider.sent).toHaveLength(1);
+    expect(await db.prisma.communicationAttempt.count()).toBe(1);
+  });
+  it('does not immediately resend a crashed sending attempt, then permits one flagged recovery', async () => {
+    const f = await smsFixture();
+    const controller = new AbortController();
+    const send = f.provider.send.bind(f.provider);
+    f.provider.send = async (input) => {
+      const result = await send(input);
+      controller.abort();
+      return result;
+    };
+    await f.delivery.execute(f.tenantId, f.identity, controller.signal);
+    await expect(f.delivery.execute(f.tenantId, f.identity)).rejects.toBeInstanceOf(RateLimitedJobError);
+    expect(f.provider.sent).toHaveLength(1);
+    f.advance(240000);
+    f.provider.send = send;
+    await f.delivery.execute(f.tenantId, f.identity);
+    expect(f.provider.sent).toHaveLength(2);
+    expect(
+      (await db.prisma.communicationAttempt.findFirstOrThrow({ where: { attemptNumber: 2 } }))
+        .possibleDuplicate,
+    ).toBe(true);
   });
 });

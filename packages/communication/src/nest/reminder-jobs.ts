@@ -19,7 +19,7 @@ export async function createDueReminders(
     if (signal?.aborted) return;
     // Prefer email; only try WhatsApp when email was suppressed before any provider call.
     // This is channel selection, not failure fallback. Both require their own live grant.
-    for (const channel of ['email', 'whatsapp'] as const) {
+    for (const channel of service.reminderChannels()) {
       const intent = await service.requestReminder({
         tenantId: task.tenantId,
         patientId: task.patientId,
@@ -31,6 +31,7 @@ export async function createDueReminders(
       });
       if (intent.status !== 'CANCELLED') break;
     }
+    if (service.reminderChannels().length === 0) continue;
     await source.finish(task.id, task.tenantId, task.followUpPlanId, task.rowVersion);
   }
 }
