@@ -1,3 +1,4 @@
+import { SmsSettingsPage } from './pages/SmsSettingsPage';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Navigate, Outlet, createBrowserRouter } from 'react-router';
@@ -51,6 +52,7 @@ const router = createBrowserRouter([
           { path: '/', element: <Navigate to="/dashboard" replace /> },
           { path: '/select-tenant', element: <TenantPickerPage /> },
           { path: '/dashboard', element: <DashboardPage /> },
+          { path: '/settings/sms', element: <SmsSettingsPage /> },
           { path: '/patients/search', element: <PatientSearchPage /> },
           { path: '/patients/new', element: <PatientCreatePage /> },
           { path: '/patients/merge-cases', element: <MergeCasesPage /> },

@@ -1,3 +1,9 @@
+import { createProviderCredentialVault } from '@hmedic/provider-credentials/worker';
+import {
+  SmsAccountsController,
+  PlatformSmsBalanceController,
+  SMS_ACCOUNT_SERVICE,
+} from './communication/sms-accounts.controller';
 import {
   CommunicationController,
   CommunicationWebhookController,
@@ -5,6 +11,7 @@ import {
   COMMUNICATION_PROVIDERS,
 } from './communication/communication.controller';
 import {
+  SmsAccountService,
   CommunicationService,
   TransactionalSmsDelivery,
   type CommunicationProvider,
@@ -146,6 +153,7 @@ export class ApiModule {
     prescriptions: PrescriptionServices,
     documents: DocumentServices | null,
     communication: CommunicationService,
+    smsAccounts: SmsAccountService,
     notificationProviders: ReadonlyMap<string, CommunicationProvider>,
   ): DynamicModule {
     const mode = runtime.config.JOB_RUNNER_MODE;
@@ -183,10 +191,13 @@ export class ApiModule {
         ...(documents ? [DocumentModule.forRoot(documents)] : []),
       ],
       providers: [
+        { provide: SMS_ACCOUNT_SERVICE, useValue: smsAccounts },
         { provide: COMMUNICATION_SERVICE, useValue: communication },
         { provide: COMMUNICATION_PROVIDERS, useValue: notificationProviders },
       ],
       controllers: [
+        SmsAccountsController,
+        PlatformSmsBalanceController,
         CommunicationController,
         CommunicationWebhookController,
         FollowUpController,
@@ -266,6 +277,14 @@ export async function buildApi(
   // real connection that ADR-014's per-connection init ran. From Stage 6 these tables hold clinical text.
   runtime.readinessChecks.push(sessionModeCheck(runtime));
   const sms = createSmsServices(runtime);
+  const smsAccounts = new SmsAccountService(
+    runtime.prisma,
+    createProviderCredentialVault(config, runtime.prisma, runtime.audit, runtime.clock),
+    sms.provider,
+    runtime.audit,
+    config.ZAMANIT_BALANCE_ALERT_BDT,
+    runtime.clock,
+  );
   const reminderSource = new FollowUpReminderSource(runtime.prisma, runtime.clock);
   const notificationProviders = new Map<string, CommunicationProvider>([
     ['email', new MockEmailAdapter(config.LOG_HASH_PEPPER)],
@@ -427,6 +446,7 @@ export async function buildApi(
       prescriptions,
       documents,
       communication,
+      smsAccounts,
       notificationProviders,
     ),
     runtime,

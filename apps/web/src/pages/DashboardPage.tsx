@@ -57,6 +57,11 @@ export function DashboardPage() {
             <dd data-testid="permission-count">{ctx.data.permissions.length}</dd>
           </dl>
         )}
+        {ctx.data?.permissions.includes('sms.credentials.manage') && (
+          <p>
+            <Link to="/settings/sms">{t('sms.settings')}</Link>
+          </p>
+        )}
         {ctx.data?.permissions.includes('queue.read') && (
           <section>
             <h2>{t('queue.title')}</h2>

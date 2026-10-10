@@ -729,3 +729,68 @@ describe('communication HTTP', () => {
     }
   });
 });
+
+describe('SMS account HTTP authorization', () => {
+  const root = '/api/v1/tenant/sms-credentials';
+  it('lets tenant owners create, validate, read and revoke write-only accounts', async () => {
+    const owner = await staff('tenant_owner');
+    const key = 'synthetic-sms-api-key-1234';
+    const created = await request(server)
+      .post(root)
+      .set(owner.headers)
+      .send({ apiKey: key, senderId: 'DEMO', balanceAlertBdt: '100' })
+      .expect(200);
+    const credential = created.body.data;
+    expect(credential.status).toBe('PENDING_VALIDATION');
+    expect(credential.secretLast4).toBe('1234');
+    expect(JSON.stringify(created.body)).not.toContain(key);
+    const validated = await request(server)
+      .post(root + '/' + credential.id + '/validate')
+      .set(owner.headers)
+      .send({ rowVersion: credential.rowVersion })
+      .expect(200);
+    expect(validated.body.data.credential.status).toBe('ACTIVE');
+    expect(validated.body.data.balance.parseStatus).toBe('PARSED');
+    await request(server)
+      .post(root + '/' + credential.id + '/validate')
+      .set(owner.headers)
+      .send({ rowVersion: credential.rowVersion })
+      .expect(409);
+    const list = await request(server).get(root).set(owner.headers).expect(200);
+    expect(JSON.stringify(list.body)).not.toMatch(
+      /encryptedSecret|wrappedDataKey|secretFingerprint|synthetic-sms-api-key/,
+    );
+    await request(server)
+      .get(root + '/' + credential.id + '/balance')
+      .set(owner.headers)
+      .expect(200);
+    await request(server)
+      .delete(root + '/' + credential.id)
+      .set(owner.headers)
+      .expect(200);
+    await request(server)
+      .delete(root + '/' + credential.id)
+      .set(owner.headers)
+      .expect(200);
+  });
+  it('denies ordinary staff, anonymous users and cross-tenant credentials', async () => {
+    await request(server).get(root).set(doctor).expect(403);
+    await request(server).get(root).expect(401);
+    await request(server).get('/api/v1/platform/sms/balance').set(doctor).expect(400);
+    await request(server)
+      .get('/api/v1/platform/sms/balance')
+      .set('authorization', doctor.authorization ?? '')
+      .set('x-platform-context', 'operator')
+      .expect(403);
+    const owner = await staff('tenant_owner');
+    await request(server)
+      .post(root)
+      .set(owner.headers)
+      .send({ apiKey: 'short', senderId: 'DEMO' })
+      .expect(400);
+    await request(server)
+      .get(root + '/' + newId() + '/balance')
+      .set(owner.headers)
+      .expect(404);
+  });
+});
