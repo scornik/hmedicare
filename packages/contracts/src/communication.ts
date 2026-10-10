@@ -135,3 +135,27 @@ registry.registerPath({
     ...errorResponses,
   },
 });
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/communication-links/{token}',
+  operationId: 'resolveCommunicationLink',
+  tags: ['Communication'],
+  security: [{ [bearerAuth.name]: [] }],
+  request: {
+    params: z.object({ token: z.string().regex(/^[A-Za-z0-9]{22}$/) }),
+    headers: z.object({ 'X-Tenant-ID': TenantIdHeader, 'X-Patient-Context': Uuid }),
+  },
+  responses: {
+    200: {
+      description:
+        'Login and a live SELF/guardian VIEW_RECORDS context are required. The token grants no access.',
+      content: {
+        'application/json': {
+          schema: envelope(z.object({ targetType: z.literal('PATIENT_TIMELINE'), patientId: Uuid })),
+        },
+      },
+    },
+    ...errorResponses,
+  },
+});

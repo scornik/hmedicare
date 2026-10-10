@@ -4,7 +4,7 @@
 
 import 'package:json_annotation/json_annotation.dart';
 
-import 'data.dart';
+import 'data2.dart';
 import 'response_meta.dart';
 
 part 'get_api_v1_me_tenant_context_response.g.dart';
@@ -18,7 +18,7 @@ class GetApiV1MeTenantContextResponse {
   
   factory GetApiV1MeTenantContextResponse.fromJson(Map<String, Object?> json) => _$GetApiV1MeTenantContextResponseFromJson(json);
   
-  final Data data;
+  final Data2 data;
   final ResponseMeta meta;
 
   Map<String, Object?> toJson() => _$GetApiV1MeTenantContextResponseToJson(this);

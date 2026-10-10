@@ -7,15 +7,21 @@ part of 'data3.dart';
 // **************************************************************************
 
 Data3 _$Data3FromJson(Map<String, dynamic> json) => Data3(
-  balance: json['balance'] == null
+  dailySpendEstimate: (json['dailySpendEstimate'] as List<dynamic>)
+      .map((e) => DailySpendEstimate.fromJson(e as Map<String, dynamic>))
+      .toList(),
+  latest: json['latest'] == null
       ? null
-      : SmsBalanceView.fromJson(json['balance'] as Map<String, dynamic>),
-  credential: SmsCredentialView.fromJson(
-    json['credential'] as Map<String, dynamic>,
-  ),
+      : SmsBalanceView.fromJson(json['latest'] as Map<String, dynamic>),
+  trend: (json['trend'] as List<dynamic>)
+      .map((e) => Trend.fromJson(e as Map<String, dynamic>))
+      .toList(),
+  truncated: json['truncated'] as bool,
 );
 
 Map<String, dynamic> _$Data3ToJson(Data3 instance) => <String, dynamic>{
-  'balance': ?instance.balance,
-  'credential': instance.credential,
+  'dailySpendEstimate': instance.dailySpendEstimate,
+  'latest': ?instance.latest,
+  'trend': instance.trend,
+  'truncated': instance.truncated,
 };

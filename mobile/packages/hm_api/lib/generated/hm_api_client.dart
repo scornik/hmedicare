@@ -12,6 +12,7 @@ import 'clients/chamber_days_client.dart';
 import 'clients/queue_client.dart';
 import 'clients/chambers_client.dart';
 import 'clients/clinics_client.dart';
+import 'clients/communication_client.dart';
 import 'clients/patients_client.dart';
 import 'clients/encounters_client.dart';
 import 'clients/tenant_client.dart';
@@ -22,7 +23,6 @@ import 'clients/guardianships_client.dart';
 import 'clients/me_client.dart';
 import 'clients/serials_client.dart';
 import 'clients/patient_accounts_client.dart';
-import 'clients/communication_client.dart';
 import 'clients/timeline_client.dart';
 import 'clients/sms_accounts_client.dart';
 import 'clients/health_client.dart';
@@ -50,6 +50,7 @@ class HmApiClient {
   QueueClient? _queue;
   ChambersClient? _chambers;
   ClinicsClient? _clinics;
+  CommunicationClient? _communication;
   PatientsClient? _patients;
   EncountersClient? _encounters;
   TenantClient? _tenant;
@@ -60,7 +61,6 @@ class HmApiClient {
   MeClient? _me;
   SerialsClient? _serials;
   PatientAccountsClient? _patientAccounts;
-  CommunicationClient? _communication;
   TimelineClient? _timeline;
   SmsAccountsClient? _smsAccounts;
   HealthClient? _health;
@@ -81,6 +81,8 @@ class HmApiClient {
 
   ClinicsClient get clinics => _clinics ??= ClinicsClient(_dio, baseUrl: _baseUrl);
 
+  CommunicationClient get communication => _communication ??= CommunicationClient(_dio, baseUrl: _baseUrl);
+
   PatientsClient get patients => _patients ??= PatientsClient(_dio, baseUrl: _baseUrl);
 
   EncountersClient get encounters => _encounters ??= EncountersClient(_dio, baseUrl: _baseUrl);
@@ -100,8 +102,6 @@ class HmApiClient {
   SerialsClient get serials => _serials ??= SerialsClient(_dio, baseUrl: _baseUrl);
 
   PatientAccountsClient get patientAccounts => _patientAccounts ??= PatientAccountsClient(_dio, baseUrl: _baseUrl);
-
-  CommunicationClient get communication => _communication ??= CommunicationClient(_dio, baseUrl: _baseUrl);
 
   TimelineClient get timeline => _timeline ??= TimelineClient(_dio, baseUrl: _baseUrl);
 

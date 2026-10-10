@@ -4,7 +4,7 @@
 
 import 'package:json_annotation/json_annotation.dart';
 
-import 'data3.dart';
+import 'data4.dart';
 import 'response_meta.dart';
 
 part 'post_api_v1_tenant_sms_credentials_id_validate_response.g.dart';
@@ -18,7 +18,7 @@ class PostApiV1TenantSmsCredentialsIdValidateResponse {
   
   factory PostApiV1TenantSmsCredentialsIdValidateResponse.fromJson(Map<String, Object?> json) => _$PostApiV1TenantSmsCredentialsIdValidateResponseFromJson(json);
   
-  final Data3 data;
+  final Data4 data;
   final ResponseMeta meta;
 
   Map<String, Object?> toJson() => _$PostApiV1TenantSmsCredentialsIdValidateResponseToJson(this);

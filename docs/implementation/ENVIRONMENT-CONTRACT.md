@@ -96,7 +96,7 @@ Column **Apps** lists the Hostinger apps that need the variable (`api`, `worker`
 | `PROVIDER_CREDENTIAL_KEK`, `PROVIDER_CREDENTIAL_KEK_ID` | REQ-PROD | api, worker | 32 random bytes base64 / e.g. `prod-k2026-09` | envelope KEK for `provider_credentials` (separate from `AI_CREDENTIAL_KEK`) |
 | `PROVIDER_CREDENTIAL_KEK_PREVIOUS`, `PROVIDER_CREDENTIAL_KEK_PREVIOUS_ID` | OPT | api, worker | unset | only during rotation (`ReencryptProviderCredentials` job) |
 | `PROVIDER_CREDENTIAL_FINGERPRINT_PEPPER` | REQ-PROD | api | 32 random bytes | duplicate detection |
-| `SHORT_LINK_PEPPER` | REQ-PROD | api, worker | 32 random bytes | `communication_short_links.token_hash` |
+| `SHORT_LINK_PEPPER` | OPT | api (+worker when link sending is composed) | 32 random bytes | dedicated HMAC key; resolution disabled when absent; rotation invalidates existing links |
 | `AUTH_COOKIE_DEV_MODE` | LOCAL | api | `false` | non-`__Host-` cookie over HTTP; refused unless `APP_ENV=development` |
 | `PHI_FIELD_KEK`, `PHI_FIELD_KEK_ID` | REQ-PROD | api, worker | 32 random bytes | patient identifiers |
 | `PUSH_TOKEN_KEK`, `PUSH_TOKEN_KEK_ID` | REQ-PROD | api, worker | 32 random bytes | |

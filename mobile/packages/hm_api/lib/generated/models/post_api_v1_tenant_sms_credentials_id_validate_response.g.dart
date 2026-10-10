@@ -10,7 +10,7 @@ PostApiV1TenantSmsCredentialsIdValidateResponse
 _$PostApiV1TenantSmsCredentialsIdValidateResponseFromJson(
   Map<String, dynamic> json,
 ) => PostApiV1TenantSmsCredentialsIdValidateResponse(
-  data: Data3.fromJson(json['data'] as Map<String, dynamic>),
+  data: Data4.fromJson(json['data'] as Map<String, dynamic>),
   meta: ResponseMeta.fromJson(json['meta'] as Map<String, dynamic>),
 );
 

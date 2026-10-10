@@ -4,7 +4,7 @@
 
 import 'package:json_annotation/json_annotation.dart';
 
-import 'data4.dart';
+import 'data5.dart';
 import 'response_meta.dart';
 
 part 'post_api_v1_webhooks_communication_provider_adapter_response.g.dart';
@@ -18,7 +18,7 @@ class PostApiV1WebhooksCommunicationProviderAdapterResponse {
   
   factory PostApiV1WebhooksCommunicationProviderAdapterResponse.fromJson(Map<String, Object?> json) => _$PostApiV1WebhooksCommunicationProviderAdapterResponseFromJson(json);
   
-  final Data4 data;
+  final Data5 data;
   final ResponseMeta meta;
 
   Map<String, Object?> toJson() => _$PostApiV1WebhooksCommunicationProviderAdapterResponseToJson(this);

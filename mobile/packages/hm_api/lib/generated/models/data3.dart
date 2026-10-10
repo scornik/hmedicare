@@ -4,22 +4,27 @@
 
 import 'package:json_annotation/json_annotation.dart';
 
+import 'daily_spend_estimate.dart';
 import 'sms_balance_view.dart';
-import 'sms_credential_view.dart';
+import 'trend.dart';
 
 part 'data3.g.dart';
 
 @JsonSerializable()
 class Data3 {
   const Data3({
-    required this.balance,
-    required this.credential,
+    required this.dailySpendEstimate,
+    required this.latest,
+    required this.trend,
+    required this.truncated,
   });
   
   factory Data3.fromJson(Map<String, Object?> json) => _$Data3FromJson(json);
   
-  final SmsBalanceView? balance;
-  final SmsCredentialView credential;
+  final List<DailySpendEstimate> dailySpendEstimate;
+  final SmsBalanceView? latest;
+  final List<Trend> trend;
+  final bool truncated;
 
   Map<String, Object?> toJson() => _$Data3ToJson(this);
 }

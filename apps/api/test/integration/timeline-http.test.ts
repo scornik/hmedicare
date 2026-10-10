@@ -1,3 +1,5 @@
+import { CommunicationShortLinks } from '@hmedic/communication';
+import { FollowUpReminderSource } from '@hmedic/follow-up';
 import { createHmac } from 'node:crypto';
 import { CommunicationSummary, CommunicationPreferenceView } from '@hmedic/contracts';
 import request from 'supertest';
@@ -16,12 +18,16 @@ import { testDatabaseUrl, truncateAll } from '../../../../tests/support/db';
 let api: ApiInstance, server: Parameters<typeof request>[0];
 let base: Awaited<ReturnType<typeof chamberWithCalledSerial>>;
 let encounterId: string, rxId: string, doctor: Record<string, string>;
+const shortLinkKey = 'synthetic-short-link-api-key-at-least-32-bytes';
 const now = new Date('2026-10-01T12:00:00.000Z'),
   password = 'correct horse battery';
 const hasher = new Argon2idHasher({ memoryKiB: 8192, timeCost: 2, parallelism: 1 });
 beforeAll(async () => {
   api = await buildApi(
-    loadConfig<ServerConfig>('api', testEnv({ DATABASE_URL: testDatabaseUrl(), JOB_RUNNER_MODE: 'off' })),
+    loadConfig<ServerConfig>(
+      'api',
+      testEnv({ DATABASE_URL: testDatabaseUrl(), JOB_RUNNER_MODE: 'off', SHORT_LINK_PEPPER: shortLinkKey }),
+    ),
   );
   server = api.app.getHttpServer();
 });
@@ -792,5 +798,123 @@ describe('SMS account HTTP authorization', () => {
       .get(root + '/' + newId() + '/balance')
       .set(owner.headers)
       .expect(404);
+  });
+});
+
+describe('authenticated communication links', () => {
+  async function link() {
+    const planId = newId(),
+      communicationId = newId();
+    await api.runtime.prisma.followUpPlan.create({
+      data: {
+        id: planId,
+        tenantId: base.tenantId,
+        patientId: base.patientId,
+        sourceEncounterId: encounterId,
+        doctorProfileId: base.doctorProfileId,
+        dueStartDate: new Date('2026-10-01'),
+        reason: 'SYNTHETIC private follow-up reason',
+        status: 'PLANNED',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await api.runtime.prisma.communication.create({
+      data: {
+        id: communicationId,
+        tenantId: base.tenantId,
+        patientId: base.patientId,
+        channel: 'email',
+        purpose: 'follow_up_reminder',
+        templateKey: 'follow_up_reminder',
+        templateVersion: 1,
+        locale: 'en-BD',
+        businessType: 'follow_up_plan',
+        businessId: planId,
+        status: 'SENT',
+        idempotencyKey: newId(),
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const links = new CommunicationShortLinks(
+      api.runtime.prisma,
+      api.runtime.audit,
+      new FollowUpReminderSource(api.runtime.prisma, api.runtime.clock),
+      shortLinkKey,
+      api.runtime.clock,
+    );
+    const issued = await links.issue(base.tenantId, communicationId);
+    return '/api/v1/communication-links/' + issued.token;
+  }
+  it('resolves only the SELF patient timeline and denies a revoked account', async () => {
+    const path = await link(),
+      identity = await account();
+    const response = await request(server).get(path).set(patientHeaders()).expect(200);
+    expect(response.body.data).toEqual({ targetType: 'PATIENT_TIMELINE', patientId: base.patientId });
+    expect(JSON.stringify(response.body)).not.toMatch(
+      /SYNTHETIC|businessId|encounterId|communicationId|token/,
+    );
+    await api.runtime.prisma.patientAccount.update({
+      where: { id: identity.id },
+      data: { status: 'REVOKED' },
+    });
+    await request(server).get(path).set(patientHeaders()).expect(403);
+  });
+  it('requires login and patient context before checking unknown or expired tokens', async () => {
+    const path = await link();
+    await request(server).get(path).expect(401);
+    await request(server).get(path).set(doctor).expect(400);
+    await account();
+    await request(server)
+      .get('/api/v1/communication-links/' + 'Z'.repeat(22))
+      .set(patientHeaders())
+      .expect(404);
+    await request(server).get('/api/v1/communication-links/malformed').set(patientHeaders()).expect(404);
+    await api.runtime.prisma.communicationShortLink.updateMany({
+      data: { createdAt: new Date('2026-01-01'), expiresAt: new Date('2026-01-02') },
+    });
+    await request(server).get(path).set(patientHeaders()).expect(404);
+  });
+  it('requires guardian VIEW_RECORDS and rechecks revocation', async () => {
+    const path = await link(),
+      guardian = await staff('doctor');
+    const identity = await api.runtime.prisma.patientGuardianship.create({
+      data: {
+        id: newId(),
+        tenantId: base.tenantId,
+        guardianUserId: guardian.id,
+        dependentPatientId: base.patientId,
+        relationship: 'PARENT',
+        authorityScope: ['BOOK_APPOINTMENTS'],
+        verificationMethod: 'STAFF_VERIFIED_IN_PERSON',
+        status: 'ACTIVE',
+        startsOn: new Date('2026-01-01'),
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const headers = { ...guardian.headers, 'x-patient-context': base.patientId };
+    await request(server).get(path).set(headers).expect(403);
+    await api.runtime.prisma.patientGuardianship.update({
+      where: { id: identity.id },
+      data: { authorityScope: ['VIEW_RECORDS'] },
+    });
+    await request(server).get(path).set(headers).expect(200);
+    await api.runtime.prisma.patientGuardianship.update({
+      where: { id: identity.id },
+      data: { status: 'REVOKED' },
+    });
+    await request(server).get(path).set(headers).expect(403);
+  });
+  it('refuses resolution when no dedicated pepper is configured', async () => {
+    const path = await link();
+    await account();
+    const disabled = await buildApi({ ...api.runtime.config, SHORT_LINK_PEPPER: undefined });
+    try {
+      await request(disabled.app.getHttpServer()).get(path).set(patientHeaders()).expect(409);
+    } finally {
+      await disabled.close();
+    }
   });
 });

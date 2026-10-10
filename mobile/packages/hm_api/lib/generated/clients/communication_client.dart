@@ -8,6 +8,7 @@ import 'package:retrofit/retrofit.dart';
 import '../models/api_v1_patients_id_communication_preferences_request_body.dart';
 import '../models/api_v1_webhooks_communication_provider_adapter_request_body.dart';
 import '../models/communication_webhook_adapter.dart';
+import '../models/get_api_v1_communication_links_token_response.dart';
 import '../models/get_api_v1_patients_id_communication_preferences_response.dart';
 import '../models/get_api_v1_patients_id_communications_response.dart';
 import '../models/post_api_v1_webhooks_communication_provider_adapter_response.dart';
@@ -18,6 +19,13 @@ part 'communication_client.g.dart';
 @RestApi()
 abstract class CommunicationClient {
   factory CommunicationClient(Dio dio, {String? baseUrl}) = _CommunicationClient;
+
+  @GET('/api/v1/communication-links/{token}')
+  Future<GetApiV1CommunicationLinksTokenResponse> resolveCommunicationLink({
+    @Path('token') required String token,
+    @Header('X-Tenant-ID') required String xTenantId,
+    @Header('X-Patient-Context') required String xPatientContext,
+  });
 
   @GET('/api/v1/patients/{id}/communication-preferences')
   Future<GetApiV1PatientsIdCommunicationPreferencesResponse> listCommunicationPreferences({

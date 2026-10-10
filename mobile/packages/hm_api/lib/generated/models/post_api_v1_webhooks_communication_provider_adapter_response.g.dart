@@ -10,7 +10,7 @@ PostApiV1WebhooksCommunicationProviderAdapterResponse
 _$PostApiV1WebhooksCommunicationProviderAdapterResponseFromJson(
   Map<String, dynamic> json,
 ) => PostApiV1WebhooksCommunicationProviderAdapterResponse(
-  data: Data4.fromJson(json['data'] as Map<String, dynamic>),
+  data: Data5.fromJson(json['data'] as Map<String, dynamic>),
   meta: ResponseMeta.fromJson(json['meta'] as Map<String, dynamic>),
 );
 

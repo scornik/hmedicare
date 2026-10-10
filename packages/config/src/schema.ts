@@ -157,6 +157,8 @@ export const authSection = {
   OTP_PEPPER: secret32,
   RATE_LIMIT_PEPPER: secret32,
   CSRF_SECRET: secret32,
+  /** Dedicated short-link HMAC key. Resolution remains disabled when absent. Rotation invalidates links. */
+  SHORT_LINK_PEPPER: secret32.optional(),
   /**
    * Signs document download tokens (FILE-STORAGE-IMPLEMENTATION.md §2.5). Optional so a deployment with
    * no document storage still boots; the download route refuses when it is absent rather than signing

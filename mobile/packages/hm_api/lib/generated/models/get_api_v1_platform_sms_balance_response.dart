@@ -4,7 +4,7 @@
 
 import 'package:json_annotation/json_annotation.dart';
 
-import 'data2.dart';
+import 'data3.dart';
 import 'response_meta.dart';
 
 part 'get_api_v1_platform_sms_balance_response.g.dart';
@@ -18,7 +18,7 @@ class GetApiV1PlatformSmsBalanceResponse {
   
   factory GetApiV1PlatformSmsBalanceResponse.fromJson(Map<String, Object?> json) => _$GetApiV1PlatformSmsBalanceResponseFromJson(json);
   
-  final Data2 data;
+  final Data3 data;
   final ResponseMeta meta;
 
   Map<String, Object?> toJson() => _$GetApiV1PlatformSmsBalanceResponseToJson(this);

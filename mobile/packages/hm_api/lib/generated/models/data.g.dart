@@ -7,17 +7,11 @@ part of 'data.dart';
 // **************************************************************************
 
 Data _$DataFromJson(Map<String, dynamic> json) => Data(
-  permissions: (json['permissions'] as List<dynamic>)
-      .map((e) => e as String)
-      .toList(),
-  role: Role.fromJson(json['role'] as String),
-  rolePermissionsVersion: (json['rolePermissionsVersion'] as num).toInt(),
-  tenantId: json['tenantId'] as String,
+  patientId: json['patientId'] as String,
+  targetType: TargetType.fromJson(json['targetType'] as String),
 );
 
 Map<String, dynamic> _$DataToJson(Data instance) => <String, dynamic>{
-  'permissions': instance.permissions,
-  'role': instance.role,
-  'rolePermissionsVersion': instance.rolePermissionsVersion,
-  'tenantId': instance.tenantId,
+  'patientId': instance.patientId,
+  'targetType': instance.targetType,
 };

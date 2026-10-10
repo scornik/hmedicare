@@ -1,3 +1,7 @@
+import {
+  CommunicationLinksController,
+  COMMUNICATION_SHORT_LINKS,
+} from './communication/communication-links.controller';
 import { createProviderCredentialVault } from '@hmedic/provider-credentials/worker';
 import {
   SmsAccountsController,
@@ -11,6 +15,7 @@ import {
   COMMUNICATION_PROVIDERS,
 } from './communication/communication.controller';
 import {
+  CommunicationShortLinks,
   SmsAccountService,
   CommunicationService,
   TransactionalSmsDelivery,
@@ -154,6 +159,7 @@ export class ApiModule {
     documents: DocumentServices | null,
     communication: CommunicationService,
     smsAccounts: SmsAccountService,
+    shortLinks: CommunicationShortLinks | null,
     notificationProviders: ReadonlyMap<string, CommunicationProvider>,
   ): DynamicModule {
     const mode = runtime.config.JOB_RUNNER_MODE;
@@ -191,11 +197,13 @@ export class ApiModule {
         ...(documents ? [DocumentModule.forRoot(documents)] : []),
       ],
       providers: [
+        { provide: COMMUNICATION_SHORT_LINKS, useValue: shortLinks },
         { provide: SMS_ACCOUNT_SERVICE, useValue: smsAccounts },
         { provide: COMMUNICATION_SERVICE, useValue: communication },
         { provide: COMMUNICATION_PROVIDERS, useValue: notificationProviders },
       ],
       controllers: [
+        CommunicationLinksController,
         SmsAccountsController,
         PlatformSmsBalanceController,
         CommunicationController,
@@ -290,6 +298,15 @@ export async function buildApi(
     ['email', new MockEmailAdapter(config.LOG_HASH_PEPPER)],
     ['whatsapp', new MockWhatsAppAdapter(config.LOG_HASH_PEPPER)],
   ]);
+  const shortLinks = config.SHORT_LINK_PEPPER
+    ? new CommunicationShortLinks(
+        runtime.prisma,
+        runtime.audit,
+        reminderSource,
+        config.SHORT_LINK_PEPPER,
+        runtime.clock,
+      )
+    : null;
   const communication = new CommunicationService(
     runtime.prisma,
     runtime.audit,
@@ -447,6 +464,7 @@ export async function buildApi(
       documents,
       communication,
       smsAccounts,
+      shortLinks,
       notificationProviders,
     ),
     runtime,
