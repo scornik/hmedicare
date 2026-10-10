@@ -1,5 +1,5 @@
 export type SessionStatus = 'PENDING' | 'ACTIVE' | 'ENDED' | 'FAILED' | 'EXPIRED';
-export type ParticipantRole = 'DOCTOR' | 'PATIENT' | 'GUARDIAN';
+export type ParticipantRole = 'DOCTOR' | 'STAFF' | 'PATIENT' | 'GUARDIAN';
 export type ParticipantEventKind = 'JOINED' | 'LEFT' | 'RECONNECTED';
 export type TelemedicineErrorCode =
   | 'INVALID_TRANSITION'

@@ -372,6 +372,9 @@ importers:
       '@hmedic/storage-adapters-disk':
         specifier: workspace:*
         version: link:../../packages/storage-adapters/disk
+      '@hmedic/telemedicine':
+        specifier: workspace:*
+        version: link:../../packages/telemedicine
       '@hmedic/timeline':
         specifier: workspace:*
         version: link:../../packages/timeline
@@ -1097,7 +1100,30 @@ importers:
         specifier: workspace:*
         version: link:../../laboratory-documents
 
-  packages/telemedicine: {}
+  packages/telemedicine:
+    dependencies:
+      '@hmedic/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@hmedic/clinical':
+        specifier: workspace:*
+        version: link:../clinical
+      '@hmedic/database':
+        specifier: workspace:*
+        version: link:../database
+      '@hmedic/jobs':
+        specifier: workspace:*
+        version: link:../jobs
+      '@hmedic/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@hmedic/patient':
+        specifier: workspace:*
+        version: link:../patient
+    devDependencies:
+      '@hmedic/identity-access':
+        specifier: workspace:*
+        version: link:../identity-access
 
   packages/tenant-org:
     dependencies:

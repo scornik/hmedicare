@@ -66,7 +66,7 @@ export class MockTelemedicineProvider implements TelemedicineProvider {
   async issueParticipantToken(input: Parameters<TelemedicineProvider['issueParticipantToken']>[0]) {
     const session = this.session(input.providerSessionId);
     requireJoinable(session.status, session.expiresAt, this.now());
-    if (!['DOCTOR', 'PATIENT', 'GUARDIAN'].includes(input.role) || !input.participantId)
+    if (!['DOCTOR', 'STAFF', 'PATIENT', 'GUARDIAN'].includes(input.role) || !input.participantId)
       throw new TelemedicineError('PARTICIPANT_UNAUTHORIZED');
     const previousRole = session.participants.get(input.participantId);
     if (previousRole && previousRole !== input.role) throw new TelemedicineError('PARTICIPANT_UNAUTHORIZED');
