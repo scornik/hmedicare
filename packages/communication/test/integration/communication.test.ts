@@ -19,7 +19,12 @@ import {
   RateLimitedJobError,
   NonRetryableJobError,
 } from '@hmedic/jobs';
-import { TransactionalSmsDelivery, platformSmsCredential, CommunicationService } from '../../src/public';
+import {
+  SmsAccountService,
+  TransactionalSmsDelivery,
+  platformSmsCredential,
+  CommunicationService,
+} from '../../src/public';
 import { createDueReminders } from '../../src/nest/reminder-jobs';
 import { registerDeliveryJobs } from '../../src/nest/delivery-jobs';
 import { openTestDatabase, truncateAll } from '../../../../tests/support/db';
@@ -733,5 +738,96 @@ describe('transactional SMS worker', () => {
       (await db.prisma.communicationAttempt.findFirstOrThrow({ where: { attemptNumber: 2 } }))
         .possibleDuplicate,
     ).toBe(true);
+  });
+});
+
+describe('tenant SMS account management', () => {
+  const key = 'synthetic-sms-account-key-1234';
+  async function setup() {
+    const f = await smsFixture();
+    const accounts = new SmsAccountService(
+      db.prisma,
+      f.vault,
+      f.provider,
+      new PrismaAuditPort(f.smsClock),
+      '100',
+      f.smsClock,
+    );
+    const credential = await accounts.create(f.tenantId, f.userId, { apiKey: key, senderId: 'DEMO' });
+    return { ...f, accounts, credential };
+  }
+  it('returns only masked metadata and validates with a free balance call', async () => {
+    const f = await setup();
+    expect(JSON.stringify(await f.accounts.list(f.tenantId, f.userId))).not.toContain(key);
+    const result = await f.accounts.validate(f.tenantId, f.userId, f.credential.id, f.credential.rowVersion);
+    expect(result.credential.status).toBe('ACTIVE');
+    expect(result.balance?.parseStatus).toBe('PARSED');
+    expect(f.provider.sent).toHaveLength(0);
+    expect(result.credential.senderIdStatus).toBe('UNVERIFIED');
+    expect(await db.prisma.smsBalanceSnapshot.count()).toBe(1);
+    expect(JSON.stringify(result)).not.toMatch(
+      /encryptedSecret|wrappedDataKey|secretFingerprint|synthetic-sms-account/,
+    );
+  });
+  it('does not mark an unparsed balance as validated', async () => {
+    const f = await setup();
+    f.provider.enqueue('unparsed_balance');
+    const result = await f.accounts.validate(f.tenantId, f.userId, f.credential.id, f.credential.rowVersion);
+    expect(result.credential.status).toBe('PENDING_VALIDATION');
+    expect(result.balance).toMatchObject({ balance: null, parseStatus: 'UNPARSED' });
+    expect(result.credential.validatedAt).toBeNull();
+  });
+  it('rejects stale validation before a provider call and discards revoked in-flight results atomically', async () => {
+    const f = await setup();
+    await expect(f.accounts.validate(f.tenantId, f.userId, f.credential.id, 999)).rejects.toMatchObject({
+      code: 'STALE_VERSION',
+    });
+    const original = f.provider.checkBalance.bind(f.provider);
+    f.provider.checkBalance = async () => {
+      await f.accounts.revoke(f.tenantId, f.userId, f.credential.id);
+      return original();
+    };
+    await expect(
+      f.accounts.validate(f.tenantId, f.userId, f.credential.id, f.credential.rowVersion),
+    ).rejects.toMatchObject({ code: 'STALE_VERSION' });
+    expect((await f.vault.getView(f.tenantId, f.credential.id, 'SMS')).status).toBe('REVOKED');
+    expect(await db.prisma.smsBalanceSnapshot.count()).toBe(0);
+  });
+  it('isolates account balances and validation by tenant and makes repeated revocation harmless', async () => {
+    const f = await setup();
+    for (const action of [
+      () => f.accounts.balance(newId(), f.userId, f.credential.id),
+      () => f.accounts.validate(newId(), f.userId, f.credential.id, f.credential.rowVersion),
+      () => f.accounts.revoke(newId(), f.userId, f.credential.id),
+    ])
+      await expect(action()).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' });
+    await f.accounts.revoke(f.tenantId, f.userId, f.credential.id);
+    await expect(f.accounts.revoke(f.tenantId, f.userId, f.credential.id)).resolves.toMatchObject({
+      status: 'REVOKED',
+    });
+    expect(
+      (await db.prisma.providerCredential.findUniqueOrThrow({ where: { id: f.credential.id } }))
+        .encryptedSecret,
+    ).toBe('revoked');
+  });
+  it('reports observed spend as an estimate without counting account top-ups', async () => {
+    const f = await setup();
+    for (const [index, balance] of ['100.00', '90.00', '150.00', '130.00'].entries())
+      await db.prisma.smsBalanceSnapshot.create({
+        data: {
+          id: newId(),
+          tenantId: null,
+          credentialScope: 'PLATFORM',
+          credentialId: null,
+          providerCode: 'mock',
+          balance,
+          parseStatus: 'PARSED',
+          checkedAt: new Date(clock.now().getTime() + index * 60000),
+        },
+      });
+    const result = await f.accounts.platformBalance(f.userId);
+    expect(result.latest?.balance).toBe('130.00');
+    expect(result.dailySpendEstimate).toEqual([{ day: '2026-10-10', estimateBdt: '30.00' }]);
+    expect(result.truncated).toBe(false);
   });
 });

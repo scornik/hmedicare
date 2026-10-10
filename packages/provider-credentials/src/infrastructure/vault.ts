@@ -1,5 +1,5 @@
 import { AppError, type Clock, newId, systemClock } from '@hmedic/kernel';
-import { type PrismaClient, isUniqueViolation, withTransaction } from '@hmedic/database';
+import { type PrismaClient, type Tx, lockRow, isUniqueViolation, withTransaction } from '@hmedic/database';
 import type { PrismaAuditPort } from '@hmedic/audit';
 import { type SecretEnvelope, last4, secretFingerprint } from '@hmedic/secrets';
 
@@ -25,6 +25,8 @@ export interface CredentialView {
   senderIdStatus: string | null;
   validatedAt: string | null;
   lastErrorClass: string | null;
+  rowVersion: number;
+  balanceAlertBdt: string | null;
 }
 
 /**
@@ -32,6 +34,7 @@ export interface CredentialView {
  * never returned, logged, queued or stored (COMMUNICATION §6.1).
  */
 export interface CredentialHandle {
+  readonly rowVersion: number;
   readonly credentialId: string;
   readonly tenantId: string;
   readonly providerCode: string;
@@ -80,6 +83,8 @@ export class ProviderCredentialVault {
     senderIdStatus: string | null;
     validatedAt: Date | null;
     lastErrorClass: string | null;
+    rowVersion: number;
+    balanceAlertBdt: { toFixed(places: number): string } | null;
   }): CredentialView {
     return {
       id: r.id,
@@ -92,6 +97,8 @@ export class ProviderCredentialVault {
       senderIdStatus: r.senderIdStatus,
       validatedAt: r.validatedAt?.toISOString() ?? null,
       lastErrorClass: r.lastErrorClass,
+      rowVersion: r.rowVersion,
+      balanceAlertBdt: r.balanceAlertBdt?.toFixed(2) ?? null,
     };
   }
 
@@ -185,6 +192,7 @@ export class ProviderCredentialVault {
       keyId: row.keyId,
     };
     return {
+      rowVersion: row.rowVersion,
       credentialId: row.id,
       tenantId: row.tenantId,
       providerCode: row.providerCode,
@@ -307,9 +315,67 @@ export class ProviderCredentialVault {
     return out;
   }
 
+  async getView(tenantId: string, credentialId: string, kind: ProviderKind): Promise<CredentialView> {
+    const row = await this.prisma.providerCredential.findFirst({
+      where: { tenantId, id: credentialId, providerKind: kind, ownerType: 'TENANT' },
+    });
+    if (!row) throw new AppError('RESOURCE_NOT_FOUND');
+    return this.view(row);
+  }
+
+  /** Caller joins the validation snapshot/status/audit in one transaction after provider I/O. */
+  async completeSmsValidation(
+    tx: Tx,
+    tenantId: string,
+    credentialId: string,
+    expectedVersion: number,
+    status: 'ACTIVE' | 'SUSPENDED_BALANCE' | 'INVALID' | null,
+    errorClass: string | null,
+    actorUserId: string,
+  ) {
+    if (!(await lockRow(tx, 'provider_credentials', credentialId, tenantId)))
+      throw new AppError('RESOURCE_NOT_FOUND');
+    const row = await tx.providerCredential.findFirst({
+      where: {
+        tenantId,
+        id: credentialId,
+        providerKind: 'SMS',
+        providerCode: 'zamanit',
+        ownerType: 'TENANT',
+      },
+    });
+    if (!row) throw new AppError('RESOURCE_NOT_FOUND');
+    if (row.rowVersion !== expectedVersion || row.status === 'REVOKED' || row.status === 'DISABLED')
+      throw new AppError('STALE_VERSION');
+    const now = this.clock.now();
+    const updated = await tx.providerCredential.update({
+      where: { id: credentialId },
+      data: {
+        ...(status ? { status } : {}),
+        lastErrorClass: errorClass,
+        ...(status === 'ACTIVE' ? { validatedAt: now } : {}),
+        updatedAt: now,
+        updatedByUserId: actorUserId,
+        rowVersion: { increment: 1 },
+      },
+    });
+    await this.audit.append(tx, {
+      tenantId,
+      actorUserId,
+      actorType: 'USER',
+      action: 'SMS_CREDENTIAL_VALIDATED',
+      resourceType: 'provider_credential',
+      resourceId: credentialId,
+      outcome: status === 'INVALID' ? 'DENIED' : 'SUCCESS',
+      metadata: { status: updated.status, ...(errorClass ? { errorClass } : {}) },
+    });
+    return this.view(updated);
+  }
+
   async list(tenantId: string, kind: ProviderKind): Promise<CredentialView[]> {
     const rows = await this.prisma.providerCredential.findMany({
-      where: { tenantId, providerKind: kind },
+      where: { tenantId, providerKind: kind, ownerType: 'TENANT' },
+      take: 100,
       orderBy: { createdAt: 'desc' },
     });
     return rows.map((r) => this.view(r));

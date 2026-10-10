@@ -13,3 +13,4 @@ export {
   TransactionalSmsDelivery,
   DELIVER_TRANSACTIONAL_SMS,
 } from '../infrastructure/transactional-sms-delivery';
+export { SmsAccountService } from '../infrastructure/sms-account-service';
