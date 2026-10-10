@@ -136,3 +136,9 @@ interface TelemedicineProvider {
 - **Duplicate safety:** an OTP `UNKNOWN_OUTCOME` produces zero automatic resends; a transactional `UNKNOWN_OUTCOME` produces exactly one retry, flagged `possible_duplicate`.
 - **Gate:** `APP_ENV=production` + `http://` base URL + no gate decision → OTP delivery refused, alert; with an expired decision → refused.
 - **Live smoke:** SMS-008 only (`ZAMANIT-VERIFICATION.md` §4). It is never in CI.
+
+## Provider mock foundation (2026-10-10, local)
+
+CommunicationProvider and channel-specific email/WhatsApp/push ports are now exported from the communication context. The mock adapter package implements deterministic acceptance, transient failure, permanent failure and rate limiting. Accepted attempts replay by tenant/idempotency key; changed inputs are rejected and caller mutation cannot change the stored result. Mocks retain only input hashes and synthetic responses, never destinations or rendered text.
+
+Receipts authenticate the exact raw body with HMAC-SHA256 and constant-time comparison, bound payload size and reject malformed/unknown fields. Duplicate receipts return the same event identity so the future webhook repository can enforce its unique key. This verifies adapter behavior only: database deduplication, receipt status transitions, API webhook routes, compose-service wiring and real provider selection remain open. No queue, consent enforcement or external delivery is enabled by this foundation. SMS and synchronous OTP continue using their existing dedicated port.

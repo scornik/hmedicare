@@ -105,3 +105,4 @@ export class MockSmsAdapter implements SmsProvider {
     };
   }
 }
+export * from './communication';

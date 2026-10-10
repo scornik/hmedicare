@@ -342,3 +342,9 @@ patient who cannot be reached is not a patient who can be treated.
 | D-31 | The CP4 seed reaches BOOKED, CONFIRMED, CANCELLED, NO_SHOW and RESCHEDULED serials only | the queue-active states need the CP5 commands (check-in, call, skip, complete) | CP5 extends the same dataset |
 | D-32 | Serial numbers are allocated with an atomic counter statement (LAST_INSERT_ID) rather than a read-then-write under the day lock | the concurrency suite produced duplicate serial numbers: the second statement carried its own snapshot | — |
 | D-33 | Prisma P2028 (interactive-transaction timeout) is treated as a retryable lock error | it is what fires when a transaction spends its budget queued behind a hot row lock; without it a busy chamber day returned a raw Prisma error instead of QUEUE_BUSY | — |
+
+## Communication provider foundation (2026-10-10)
+
+The next local notification increment adds email/WhatsApp/push provider ports and in-process mocks, including retry/rate-limit outcomes, accepted-attempt replay and signed receipt verification. It does not complete COM-001–003: communication persistence, consent/preferences, worker delivery, webhook API/database deduplication and compose-service wiring remain open. See COMMUNICATION-IMPLEMENTATION.md for the implemented boundary. No external messages or deployment were performed.
+
+Validation: 497 unit/architecture tests passed, including 18 new provider tests. The communication/mock build and mock test compilation passed. Dependency checks found no violations (455 modules, 1,897 dependencies); the secret scan was clean. No database schema or API contract changed in this increment.
