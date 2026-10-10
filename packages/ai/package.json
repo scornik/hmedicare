@@ -22,6 +22,11 @@
     "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
   },
   "dependencies": {
+    "@hmedic/audit": "workspace:*",
+    "@hmedic/database": "workspace:*",
+    "@hmedic/identity-access": "workspace:*",
+    "@hmedic/jobs": "workspace:*",
+    "@hmedic/kernel": "workspace:*",
     "@hmedic/secrets": "workspace:*"
   }
 }

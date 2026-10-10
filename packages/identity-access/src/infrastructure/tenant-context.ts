@@ -12,7 +12,7 @@ function stringArray(value: unknown): string[] {
  * (owned and written by tenant-org). Never cached across requests.
  */
 export class TenantContextResolver {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(private readonly prisma: Pick<PrismaClient, 'tenantMembership' | 'tenant'>) {}
 
   async resolve(userId: string, tenantId: string): Promise<TenantContext | null> {
     const membership = await this.prisma.tenantMembership.findFirst({

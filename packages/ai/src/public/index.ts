@@ -2,3 +2,4 @@
 export * from '../application/policy/effective-policy';
 export * from '../domain/credential';
 export * from '../application/credentials/credential-secrets';
+export * from '../infrastructure/credential-store';

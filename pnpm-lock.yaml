@@ -543,6 +543,21 @@ importers:
 
   packages/ai:
     dependencies:
+      '@hmedic/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@hmedic/database':
+        specifier: workspace:*
+        version: link:../database
+      '@hmedic/identity-access':
+        specifier: workspace:*
+        version: link:../identity-access
+      '@hmedic/jobs':
+        specifier: workspace:*
+        version: link:../jobs
+      '@hmedic/kernel':
+        specifier: workspace:*
+        version: link:../kernel
       '@hmedic/secrets':
         specifier: workspace:*
         version: link:../secrets
