@@ -15,3 +15,4 @@ export * from './documents';
 export * from './timeline';
 export * from './follow-up';
 export * from './communication';
+export * from './sms-accounts';
