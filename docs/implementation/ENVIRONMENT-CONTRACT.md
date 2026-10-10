@@ -109,7 +109,7 @@ Column **Apps** lists the Hostinger apps that need the variable (`api`, `worker`
 | **`AI_CREDENTIAL_KEK_ID`** | REQ-PROD | api, worker | e.g. `k2026-09` | |
 | `AI_CREDENTIAL_KEK_PREVIOUS` / `AI_CREDENTIAL_KEK_PREVIOUS_ID` | OPT | api, worker | unset | only during rotation |
 | `AI_CREDENTIAL_FINGERPRINT_PEPPER` | REQ-PROD | api | 32 random bytes | |
-| `AI_ENABLED_PROVIDER_CODES` | REQ-PROD | api, worker | local/CI `mock`; staging `mock,gemini`; production empty until a register production gate closes | |
+| `AI_ENABLED_PROVIDER_CODES` | OPT | api, worker | empty in every environment; explicitly set `mock` for local/CI validation | Parsed as unique lowercase provider codes. Mock is refused in production; allowlisting never closes a provider review gate. |
 | **`AI_FREE_TIER_ALLOWED_DEFAULT`** | OPT | api | **`false`** | default for new tenant policies |
 | `AI_FREE_TIER_PRODUCTION_GATE_CLOSED` | OPT | api, worker | `false` | may be `true` only after AIREG-001 closes (register) |
 | **`AI_TRANSCRIPTION_ENABLED`** | OPT | api, worker | **`false`** | MVP |
@@ -127,6 +127,8 @@ Column **Apps** lists the Hostinger apps that need the variable (`api`, `worker`
 | `AI_RETRIEVAL_MAX_PROJECTION_LAG_SECONDS` | OPT | worker | 60 | |
 | `AI_TERMS_MAX_AGE_DAYS` | OPT | api, worker | 180 | |
 | `AI_PROVIDER_BASE_URL_OVERRIDE_<CODE>` | LOCAL | api, worker | unset | points adapters at `mock-providers`; refused outside development/test |
+
+Current foundation (2026-10-11): AI encryption settings are optional while no AI keys/providers are configured, so existing deployments keep working with AI disabled. Configuring any current/previous AI key or any provider requires the complete current KEK/id/fingerprint-pepper set. KEKs must encode exactly 32 bytes in canonical base64 and differ from provider, push and PHI encryption keys. AI fingerprint pepper must differ from the provider credential pepper. Rotation requires a complete distinct previous key/id pair; deployed current/previous AI key ids use their environment prefix. A provider list is configuration only: credential storage, adapter register checks and activation gates still have to be implemented before use. Transcription, platform-managed billing and the tenant free-tier default remain false.
 
 ## 6. Communication, telemedicine, payments
 

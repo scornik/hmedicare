@@ -212,6 +212,50 @@ export const smsSection = {
   ZAMANIT_MAX_SENDS_PER_MINUTE: int(30, 1),
 };
 
+/** AI stays unconfigured until its own encryption material is explicitly supplied. */
+export const aiSection = {
+  AI_CREDENTIAL_KEK: z
+    .string()
+    .refine(
+      (v) =>
+        v.length === 44 &&
+        /^[A-Za-z0-9+/]{43}=$/.test(v) &&
+        Buffer.from(v, 'base64').toString('base64') === v,
+      'must be 32 bytes in canonical base64',
+    )
+    .optional(),
+  AI_CREDENTIAL_KEK_ID: z.string().min(1).max(32).optional(),
+  AI_CREDENTIAL_KEK_PREVIOUS: z
+    .string()
+    .refine(
+      (v) =>
+        v.length === 44 &&
+        /^[A-Za-z0-9+/]{43}=$/.test(v) &&
+        Buffer.from(v, 'base64').toString('base64') === v,
+      'must be 32 bytes in canonical base64',
+    )
+    .optional(),
+  AI_CREDENTIAL_KEK_PREVIOUS_ID: z.string().min(1).max(32).optional(),
+  AI_CREDENTIAL_FINGERPRINT_PEPPER: secret32.optional(),
+  AI_ENABLED_PROVIDER_CODES: z
+    .string()
+    .default('')
+    .transform((v) =>
+      v
+        .split(',')
+        .map((code) => code.trim())
+        .filter(Boolean),
+    )
+    .refine(
+      (codes) =>
+        new Set(codes).size === codes.length && codes.every((code) => /^[a-z][a-z0-9_]{0,31}$/.test(code)),
+      'must contain unique lowercase provider codes',
+    ),
+  AI_FREE_TIER_ALLOWED_DEFAULT: bool(false),
+  AI_PLATFORM_MANAGED_ENABLED: bool(false),
+  AI_TRANSCRIPTION_ENABLED: bool(false),
+};
+
 /**
  * The medication catalog (ADR-020 §2–§3, ENVIRONMENT-CONTRACT.md).
  *
@@ -247,6 +291,7 @@ export const SECTIONS_BY_APP: Record<AppName, Array<Record<string, z.ZodTypeAny>
     jobsSection,
     authSection,
     smsSection,
+    aiSection,
     medicationCatalogSection,
     observabilitySection,
   ],
@@ -256,6 +301,7 @@ export const SECTIONS_BY_APP: Record<AppName, Array<Record<string, z.ZodTypeAny>
     jobsSection,
     authSection,
     smsSection,
+    aiSection,
     medicationCatalogSection,
     observabilitySection,
   ],

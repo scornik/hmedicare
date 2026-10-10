@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type {
+  aiSection,
   authSection,
   databaseSection,
   jobsSection,
@@ -16,6 +17,7 @@ export type DatabaseConfig = Out<typeof databaseSection>;
 export type JobsConfig = Out<typeof jobsSection>;
 export type AuthConfig = Out<typeof authSection>;
 export type SmsConfig = Out<typeof smsSection>;
+export type AIConfig = Out<typeof aiSection>;
 export type MedicationCatalogConfig = Out<typeof medicationCatalogSection>;
 export type ObservabilityConfig = Out<typeof observabilitySection>;
 
@@ -25,5 +27,6 @@ export type ServerConfig = RuntimeConfig &
   JobsConfig &
   AuthConfig &
   SmsConfig &
+  AIConfig &
   MedicationCatalogConfig &
   ObservabilityConfig;

@@ -27,6 +27,7 @@ const KEK_ID_VARS = [
   'PROVIDER_CREDENTIAL_KEK_ID',
   'PHI_FIELD_KEK_ID',
   'AI_CREDENTIAL_KEK_ID',
+  'AI_CREDENTIAL_KEK_PREVIOUS_ID',
 ];
 const ENV_PREFIX: Record<AppEnv, string> = {
   development: 'dev',
@@ -46,6 +47,48 @@ function parseOrigins(value: string | undefined): string[] {
 function crossChecks(env: Env, appEnv: AppEnv, app: AppName): string[] {
   const problems: string[] = [];
   const deployed = appEnv === 'staging' || appEnv === 'production';
+
+  if (app === 'api' || app === 'worker') {
+    const aiRequired = ['AI_CREDENTIAL_KEK', 'AI_CREDENTIAL_KEK_ID', 'AI_CREDENTIAL_FINGERPRINT_PEPPER'];
+    const hasAiKeys = aiRequired.some((name) => env[name] !== undefined);
+    const hasAiProviders = (env.AI_ENABLED_PROVIDER_CODES ?? '').split(',').some((code) => code.trim());
+    const hasAiPrevious =
+      env.AI_CREDENTIAL_KEK_PREVIOUS !== undefined || env.AI_CREDENTIAL_KEK_PREVIOUS_ID !== undefined;
+    if (hasAiKeys || hasAiProviders || hasAiPrevious) {
+      for (const name of aiRequired)
+        if (!env[name]) problems.push(`${name}: required when AI credentials or providers are configured`);
+    }
+    if (hasAiPrevious && (!env.AI_CREDENTIAL_KEK_PREVIOUS || !env.AI_CREDENTIAL_KEK_PREVIOUS_ID))
+      problems.push('AI_CREDENTIAL_KEK_PREVIOUS: previous key and id must be supplied together');
+    if (hasAiPrevious && env.AI_CREDENTIAL_KEK_PREVIOUS_ID === env.AI_CREDENTIAL_KEK_ID)
+      problems.push('AI_CREDENTIAL_KEK_PREVIOUS_ID: must differ from the current key id');
+    if (hasAiPrevious && env.AI_CREDENTIAL_KEK_PREVIOUS === env.AI_CREDENTIAL_KEK)
+      problems.push('AI_CREDENTIAL_KEK_PREVIOUS: must differ from the current key');
+    if (
+      env.AI_CREDENTIAL_FINGERPRINT_PEPPER &&
+      env.AI_CREDENTIAL_FINGERPRINT_PEPPER === env.PROVIDER_CREDENTIAL_FINGERPRINT_PEPPER
+    )
+      problems.push('AI_CREDENTIAL_FINGERPRINT_PEPPER: must not reuse the provider credential pepper');
+    for (const aiName of ['AI_CREDENTIAL_KEK', 'AI_CREDENTIAL_KEK_PREVIOUS']) {
+      const aiKey = env[aiName];
+      if (!aiKey) continue;
+      for (const otherName of [
+        'PROVIDER_CREDENTIAL_KEK',
+        'PROVIDER_CREDENTIAL_KEK_PREVIOUS',
+        'PUSH_TOKEN_KEK',
+        'PHI_FIELD_KEK',
+      ]) {
+        const otherKey = env[otherName];
+        if (otherKey && Buffer.from(aiKey, 'base64').equals(Buffer.from(otherKey, 'base64')))
+          problems.push(`${aiName}: must not reuse another credential or data encryption key`);
+      }
+    }
+    if (
+      appEnv === 'production' &&
+      (env.AI_ENABLED_PROVIDER_CODES ?? '').split(',').some((code) => code.trim() === 'mock')
+    )
+      problems.push('AI_ENABLED_PROVIDER_CODES: mock is refused in production');
+  }
 
   // TLS verification is never disabled (ADR-018 §2, T27): refuse to start instead of running insecurely.
   if (env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
