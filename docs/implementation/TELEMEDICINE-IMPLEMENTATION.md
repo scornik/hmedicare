@@ -59,4 +59,14 @@ MockTelemedicineProvider is a local/CI in-memory adapter with opaque session/par
 
 Validation: all 522 unit/architecture tests passed, including 13 remote-session cases. Package build/test compilation, repository lint, dependency boundaries (484 modules/2,060 dependencies) and secret scanning passed. No dependency, API operation or applied database migration changed.
 
-TELE-001/002 remain partial. Durable session/participant/event persistence, encounter assignment and patient JOIN_TELEMEDICINE checks, create/join/end HTTP routes, clients, readiness and audio/video fallback UI still need implementation. A real video provider must be selected before live sessions are enabled.
+This foundation checkpoint was followed by the durable service and HTTP checkpoint below. TELE-001/002 remain partial until live media and client call flows are implemented.
+
+## 7. Durable sessions and HTTP composition (2026-10-10)
+
+Migration 0022 now stores sessions, authenticated participants and an append-only provider-event receipt ledger. Composite foreign keys keep each receipt within its participant's session and tenant. One active/pending session is allowed per encounter. Ranked transactions commit PENDING before provider I/O and recheck live encounter eligibility and authorization afterwards. Provider failures never complete the encounter.
+
+The service implements create, read, join-token refresh and end. Creation requires the assigned doctor; joining requires staff permission and assignment/scope or live SELF/guardian JOIN_TELEMEDICINE authority. Scoped administrators can read/end even when they also have an unassigned doctor profile. Tokens are bounded to five minutes/session expiry and never persisted in database, audit or outbox. The join route uses credential replay refusal: retries need a fresh idempotency key. Participant receipts deduplicate identical replays and reject changed replays, including after outbox cleanup.
+
+Four HTTP operations and generated TypeScript/Dart clients are composed with the mock in non-production. Production returns FEATURE_DISABLED. Recording stays DISABLED. Verified provider-event ingress, call screens, TURN/ICE, live adapter selection, background expiry and interrupted-creation recovery remain open. A crashed creation can remain PENDING until expiry; this checkpoint does not provide a recovery worker.
+
+Validation: 524 unit/architecture tests; 109 distinct targeted integration cases on MariaDB 10.6 and 11.8 across session, HTTP, communication and worker suites, including seven remote HTTP cases. TypeScript builds and test compilation, full mobile analysis, lint, dependency boundaries (489 modules/2,096 dependencies), 146-operation generated-contract parity, 22 migration checks, applied-migration immutability and secret scanning passed. Worker scheduling assertions now check uniqueness per type and window, allowing a legitimate minute boundary. An initial loaded 11.8 readiness check failed; the final worker rerun passed without changing the health check. No live media, external SMS or deployment was performed.

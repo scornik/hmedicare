@@ -202,9 +202,10 @@ The Stage 3 routes `POST /patients/{id}/lab-reports/upload-session` and `GET /do
 | `GET /tenant/sms-credentials` · `POST /tenant/sms-credentials` · `DELETE /tenant/sms-credentials/{id}` | List / CreateSmsCredential (`apiKey` write-only, `senderId`, `balanceAlertBdt?`) / RevokeSmsCredential | `sms.credentials.manage` | RR | ✓ POST |
 | `POST /tenant/sms-credentials/{id}/validate` · `GET /tenant/sms-credentials/{id}/balance` | Validate (free `checkbalance`) / latest balance snapshot | `sms.credentials.manage` | – | ✓ POST |
 | `GET /platform/sms/balance` | GetPlatformSmsBalance (snapshots, 30-day trend, spend estimate) | platform `ops.sms.read` | – | – |
-| `POST /encounters/{id}/telemedicine/session` | CreateSession | `telemedicine.start` + asg | RR | ✓ |
-| `POST /telemedicine/sessions/{id}/join-token` | IssueJoinToken | `telemedicine.join` / patient context `JOIN_TELEMEDICINE` | – | ✓ |
-| `POST /telemedicine/sessions/{id}/end` | EndSession | `telemedicine.manage` | RR | ✓ |
+| `POST /encounters/{id}/telemedicine/session` | CreateSession | `telemedicine.start` + asg + active REMOTE encounter | RC ranked locks; provider outside Tx | ✓ |
+| `GET /telemedicine/sessions/{id}` | GetSession (C-61) | staff assignment/scope + join/manage; patient context `JOIN_TELEMEDICINE` | RC ranked locks; expires elapsed sessions | – |
+| `POST /telemedicine/sessions/{id}/join-token` | IssueJoinToken | `telemedicine.join` + asg/scope / patient context `JOIN_TELEMEDICINE`; rechecked after provider | RC ranked locks; provider outside Tx | ✓, refuse replay (C-40) |
+| `POST /telemedicine/sessions/{id}/end` | EndSession | `telemedicine.manage` + asg/scope | RC ranked locks; provider outside Tx | ✓ |
 
 ### 3.10 AI
 

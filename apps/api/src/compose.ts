@@ -1,3 +1,6 @@
+import { AppError } from '@hmedic/kernel';
+import { MockTelemedicineProvider, TelemedicineSessionService } from '@hmedic/telemedicine';
+import { TELEMEDICINE_SESSIONS, TelemedicineSessionController } from './telemedicine/session.controller';
 import {
   CommunicationLinksController,
   COMMUNICATION_SHORT_LINKS,
@@ -160,6 +163,7 @@ export class ApiModule {
     communication: CommunicationService,
     smsAccounts: SmsAccountService,
     shortLinks: CommunicationShortLinks | null,
+    telemedicine: TelemedicineSessionService | null,
     notificationProviders: ReadonlyMap<string, CommunicationProvider>,
   ): DynamicModule {
     const mode = runtime.config.JOB_RUNNER_MODE;
@@ -197,12 +201,14 @@ export class ApiModule {
         ...(documents ? [DocumentModule.forRoot(documents)] : []),
       ],
       providers: [
+        { provide: TELEMEDICINE_SESSIONS, useValue: telemedicine },
         { provide: COMMUNICATION_SHORT_LINKS, useValue: shortLinks },
         { provide: SMS_ACCOUNT_SERVICE, useValue: smsAccounts },
         { provide: COMMUNICATION_SERVICE, useValue: communication },
         { provide: COMMUNICATION_PROVIDERS, useValue: notificationProviders },
       ],
       controllers: [
+        TelemedicineSessionController,
         CommunicationLinksController,
         SmsAccountsController,
         PlatformSmsBalanceController,
@@ -451,6 +457,30 @@ export async function buildApi(
   };
   const patient = createPatientServices(runtime);
   identity.patientContexts = patient.contexts;
+  const telemedicine =
+    config.APP_ENV !== 'production'
+      ? new TelemedicineSessionService({
+          prisma: runtime.prisma,
+          audit: runtime.audit,
+          access: clinical.access,
+          patients: patient.contexts,
+          provider: new MockTelemedicineProvider(() => runtime.clock.now()),
+          clock: runtime.clock,
+          refreshStaff: async (actor) => {
+            const tenant = await identity.tenants.resolve(actor.userId, actor.tenant.tenantId);
+            if (
+              !tenant ||
+              !(await runtime.prisma.user.count({ where: { id: actor.userId, status: 'ACTIVE' } }))
+            )
+              throw new AppError('FORBIDDEN');
+            const profile = await runtime.prisma.doctorProfile.findFirst({
+              where: { tenantId: tenant.tenantId, userId: actor.userId, status: 'ACTIVE' },
+              select: { id: true },
+            });
+            return { ...actor, tenant, doctorProfileId: profile?.id ?? null };
+          },
+        })
+      : null;
   identity.onOtpVerified = async (userId, phoneE164) => {
     await patient.access.autoLinkOnOtpVerify(userId, phoneE164);
   };
@@ -468,6 +498,7 @@ export async function buildApi(
       communication,
       smsAccounts,
       shortLinks,
+      telemedicine,
       notificationProviders,
     ),
     runtime,

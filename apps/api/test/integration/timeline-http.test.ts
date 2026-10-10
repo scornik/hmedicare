@@ -918,3 +918,240 @@ describe('authenticated communication links', () => {
     }
   });
 });
+
+describe('remote session HTTP', () => {
+  async function remote() {
+    await api.runtime.prisma.encounter.update({ where: { id: encounterId }, data: { careMode: 'REMOTE' } });
+    const key = newId();
+    const response = await request(server)
+      .post(`/api/v1/encounters/${encounterId}/telemedicine/session`)
+      .set(doctor)
+      .set('idempotency-key', key)
+      .send({})
+      .expect(201);
+    expect(response.body.data.status).toBe('ACTIVE');
+    return { id: response.body.data.id as string, key };
+  }
+  it('creates once, refreshes non-replayable tokens, ends once and keeps the encounter active', async () => {
+    const session = await remote();
+    const replay = await request(server)
+      .post(`/api/v1/encounters/${encounterId}/telemedicine/session`)
+      .set(doctor)
+      .set('idempotency-key', session.key)
+      .send({})
+      .expect(201);
+    expect(replay.headers['idempotent-replayed']).toBe('true');
+    expect(replay.body.data.id).toBe(session.id);
+    const key = newId();
+    const token = await request(server)
+      .post(`/api/v1/telemedicine/sessions/${session.id}/join-token`)
+      .set(doctor)
+      .set('idempotency-key', key)
+      .send({})
+      .expect(200);
+    expect(token.headers['cache-control']).toBe('no-store');
+    const rows = await api.runtime.prisma.idempotencyRecord.findMany();
+    expect(JSON.stringify(rows)).not.toContain(token.body.data.token);
+    await request(server)
+      .post(`/api/v1/telemedicine/sessions/${session.id}/join-token`)
+      .set(doctor)
+      .set('idempotency-key', key)
+      .send({})
+      .expect(422);
+    const refreshed = await request(server)
+      .post(`/api/v1/telemedicine/sessions/${session.id}/join-token`)
+      .set(doctor)
+      .set('idempotency-key', newId())
+      .send({})
+      .expect(200);
+    expect(refreshed.body.data.token).not.toBe(token.body.data.token);
+    for (let i = 0; i < 2; i++)
+      await request(server)
+        .post(`/api/v1/telemedicine/sessions/${session.id}/end`)
+        .set(doctor)
+        .set('idempotency-key', newId())
+        .send({})
+        .expect(200);
+    const read = await request(server)
+      .get(`/api/v1/telemedicine/sessions/${session.id}`)
+      .set(doctor)
+      .expect(200);
+    expect(read.body.data.status).toBe('ENDED');
+    expect(
+      (await api.runtime.prisma.encounter.findUniqueOrThrow({ where: { id: encounterId } })).status,
+    ).toBe('IN_PROGRESS');
+    expect(
+      await api.runtime.prisma.outboxEvent.count({ where: { eventName: 'TelemedicineSessionEnded' } }),
+    ).toBe(1);
+  });
+  it('allows a live SELF patient without staff membership and rejects revoked context', async () => {
+    const session = await remote(),
+      patient = await staff('receptionist'),
+      link = await account(patient.id);
+    await api.runtime.prisma.tenantMembership.updateMany({
+      where: { userId: patient.id },
+      data: { status: 'REMOVED' },
+    });
+    const headers = { ...patient.headers, 'x-patient-context': base.patientId };
+    await request(server).get(`/api/v1/telemedicine/sessions/${session.id}`).set(headers).expect(200);
+    await request(server)
+      .post(`/api/v1/telemedicine/sessions/${session.id}/join-token`)
+      .set(headers)
+      .set('idempotency-key', newId())
+      .send({})
+      .expect(200);
+    await request(server)
+      .post(`/api/v1/telemedicine/sessions/${session.id}/join-token`)
+      .set(patient.headers)
+      .set('idempotency-key', newId())
+      .send({})
+      .expect(403);
+    await api.runtime.prisma.patientAccount.update({ where: { id: link.id }, data: { status: 'REVOKED' } });
+    await request(server)
+      .post(`/api/v1/telemedicine/sessions/${session.id}/join-token`)
+      .set(headers)
+      .set('idempotency-key', newId())
+      .send({})
+      .expect(403);
+  });
+  it('permits a scoped nurse and denies out-of-scope or unassigned staff', async () => {
+    const session = await remote();
+    const nurse = await staff('nurse', [base.chamberId]),
+      outside = await staff('nurse', [newId()]),
+      unassigned = await staff('doctor');
+    await api.runtime.prisma.doctorProfile.create({
+      data: {
+        id: newId(),
+        tenantId: base.tenantId,
+        userId: unassigned.id,
+        displayName: 'SYNTHETIC unassigned doctor',
+        specialties: [],
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await request(server)
+      .post(`/api/v1/telemedicine/sessions/${session.id}/join-token`)
+      .set(nurse.headers)
+      .set('idempotency-key', newId())
+      .send({})
+      .expect(200);
+    for (const headers of [outside.headers, unassigned.headers])
+      await request(server)
+        .post(`/api/v1/telemedicine/sessions/${session.id}/join-token`)
+        .set(headers)
+        .set('idempotency-key', newId())
+        .send({})
+        .expect(403);
+    await request(server)
+      .post(`/api/v1/encounters/${encounterId}/telemedicine/session`)
+      .set(unassigned.headers)
+      .set('idempotency-key', newId())
+      .send({})
+      .expect(403);
+  });
+  it('requires guardian JOIN_TELEMEDICINE rather than record-view authority', async () => {
+    const session = await remote(),
+      guardian = await staff('receptionist'),
+      id = newId();
+    await api.runtime.prisma.patientGuardianship.create({
+      data: {
+        id,
+        tenantId: base.tenantId,
+        guardianUserId: guardian.id,
+        dependentPatientId: base.patientId,
+        relationship: 'PARENT',
+        authorityScope: ['VIEW_RECORDS'],
+        status: 'ACTIVE',
+        startsOn: new Date('2026-10-01'),
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const headers = { ...guardian.headers, 'x-patient-context': base.patientId };
+    await request(server)
+      .post(`/api/v1/telemedicine/sessions/${session.id}/join-token`)
+      .set(headers)
+      .set('idempotency-key', newId())
+      .send({})
+      .expect(403);
+    await api.runtime.prisma.patientGuardianship.update({
+      where: { id },
+      data: { authorityScope: ['JOIN_TELEMEDICINE'] },
+    });
+    await request(server)
+      .post(`/api/v1/telemedicine/sessions/${session.id}/join-token`)
+      .set(headers)
+      .set('idempotency-key', newId())
+      .send({})
+      .expect(200);
+  });
+  it('rejects physical encounters and cross-tenant session identifiers', async () => {
+    await request(server)
+      .post(`/api/v1/encounters/${encounterId}/telemedicine/session`)
+      .set(doctor)
+      .set('idempotency-key', newId())
+      .send({})
+      .expect(409);
+    const session = await remote();
+    const other = await chamberWithCalledSerial(api.runtime.prisma, 'remote-other');
+    await request(server)
+      .get(`/api/v1/telemedicine/sessions/${session.id}`)
+      .set({ ...doctor, 'x-tenant-id': other.tenantId })
+      .expect(403);
+    await request(server)
+      .post(`/api/v1/telemedicine/sessions/${session.id}/join-token`)
+      .set(doctor)
+      .send({})
+      .expect(400);
+  });
+});
+
+describe('remote session administration and production gate', () => {
+  it('allows a scoped clinic admin to read and end even when they also have an unassigned doctor profile', async () => {
+    await api.runtime.prisma.encounter.update({ where: { id: encounterId }, data: { careMode: 'REMOTE' } });
+    const created = await request(server)
+      .post(`/api/v1/encounters/${encounterId}/telemedicine/session`)
+      .set(doctor)
+      .set('idempotency-key', newId())
+      .send({})
+      .expect(201);
+    const admin = await staff('clinic_admin', [base.chamberId]);
+    await api.runtime.prisma.doctorProfile.create({
+      data: {
+        id: newId(),
+        tenantId: base.tenantId,
+        userId: admin.id,
+        displayName: 'SYNTHETIC admin doctor',
+        specialties: [],
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const id = created.body.data.id;
+    await request(server).get(`/api/v1/telemedicine/sessions/${id}`).set(admin.headers).expect(200);
+    await request(server)
+      .post(`/api/v1/telemedicine/sessions/${id}/end`)
+      .set(admin.headers)
+      .set('idempotency-key', newId())
+      .send({})
+      .expect(200);
+  });
+  it('keeps remote session creation disabled in production without a selected provider', async () => {
+    await api.runtime.prisma.encounter.update({ where: { id: encounterId }, data: { careMode: 'REMOTE' } });
+    const disabled = await buildApi({ ...api.runtime.config, APP_ENV: 'production' });
+    try {
+      await request(disabled.app.getHttpServer())
+        .post(`/api/v1/encounters/${encounterId}/telemedicine/session`)
+        .set(doctor)
+        .set('idempotency-key', newId())
+        .send({})
+        .expect(409);
+      expect(await api.runtime.prisma.telemedicineSession.count()).toBe(0);
+    } finally {
+      await disabled.close();
+    }
+  });
+});

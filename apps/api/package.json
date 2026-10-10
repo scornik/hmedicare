@@ -37,7 +37,8 @@
     "@hmedic/timeline": "workspace:*",
     "@hmedic/follow-up": "workspace:*",
     "@hmedic/communication-adapters-mock": "workspace:*",
-    "@hmedic/communication": "workspace:*"
+    "@hmedic/communication": "workspace:*",
+    "@hmedic/telemedicine": "workspace:*"
   },
   "devDependencies": {
     "@hmedic/communication": "workspace:*",

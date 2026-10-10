@@ -6650,6 +6650,116 @@
         ],
         "type": "object"
       },
+      "TelemedicineJoinToken": {
+        "properties": {
+          "expiresAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "participantId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "recordingPolicy": {
+            "enum": [
+              "DISABLED"
+            ],
+            "type": "string"
+          },
+          "sessionId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "participantId",
+          "provider",
+          "token",
+          "expiresAt",
+          "recordingPolicy"
+        ],
+        "type": "object"
+      },
+      "TelemedicineSession": {
+        "properties": {
+          "encounterId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "endedAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endedReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expiresAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "issuedAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "recordingPolicy": {
+            "enum": [
+              "DISABLED"
+            ],
+            "type": "string"
+          },
+          "rowVersion": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "ACTIVE",
+              "ENDED",
+              "FAILED",
+              "EXPIRED"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "encounterId",
+          "status",
+          "issuedAt",
+          "expiresAt",
+          "endedAt",
+          "endedReason",
+          "recordingPolicy",
+          "rowVersion"
+        ],
+        "type": "object"
+      },
       "TimelineEntry": {
         "properties": {
           "eventType": {
@@ -17683,6 +17793,155 @@
         ]
       }
     },
+    "/api/v1/encounters/{id}/telemedicine/session": {
+      "post": {
+        "operationId": "createTelemedicineSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TelemedicineSession"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Authorized remote-session operation. Recording disabled; join tokens are never replayed or stored. Production requires a selected provider."
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "Telemedicine"
+        ]
+      }
+    },
     "/api/v1/follow-ups/{id}": {
       "patch": {
         "operationId": "updateFollowUp",
@@ -27538,6 +27797,463 @@
         ],
         "tags": [
           "serials"
+        ]
+      }
+    },
+    "/api/v1/telemedicine/sessions/{id}": {
+      "get": {
+        "operationId": "getTelemedicineSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Patient-Context",
+            "required": false,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TelemedicineSession"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Authorized remote-session operation. Recording disabled; join tokens are never replayed or stored. Production requires a selected provider."
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "Telemedicine"
+        ]
+      }
+    },
+    "/api/v1/telemedicine/sessions/{id}/end": {
+      "post": {
+        "operationId": "endTelemedicineSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TelemedicineSession"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Authorized remote-session operation. Recording disabled; join tokens are never replayed or stored. Production requires a selected provider."
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "Telemedicine"
+        ]
+      }
+    },
+    "/api/v1/telemedicine/sessions/{id}/join-token": {
+      "post": {
+        "operationId": "issueTelemedicineJoinToken",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Patient-Context",
+            "required": false,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TelemedicineJoinToken"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Authorized remote-session operation. Recording disabled; join tokens are never replayed or stored. Production requires a selected provider."
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "Telemedicine"
         ]
       }
     },

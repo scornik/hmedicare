@@ -50,8 +50,10 @@ describe('worker mode', () => {
     // check only passes when a poll lands on that exact instant. It went unnoticed while the previous
     // number was one short of the real total and the runs were slow enough to be caught mid-flight.
     await waitFor(async () => (await a.runtime.prisma.job.count({ where: { status: 'SUCCEEDED' } })) >= 7);
-    const jobs = await a.runtime.prisma.job.findMany({ select: { type: true, lockedBy: true } });
-    expect(jobs.map((j) => j.type).sort()).toEqual([
+    const jobs = await a.runtime.prisma.job.findMany({ select: { type: true, idempotencyKey: true } });
+    // A minute boundary can legitimately schedule another reminder window during startup.
+    // Require the expected job types and one persisted job per type/window, not one job per type forever.
+    expect([...new Set(jobs.map((j) => j.type))].sort()).toEqual([
       'ApplyNoShowPolicy',
       'CheckSmsBalance',
       'CreateFollowUpReminders',
@@ -60,6 +62,8 @@ describe('worker mode', () => {
       'ReencryptProviderCredentials',
       'VerifyAppendOnlyChains',
     ]);
+    expect(new Set(jobs.map((j) => j.idempotencyKey)).size).toBe(jobs.length);
+    for (const job of jobs) expect(job.idempotencyKey).toMatch(new RegExp(`^${job.type}:\\d+$`));
 
     for (const w of [a, b]) {
       const res = await request(w.app.getHttpServer())
