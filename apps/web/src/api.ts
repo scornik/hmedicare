@@ -41,6 +41,8 @@ export const api = createApiClient({
   getTenantId: getTenant,
   fetch: fetchWithRefresh,
 });
+/** Patient context selection is independent of the remembered staff tenant. */
+export const patientApi = createApiClient({ baseUrl: apiBase(), getAccessToken, fetch: fetchWithRefresh });
 
 export const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000, refetchOnWindowFocus: true } },

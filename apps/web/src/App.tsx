@@ -1,7 +1,9 @@
+import { CommunicationLinkPage } from './pages/CommunicationLinkPage';
+import { shortLinkReturn } from './auth/return-path';
 import { SmsSettingsPage } from './pages/SmsSettingsPage';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Navigate, Outlet, createBrowserRouter } from 'react-router';
+import { Navigate, Outlet, createBrowserRouter, useLocation } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { queryClient, setTenant } from './api';
 import { useSignedIn } from './auth/hooks';
@@ -31,7 +33,12 @@ const useOnline = () => useSyncExternalStore(subscribeOnline, () => navigator.on
 /** Guard for signed-in routes. UX only: every API call is authorized server-side. */
 function RequireAuth() {
   const signedIn = useSignedIn();
-  return signedIn ? <Outlet /> : <Navigate to="/login" replace />;
+  const location = useLocation();
+  return signedIn ? (
+    <Outlet />
+  ) : (
+    <Navigate to="/login" state={{ returnTo: shortLinkReturn(location.pathname) }} replace />
+  );
 }
 
 function Shell() {
@@ -50,6 +57,7 @@ const router = createBrowserRouter([
         element: <RequireAuth />,
         children: [
           { path: '/', element: <Navigate to="/dashboard" replace /> },
+          { path: '/r/:token', element: <CommunicationLinkPage /> },
           { path: '/select-tenant', element: <TenantPickerPage /> },
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/settings/sms', element: <SmsSettingsPage /> },

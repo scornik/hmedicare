@@ -1,5 +1,6 @@
+import { shortLinkReturn } from '../auth/return-path';
 import { type FormEvent, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router';
+import { Navigate, useNavigate, useLocation } from 'react-router';
 import { useSignedIn } from '../auth/hooks';
 import { loginWithPassword, requestOtp, verifyOtp } from '../auth/session';
 import { LanguageToggle } from '../components/LanguageToggle';
@@ -9,6 +10,7 @@ import type { MessageKey } from '../i18n/messages';
 export function LoginPage() {
   const { t, locale } = useI18n();
   const navigate = useNavigate();
+  const returnTo = shortLinkReturn((useLocation().state as { returnTo?: unknown } | null)?.returnTo);
   const signedIn = useSignedIn();
   const [mode, setMode] = useState<'staff' | 'patient'>('staff');
   const [email, setEmail] = useState('');
@@ -19,7 +21,7 @@ export function LoginPage() {
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  if (signedIn) return <Navigate to="/select-tenant" replace />;
+  if (signedIn) return <Navigate to={returnTo} replace />;
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -38,7 +40,7 @@ export function LoginPage() {
     void run(async () => {
       await loginWithPassword(email, password);
       setPassword('');
-      await navigate('/select-tenant');
+      await navigate(returnTo);
     });
   };
   const onRequestOtp = (e: FormEvent) => {
@@ -53,7 +55,7 @@ export function LoginPage() {
     void run(async () => {
       await verifyOtp(phone, code);
       setCode('');
-      await navigate('/select-tenant');
+      await navigate(returnTo);
     });
   };
 

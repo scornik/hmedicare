@@ -1,25 +1,31 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { ApiError, api, getTenant } from '../api';
+import { ApiError, api, patientApi, getTenant } from '../api';
 import { currentUser } from '../auth/session';
 import { useI18n } from '../i18n/i18n';
 import { MESSAGES, type MessageKey } from '../i18n/messages';
-export function TimelinePanel({ patientId }: { patientId: string }) {
+export function TimelinePanel({
+  patientId,
+  patientContext,
+}: {
+  patientId: string;
+  patientContext?: { tenantId: string };
+}) {
   const { t, locale } = useI18n();
-  const tenant = getTenant(),
+  const tenant = patientContext?.tenantId ?? getTenant(),
     user = currentUser();
   const query = useInfiniteQuery({
-    queryKey: ['timeline', user?.id, tenant, patientId],
+    queryKey: ['timeline', user?.id, tenant, patientId, patientContext ? 'patient' : 'staff'],
     enabled: !!user && !!tenant,
     gcTime: 0,
     staleTime: 0,
     retry: false,
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam, signal }) => {
-      const r = await api.GET('/api/v1/patients/{id}/timeline', {
+      const r = await (patientContext ? patientApi : api).GET('/api/v1/patients/{id}/timeline', {
         signal,
         params: {
           path: { id: patientId },
-          header: { 'X-Tenant-ID': tenant! },
+          header: { 'X-Tenant-ID': tenant!, ...(patientContext ? { 'X-Patient-Context': patientId } : {}) },
           query: { limit: 25, ...(pageParam ? { cursor: pageParam } : {}) },
         },
       });

@@ -1,6 +1,14 @@
 /** bn-BD (default) and en-BD UI strings. Keys must stay identical in both locales (unit test). */
 export const MESSAGES = {
   'bn-BD': {
+    'link.title': 'অনুস্মারক খুলুন',
+    'link.choose': 'কার ইতিহাস দেখতে চান, বেছে নিন।',
+    'link.none': 'ইতিহাস দেখার অনুমতিসহ কোনো যাচাইকৃত রোগীর পরিচয় নেই।',
+    'link.failed': 'লিংকটি খোলা যাচ্ছে না। মেয়াদ শেষ হয়ে থাকতে পারে বা অনুমতি বদলে যেতে পারে।',
+    'link.contextFailed': 'রোগীর পরিচয় লোড করা যায়নি। রিফ্রেশ করে আবার চেষ্টা করুন।',
+    'link.other': 'অন্য রোগী বেছে নিন',
+    'link.retry': 'লিংক আবার যাচাই করুন',
+    'link.refresh': 'রোগীর তালিকা রিফ্রেশ করুন',
     'sms.settings': 'এসএমএস সেটিংস',
     'sms.ownAccount':
       'টেন্যান্টের এসএমএসে সর্বশেষ অ্যাকাউন্ট ব্যবহার করা হয়। স্থগিত, অবৈধ বা প্রত্যাহার করা অ্যাকাউন্টের পরিবর্তে প্ল্যাটফর্ম অ্যাকাউন্ট ব্যবহার করা হয় না।',
@@ -302,6 +310,14 @@ export const MESSAGES = {
     'workspace.panel.later': 'পরের ধাপে আসছে।',
   },
   'en-BD': {
+    'link.title': 'Open reminder',
+    'link.choose': 'Choose whose records to open.',
+    'link.none': 'No verified patient context has access to records.',
+    'link.failed': 'This link cannot be opened. It may have expired or access may have changed.',
+    'link.contextFailed': 'Unable to load available patients. Refresh and try again.',
+    'link.other': 'Choose another patient',
+    'link.retry': 'Check link again',
+    'link.refresh': 'Refresh patients',
     'sms.settings': 'SMS settings',
     'sms.ownAccount':
       'Your newest account is used for tenant SMS. Suspended, invalid or revoked accounts do not fall back to the platform account.',
