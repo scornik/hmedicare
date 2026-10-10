@@ -1,0 +1,12 @@
+ALTER TABLE `ai_provider_credentials` ADD CONSTRAINT `fk_ai_credential_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`);
+ALTER TABLE `ai_provider_credentials` ADD CONSTRAINT `fk_ai_credential_doctor` FOREIGN KEY (`tenant_id`,`doctor_profile_id`) REFERENCES `doctor_profiles` (`tenant_id`,`id`);
+ALTER TABLE `ai_provider_credentials` ADD CONSTRAINT `fk_ai_credential_ack_scope` FOREIGN KEY (`tenant_id`,`doctor_profile_id`,`provider_code`,`declared_tier`,`data_use_ack_id`) REFERENCES `ai_data_use_acknowledgements` (`tenant_id`,`doctor_profile_id`,`provider_code`,`tier`,`id`);
+ALTER TABLE `ai_provider_credentials` ADD CONSTRAINT `fk_ai_credential_creator` FOREIGN KEY (`created_by_user_id`) REFERENCES `users` (`id`);
+ALTER TABLE `ai_provider_credentials` ADD CONSTRAINT `fk_ai_credential_revoker` FOREIGN KEY (`revoked_by_user_id`) REFERENCES `users` (`id`);
+ALTER TABLE `ai_provider_credentials` ADD CONSTRAINT `chk_ai_credential_tier` CHECK (declared_tier IN ('FREE','PAID'));
+ALTER TABLE `ai_provider_credentials` ADD CONSTRAINT `chk_ai_credential_billing` CHECK ((billing_mode = 'DOCTOR_BYOK_FREE' AND declared_tier = 'FREE') OR (billing_mode = 'DOCTOR_BYOK_PAID' AND declared_tier = 'PAID') OR billing_mode = 'PLATFORM_MANAGED');
+ALTER TABLE `ai_provider_credentials` ADD CONSTRAINT `chk_ai_credential_status` CHECK (status IN ('PENDING_VALIDATION','ACTIVE','INVALID','QUOTA_EXHAUSTED','DISABLED','REVOKED'));
+ALTER TABLE `ai_provider_credentials` ADD CONSTRAINT `chk_ai_credential_concurrency` CHECK (max_concurrency BETWEEN 1 AND 4);
+ALTER TABLE `ai_provider_credentials` ADD CONSTRAINT `chk_ai_credential_models` CHECK (JSON_TYPE(allowed_model_ids) = 'ARRAY');
+ALTER TABLE `ai_provider_credentials` ADD CONSTRAINT `chk_ai_credential_version` CHECK (row_version > 0);
+ALTER TABLE `ai_provider_credentials` ADD CONSTRAINT `chk_ai_credential_revocation` CHECK ((status = 'REVOKED' AND revoked_at IS NOT NULL AND revoked_by_user_id IS NOT NULL AND encrypted_secret = 'revoked' AND wrapped_data_key = 'revoked' AND secret_fingerprint = CONCAT('rev_',REPLACE(id,'-',''))) OR (status <> 'REVOKED' AND revoked_at IS NULL AND revoked_by_user_id IS NULL));

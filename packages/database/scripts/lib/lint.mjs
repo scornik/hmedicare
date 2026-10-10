@@ -31,6 +31,8 @@ const FOREIGN_ID_COLUMNS = new Set([
   'provider_message_id',
   'provider_event_id',
   'provider_session_id',
+  // Provider model identifiers are opaque catalog keys, not platform UUIDs (DATABASE §3.13).
+  'default_model_id',
   // Stage M dataset record ids (`med_<16 hex>`, `syn_<16 hex>`) and price source ids, per DATABASE §3.8.
   'dataset_record_id',
   'source_id',

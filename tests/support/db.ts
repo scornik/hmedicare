@@ -36,6 +36,11 @@ const SELF_REFERENCING: Readonly<Record<string, string>> = {
 
 /** Tenant fixtures in delete-safe order (children first). */
 const TABLES = [
+  'ai_credential_fallbacks',
+  'ai_provider_credentials',
+  'ai_data_use_acknowledgements',
+  'tenant_ai_policy_events',
+  'tenant_ai_policies',
   'telemedicine_participant_events',
   'telemedicine_participants',
   'telemedicine_sessions',

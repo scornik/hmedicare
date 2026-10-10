@@ -566,6 +566,8 @@ Notation: `FK→t(tenant_id,id)` means a composite tenant FK `(tenant_id, <col>)
 
 ### 3.13 AI (0013) (ADR-017; `AI-IMPLEMENTATION.md`)
 
+Implementation phase (2026-10-11, C-62): migration 0013_ai_credentials now creates the five policy/acknowledgement/credential/fallback tables below. The catalog, usage, jobs, drafts, suggestions, approvals and clinical approval FK remain planned and will use later additive migrations. Existing applied SQL will not be extended in place. Credential acknowledgement references include doctor/provider/tier as well as tenant; fallback references include doctor as well as tenant.
+
 **`tenant_ai_policies`** (std):
 - `ai_enabled bool`, `free_tier_ai_allowed bool` (default from `AI_FREE_TIER_ALLOWED_DEFAULT`, `false`), `minimization_required_for_no_training bool DEFAULT 1`
 - `raw_output_retention_days SMALLINT DEFAULT 30`, `allowed_provider_codes json:ProviderCodeArray`, `min_ai_consent_policy_version INT DEFAULT 1`

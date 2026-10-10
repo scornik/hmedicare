@@ -2470,3 +2470,169 @@ model TelemedicineParticipantEvent {
   @@index([tenantId,sessionId,receivedAt], map: "ix_telemedicine_events_session")
   @@map("telemedicine_participant_events")
 }
+
+// ---------------------------------------------------------------- 0013 ai_credentials
+// Credential/policy foundation. Jobs, drafts and approvals follow in additive migrations (C-62).
+model TenantAiPolicy {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  aiEnabled Boolean @default(false) @map("ai_enabled")
+  freeTierAiAllowed Boolean @default(false) @map("free_tier_ai_allowed")
+  minimizationRequiredForNoTraining Boolean @default(true) @map("minimization_required_for_no_training")
+  rawOutputRetentionDays Int @default(30) @map("raw_output_retention_days") @db.UnsignedSmallInt
+  allowedProviderCodes Json @map("allowed_provider_codes")
+  minAiConsentPolicyVersion Int @default(1) @map("min_ai_consent_policy_version") @db.UnsignedInt
+  policyVersion Int @default(1) @map("policy_version") @db.UnsignedInt
+  /// @ascii
+  policyTextVersion String @map("policy_text_version") @db.VarChar(32)
+  /// @ascii
+  decidedByUserId String? @map("decided_by_user_id") @db.VarChar(36)
+  decidedAt DateTime? @map("decided_at") @db.DateTime(3)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String? @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String? @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+  @@unique([tenantId], map: "uq_tenant_ai_policy")
+  @@unique([tenantId,id], map: "uq_tenant_ai_policy_tenant_id")
+  @@map("tenant_ai_policies")
+}
+
+model TenantAiPolicyEvent {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  seq Int @db.UnsignedInt
+  policyVersion Int @map("policy_version") @db.UnsignedInt
+  before Json
+  after Json
+  /// @ascii
+  policyTextVersion String @map("policy_text_version") @db.VarChar(32)
+  reason String @db.VarChar(500)
+  /// @ascii
+  actorUserId String @map("actor_user_id") @db.VarChar(36)
+  occurredAt DateTime @map("occurred_at") @db.DateTime(3)
+  /// @ascii
+  prevRowHash String @map("prev_row_hash") @db.VarChar(64)
+  /// @ascii
+  rowHash String @map("row_hash") @db.VarChar(64)
+  @@unique([tenantId,seq], map: "uq_tenant_ai_policy_event_seq")
+  @@map("tenant_ai_policy_events")
+}
+
+model AiDataUseAcknowledgement {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  doctorProfileId String @map("doctor_profile_id") @db.VarChar(36)
+  /// @ascii
+  providerCode String @map("provider_code") @db.VarChar(32)
+  /// @ascii
+  tier String @db.VarChar(8)
+  /// @ascii
+  termsTextVersion String @map("terms_text_version") @db.VarChar(32)
+  /// @ascii
+  termsTextSha256 String @map("terms_text_sha256") @db.VarChar(64)
+  /// @ascii
+  acknowledgedByUserId String @map("acknowledged_by_user_id") @db.VarChar(36)
+  acknowledgedAt DateTime @map("acknowledged_at") @db.DateTime(3)
+  revokedAt DateTime? @map("revoked_at") @db.DateTime(3)
+  /// @ascii
+  revokeReason String? @map("revoke_reason") @db.VarChar(24)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String? @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String? @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+  @@unique([tenantId,id], map: "uq_ai_ack_tenant_id")
+  @@unique([tenantId,doctorProfileId,providerCode,tier,id], map: "uq_ai_ack_scope")
+  @@map("ai_data_use_acknowledgements")
+}
+
+model AiProviderCredential {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  doctorProfileId String @map("doctor_profile_id") @db.VarChar(36)
+  /// @ascii
+  providerCode String @map("provider_code") @db.VarChar(32)
+  /// @ascii
+  declaredTier String @map("declared_tier") @db.VarChar(8)
+  tierSelfDeclared Boolean @default(true) @map("tier_self_declared")
+  /// @ascii
+  billingMode String @map("billing_mode") @db.VarChar(24)
+  /// @ascii
+  encryptedSecret String @map("encrypted_secret") @db.VarChar(2048)
+  /// @ascii
+  wrappedDataKey String @map("wrapped_data_key") @db.VarChar(512)
+  /// @ascii
+  keyId String @map("key_id") @db.VarChar(32)
+  /// @ascii
+  secretLast4 String @map("secret_last4") @db.VarChar(4)
+  /// @ascii
+  secretFingerprint String @map("secret_fingerprint") @db.VarChar(64)
+  /// @ascii
+  status String @db.VarChar(24)
+  validatedAt DateTime? @map("validated_at") @db.DateTime(3)
+  /// @ascii
+  lastErrorClass String? @map("last_error_class") @db.VarChar(64)
+  /// @ascii
+  lastErrorReason String? @map("last_error_reason") @db.VarChar(64)
+  /// @ascii
+  defaultModelId String? @map("default_model_id") @db.VarChar(128)
+  allowedModelIds Json @map("allowed_model_ids")
+  priority Int @default(100) @db.SmallInt
+  maxConcurrency Int @default(1) @map("max_concurrency") @db.UnsignedSmallInt
+  quotaHint Json? @map("quota_hint")
+  /// @ascii
+  dataUseAckId String? @map("data_use_ack_id") @db.VarChar(36)
+  revokedAt DateTime? @map("revoked_at") @db.DateTime(3)
+  /// @ascii
+  revokedByUserId String? @map("revoked_by_user_id") @db.VarChar(36)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String? @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+  @@unique([tenantId,id], map: "uq_ai_credential_tenant_id")
+  @@unique([tenantId,doctorProfileId,id], map: "uq_ai_credential_doctor_id")
+  @@unique([tenantId,doctorProfileId,providerCode,secretFingerprint], map: "uq_ai_credentials")
+  @@index([tenantId,doctorProfileId,status,priority], map: "ix_ai_credentials_status_priority")
+  @@map("ai_provider_credentials")
+}
+
+model AiCredentialFallback {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  doctorProfileId String @map("doctor_profile_id") @db.VarChar(36)
+  position Int @db.UnsignedSmallInt
+  /// @ascii
+  credentialId String @map("credential_id") @db.VarChar(36)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String? @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String? @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+  @@unique([tenantId,id], map: "uq_ai_fallback_tenant_id")
+  @@unique([tenantId,doctorProfileId,position], map: "uq_ai_fallback_position")
+  @@unique([tenantId,doctorProfileId,credentialId], map: "uq_ai_fallback_credential")
+  @@map("ai_credential_fallbacks")
+}
