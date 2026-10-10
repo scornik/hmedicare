@@ -87,7 +87,8 @@
 | 0009 | `prescriptions` | `prescriptions`, `prescription_items` |
 | 0010 | `documents_labs` | `documents`, `document_versions`, `upload_sessions`, `upload_session_parts`, `lab_reports`, `lab_results` |
 | 0011 | `timeline` | `timeline_events`, `projection_checkpoints`. Created during takeover (2026-10-07). Follow-up tables are reserved for a separate 0020 migration (C-57). |
-| 0012 | `communication_telemedicine` | `communications`, `communication_attempts` (+ SMS columns, Stage 3.2), `communication_preferences`, `provider_webhook_events`, `communication_short_links`, `telemedicine_sessions`, `telemedicine_participants` |
+| 0012 | `communication` | `communications`, `communication_attempts` (+ SMS columns), `communication_preferences`, `provider_webhook_events`, `communication_short_links` (implemented 2026-10-10) |
+| 0022 | `telemedicine` | `telemedicine_sessions`, `telemedicine_participants` (reserved; C-59) |
 | 0013 | `ai` | `tenant_ai_policies`, `tenant_ai_policy_events`, `ai_data_use_acknowledgements`, `ai_provider_credentials`, `ai_credential_fallbacks`, `ai_model_catalog`, `ai_usage_counters`, `ai_usage_ledger`, `ai_jobs`, `ai_transcripts`, `ai_drafts`, `ai_suggestions`, `ai_approvals`; `ALTER TABLE diagnoses ADD ai_approval_id` + composite FK |
 | 0014 | `operations_integrity` | `integrity_chain_checkpoints`, `backup_runs`, `restore_drills`; maintenance indexes proven by query plans |
 | 0015 | `platform_credentials` | `platform_operators`, `platform_gate_decisions`, `provider_credentials` (Stage 3.2; created in Phase 2b) |
@@ -544,7 +545,7 @@ Notation: `FK→t(tenant_id,id)` means a composite tenant FK `(tenant_id, <col>)
 
 **`follow_up_tasks`** (std): `follow_up_plan_id FK→follow_up_plans(tenant_id,id)`, `task_type code(24)` CHECK `REMINDER|CALL|BOOKING_ASSIST`, `due_at ts`, `status code(16)` CHECK `OPEN|DONE|CANCELLED`, `assigned_user_id id36 NULL`.
 
-### 3.12 Communication and telemedicine (0012)
+### 3.12 Communication (0012) and telemedicine (reserved 0022)
 
 **`communications`** (std): `patient_id id36 NULL` FK→patients(tenant_id,id), `actor_user_id id36 NULL`, `channel code(16)` CHECK `in_app|email|sms|whatsapp|push|phone`, `purpose key(48)`, `template_key key(64)`, `template_version SMALLINT`, `locale key(20)`, `consent_id id36 NULL` FK→patient_consents(tenant_id,id), `business_type key(48)`, `business_id id36`, `status code(20)` CHECK `CREATED|CONSENT_CHECKED|QUEUED|SENDING|SENT|DELIVERED|READ|FAILED|RETRY_SCHEDULED|CANCELLED`, `idempotency_key key(191)`, `fallback_of_communication_id id36 NULL`. UNIQUE `(tenant_id, idempotency_key)`.
 
@@ -554,7 +555,7 @@ Notation: `FK→t(tenant_id,id)` means a composite tenant FK `(tenant_id, <col>)
 
 **`communication_preferences`** (std): `patient_id FK`, `channel code(16)`, `contact_id id36 NULL` FK→patient_contacts(tenant_id,id), `preference code(16)` CHECK `OPT_IN|OPT_OUT`, `consent_version INT`, `effective_from ts`, `effective_to ts NULL`.
 
-**`provider_webhook_events`** (append-only): `id id36 PK`, `provider_adapter key(32)`, `provider_event_id key(191)`, `received_at ts`, `signature_valid bool`, `tenant_id id36 NULL`, `mapped_attempt_id id36 NULL`, `payload_ref key(255) NULL` (object storage, redacted). UNIQUE `(provider_adapter, provider_event_id)`.
+**`provider_webhook_events`** (append-only; includes `payload_sha256 hash64` to reject changed content under an existing provider event key): `id id36 PK`, `provider_adapter key(32)`, `provider_event_id key(191)`, `received_at ts`, `signature_valid bool`, `tenant_id id36 NULL`, `mapped_attempt_id id36 NULL`, `payload_ref key(255) NULL` (object storage, redacted). UNIQUE `(provider_adapter, provider_event_id)`.
 
 **`telemedicine_sessions`** (std): `encounter_id FK→encounters(tenant_id,id)`, `provider_adapter key(32)`, `provider_session_id key(191) NULL`, `status code(16)` CHECK `PENDING|ACTIVE|ENDED|FAILED|EXPIRED`, `issued_at ts`, `expires_at ts`, `ended_at ts NULL`, `ended_reason code(32) NULL`, `recording_policy code(16)` CHECK `DISABLED` (MVP). Generated `active_encounter_key = IF(status IN ('PENDING','ACTIVE'), encounter_id, NULL)`; UNIQUE `uq_telemed_active (tenant_id, active_encounter_key)`. UNIQUE `(provider_adapter, provider_session_id)`.
 

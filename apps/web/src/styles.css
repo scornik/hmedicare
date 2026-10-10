@@ -241,3 +241,13 @@ a[role='button'] {
 .strike {
   text-decoration: line-through;
 }
+
+.communication-channel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.communication-channel input[type='checkbox'] {
+  width: auto;
+  margin: 0;
+}

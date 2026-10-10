@@ -3,6 +3,7 @@ const tenant = '00000000-0000-4000-8000-00000000000a',
   patient = '00000000-0000-4000-8000-000000000101';
 async function prepare(page: Page, permissions = ['patient.read', 'timeline.read']) {
   let denied = false;
+  let allowReminders = true;
   const headers = {
     'access-control-allow-origin': 'http://localhost:4173',
     'access-control-allow-credentials': 'true',
@@ -52,6 +53,45 @@ async function prepare(page: Page, permissions = ['patient.read', 'timeline.read
         rowVersion: 1,
         mergedIntoPatientId: null,
       });
+
+    if (path === `/patients/${patient}/communications`) {
+      if (denied) return json({ code: 'FORBIDDEN' }, 403);
+      return json([
+        {
+          id: 'notification-1',
+          channel: 'email',
+          purpose: 'follow_up_reminder',
+          status: 'DELIVERED',
+          businessType: 'follow_up_plan',
+          businessId: 'plan-1',
+          createdAt: '2026-10-10T04:00:00Z',
+          updatedAt: '2026-10-10T04:00:00Z',
+          rowVersion: 1,
+        },
+      ]);
+    }
+    if (path === `/patients/${patient}/communication-preferences`) {
+      if (denied) return json({ code: 'FORBIDDEN' }, 403);
+      const preference = {
+        id: 'preference-1',
+        channel: 'email',
+        preference: allowReminders ? 'OPT_IN' : 'OPT_OUT',
+        contactId: null,
+        consentVersion: 1,
+        effectiveFrom: '2026-10-10T04:00:00Z',
+        effectiveTo: null,
+        rowVersion: 1,
+      };
+      if (route.request().method() === 'PUT') {
+        expect(route.request().headers()['x-tenant-id']).toBe(tenant);
+        const body = route.request().postDataJSON();
+        expect(body.channel).toBe('email');
+        allowReminders = body.preference === 'OPT_IN';
+        return json({ ...preference, preference: body.preference });
+      }
+      return json([preference]);
+    }
+
     if (path === `/patients/${patient}/timeline`) {
       expect(route.request().headers()['x-tenant-id']).toBe(tenant);
       if (denied) return json({ code: 'FORBIDDEN' }, 403);
@@ -102,4 +142,34 @@ test('timeline pagination, update notice, and revoked-access clearing', async ({
 test('patient detail omits timeline without its permission', async ({ page }) => {
   await prepare(page, ['patient.read']);
   await expect(page.getByTestId('patient-timeline')).toHaveCount(0);
+});
+
+test('notification statuses, preference updates and revoked-access clearing', async ({ page }) => {
+  const state = await prepare(page, ['patient.read', 'communication.read', 'communication.send']);
+  const panel = page.getByTestId('patient-communications');
+  await expect(panel).toContainText('Delivered');
+  const email = panel.getByRole('checkbox', { name: 'Email' });
+  await expect(email).toBeChecked();
+  await email.click();
+  await expect(email).not.toBeChecked();
+  await expect(email).toBeEnabled();
+  await email.click();
+  await expect(email).toBeChecked();
+  await page.screenshot({ path: 'test-results/communication-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+    .toBe(true);
+  await page.screenshot({ path: 'test-results/communication-phone.png', fullPage: true });
+  state.revoke();
+  await panel.getByRole('button', { name: 'Refresh' }).click();
+  await expect(panel.getByRole('alert')).toContainText('You do not have access');
+  await expect(panel).not.toContainText('Delivered');
+  await expect(panel.getByRole('checkbox')).toHaveCount(0);
+});
+test('notification preferences are read-only without send permission', async ({ page }) => {
+  await prepare(page, ['patient.read', 'communication.read']);
+  const panel = page.getByTestId('patient-communications');
+  await expect(panel).toContainText('Delivered');
+  await expect(panel.getByRole('checkbox', { name: 'Email' })).toBeDisabled();
 });

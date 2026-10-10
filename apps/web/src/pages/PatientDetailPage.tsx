@@ -1,3 +1,5 @@
+import { CommunicationPanel } from '../communication/CommunicationPanel';
+import { currentUser } from '../auth/session';
 import { TimelinePanel } from '../timeline/TimelinePanel';
 import { type FormEvent, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
@@ -74,6 +76,13 @@ export function PatientDetailPage() {
               </dd>
             </dl>
             {ctx.data?.permissions.includes('timeline.read') && <TimelinePanel key={p.id} patientId={p.id} />}
+            {ctx.data?.permissions.includes('communication.read') && (
+              <CommunicationPanel
+                key={`${tenant}:${currentUser()?.id}:${p.id}`}
+                patientId={p.id}
+                canWrite={ctx.data.permissions.includes('communication.send')}
+              />
+            )}
             {canMerge && p.status === 'ACTIVE' && <MergeOpener sourcePatientId={p.id} />}
           </>
         )}

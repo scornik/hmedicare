@@ -348,3 +348,11 @@ patient who cannot be reached is not a patient who can be treated.
 The next local notification increment adds email/WhatsApp/push provider ports and in-process mocks, including retry/rate-limit outcomes, accepted-attempt replay and signed receipt verification. It does not complete COM-001–003: communication persistence, consent/preferences, worker delivery, webhook API/database deduplication and compose-service wiring remain open. See COMMUNICATION-IMPLEMENTATION.md for the implemented boundary. No external messages or deployment were performed.
 
 Validation: 497 unit/architecture tests passed, including 18 new provider tests. The communication/mock build and mock test compilation passed. Dependency checks found no violations (455 modules, 1,897 dependencies); the secret scan was clean. No database schema or API contract changed in this increment.
+
+## Queued follow-up notifications and web preferences (2026-10-10)
+
+Implemented communication persistence and attempts, live consent/contact/preference checks through owner ports, queued mock delivery, signed append-only webhook receipts, bounded status/preference API routes, audited reads and writes, and operational timeline metadata with encounter withdrawal masking. Non-production workers scan due follow-up reminders; changing a consumed reminder date creates fresh work. The web patient page displays statuses and permission-gated channel preferences. OpenAPI and generated Dart clients cover 135 operations.
+
+Production reminder scanning and mock webhook acceptance remain disabled. External provider selection, failure fallback, transactional SMS worker integration, short links, other business triggers and native notification screens remain open. SMS templates and a pure outcome policy are implemented and tested but are not wired to delivery. No deployment or external messages were performed.
+
+Validation: 507 unit/architecture tests passed. The 79 targeted integration tests passed on MariaDB 11.8; all corresponding suites passed on 10.6, with the corrected HTTP suite rerun alongside five SMS OTP regressions (23 passed). Mobile analysis and tests across six packages passed. Existing 25 web flows passed; notification preference and authorization flows were checked separately. Build, lint, migration and contract checks are recorded in BUILD-TAKEOVER.md.

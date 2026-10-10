@@ -32,3 +32,6 @@ The timeline resolves follow-up identifiers through a metadata-only owner port. 
 REMINDER rows are durable work records. Automated message delivery, consent/channel selection, retries, fallback and provider status are COM-001–003/SMS-006–007; no reminder SMS is sent by this change. Operational task management screens and native follow-up screens remain client completion work. Native-speaker Bangla review remains H-7.
 
 Validation is recorded in IMPLEMENTATION-STATUS and BUILD-TAKEOVER. No production deployment, full release gate or checkpoint tag is included in this local milestone.
+### Communication follow-up connection (2026-10-10)
+
+Non-production notification workers consume due REMINDER tasks through public owner ports and enqueue consented email/WhatsApp mock intents. They recheck eligibility before provider I/O; cancellations, withdrawn encounters, revoked consent and unverified contacts suppress delivery. Consumed task dates can be moved: the follow-up owner creates a new OPEN task for the new date. Production scanning remains disabled pending transactional SMS and real channel selection. No real reminder SMS is enabled yet. See COMMUNICATION-IMPLEMENTATION.md for the implemented path and remaining notification work.
