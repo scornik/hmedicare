@@ -3,14 +3,14 @@ export interface CommunicationRecipientSource<Transaction> {
     tx: Transaction,
     tenantId: string,
     patientId: string,
-    channel: 'email' | 'whatsapp',
+    channel: 'email' | 'whatsapp' | 'sms',
     id: string,
   ): Promise<boolean>;
   resolve(
     tx: Transaction,
     tenantId: string,
     patientId: string,
-    channel: 'email' | 'whatsapp',
+    channel: 'email' | 'whatsapp' | 'sms',
     contactId?: string | null,
   ): Promise<{
     consentId: string;

@@ -99,3 +99,4 @@ export function registerCommunicationJobs(
 }
 export { registerDeliveryJobs, DELIVER_COMMUNICATION } from './delivery-jobs';
 export { registerReminderJobs, createDueReminders, CREATE_FOLLOW_UP_REMINDERS } from './reminder-jobs';
+export { registerTransactionalSmsJobs } from './transactional-sms-jobs';

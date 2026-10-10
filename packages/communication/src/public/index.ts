@@ -9,3 +9,7 @@ export type * from '../application/ports/communication-source';
 export { CommunicationService } from '../infrastructure/communication-service';
 export { CommunicationHistoryMetadata } from '../infrastructure/history-metadata';
 export { transactionalSmsDecision } from '../infrastructure/transactional-sms-policy';
+export {
+  TransactionalSmsDelivery,
+  DELIVER_TRANSACTIONAL_SMS,
+} from '../infrastructure/transactional-sms-delivery';

@@ -26,12 +26,13 @@ export function transactionalSmsDecision(
       ? { ...base, communicationStatus: 'RETRY_SCHEDULED', attemptStatus: 'UNKNOWN', retry: 'ONCE' }
       : { ...base, communicationStatus: 'SENT', attemptStatus: 'UNKNOWN', possibleDuplicate: true };
   if (result.outcome === 'PROVIDER_UNAVAILABLE')
-    return history.unavailableFailures < 4
+    return history.unknownOutcomes === 0 && history.unavailableFailures < 4
       ? { ...base, communicationStatus: 'RETRY_SCHEDULED', retry: 'BACKOFF' }
       : base;
   if (result.errorClass === 'INSUFFICIENT_BALANCE')
-    return history.balanceSuspendedSince &&
-      now.getTime() - history.balanceSuspendedSince.getTime() >= 24 * 60 * 60 * 1000
+    return history.unknownOutcomes > 0 ||
+      (history.balanceSuspendedSince &&
+        now.getTime() - history.balanceSuspendedSince.getTime() >= 24 * 60 * 60 * 1000)
       ? { ...base, credentialAction: 'SUSPEND_BALANCE' }
       : {
           ...base,

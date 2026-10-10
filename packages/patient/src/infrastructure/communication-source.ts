@@ -6,12 +6,17 @@ export class PatientCommunicationSource {
     tx: Tx,
     tenantId: string,
     patientId: string,
-    channel: 'email' | 'whatsapp',
+    channel: 'email' | 'whatsapp' | 'sms',
     id: string,
   ): Promise<boolean> {
     return (
       (await tx.patientContact.count({
-        where: { id, tenantId, patientId, type: channel === 'email' ? 'EMAIL' : 'WHATSAPP' },
+        where: {
+          id,
+          tenantId,
+          patientId,
+          type: channel === 'email' ? 'EMAIL' : channel === 'sms' ? 'PHONE' : 'WHATSAPP',
+        },
       })) === 1
     );
   }
@@ -19,7 +24,7 @@ export class PatientCommunicationSource {
     tx: Tx,
     tenantId: string,
     patientId: string,
-    channel: 'email' | 'whatsapp',
+    channel: 'email' | 'whatsapp' | 'sms',
     contactId?: string | null,
   ) {
     if (!(await lockRow(tx, 'patients', patientId, tenantId))) return null;
@@ -38,7 +43,7 @@ export class PatientCommunicationSource {
       where: {
         tenantId,
         patientId,
-        type: channel === 'email' ? 'EMAIL' : 'WHATSAPP',
+        type: channel === 'email' ? 'EMAIL' : channel === 'sms' ? 'PHONE' : 'WHATSAPP',
         status: 'ACTIVE',
         verificationStatus: 'VERIFIED',
         verifiedAt: { not: null },
