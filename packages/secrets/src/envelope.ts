@@ -25,6 +25,14 @@ export interface SealedSecret {
   keyId: string;
 }
 
+/** Contexts depend on this port; KEK ownership stays with the composition root. */
+export interface SecretEnvelopePort {
+  readonly currentKeyId: string;
+  encrypt(bundle: Record<string, string>, aad: string): SealedSecret;
+  decrypt(sealed: SealedSecret, aad: string): Record<string, string>;
+  rewrap(sealed: SealedSecret, aad: string): SealedSecret;
+}
+
 export class SecretEnvelopeError extends Error {
   constructor(reason: 'UNKNOWN_KEY' | 'DECRYPT_FAILED' | 'MALFORMED') {
     super(`secret envelope: ${reason}`);
@@ -61,7 +69,7 @@ function open(key: Buffer, sealed: string, aad: string): Buffer {
   }
 }
 
-export class SecretEnvelope {
+export class SecretEnvelope implements SecretEnvelopePort {
   constructor(private readonly ring: KekRing) {}
 
   get currentKeyId(): string {
