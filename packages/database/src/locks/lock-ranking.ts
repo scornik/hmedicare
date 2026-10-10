@@ -62,6 +62,10 @@ export const LOCK_RANKING: Readonly<Record<string, number>> = {
   email_verification_tokens: 60,
   platform_operators: 62,
   provider_credentials: 64,
+  communication_preferences: 27,
+  communications: 66,
+  communication_attempts: 68,
+  provider_webhook_events: 69,
   // 70 – infrastructure rows locked last
   idempotency_records: 70,
   jobs: 72,

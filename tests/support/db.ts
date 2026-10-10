@@ -24,6 +24,7 @@ export async function rawConnection(root = false): Promise<mariadb.Connection> {
  * `patients` additionally has a CHECK that MERGED rows keep their pointer, so the pointer cannot be nulled.
  */
 const SELF_REFERENCING: Readonly<Record<string, string>> = {
+  communications: 'fallback_of_communication_id',
   timeline_events: 'redacts_timeline_event_id',
   serials: 'rescheduled_from_serial_id',
   appointments: 'rescheduled_from_appointment_id',
@@ -35,6 +36,11 @@ const SELF_REFERENCING: Readonly<Record<string, string>> = {
 
 /** Tables owned by Stage 4/5 migrations, in delete-safe order (children first). */
 const TABLES = [
+  'provider_webhook_events',
+  'communication_attempts',
+  'communication_preferences',
+  'communication_short_links',
+  'communications',
   'follow_up_tasks',
   'follow_up_plans',
   // 0011 timeline: projection rows and checkpoints reference patients and tenants.

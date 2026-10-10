@@ -23,3 +23,4 @@ export { PatientContextResolver } from '../infrastructure/patient-context-resolv
 export type { PatientContextSummary } from '../infrastructure/patient-context-resolver';
 export { PatientEvents } from '../infrastructure/events';
 export type { PatientEventName } from '../infrastructure/events';
+export { PatientCommunicationSource } from '../infrastructure/communication-source';

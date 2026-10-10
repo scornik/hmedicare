@@ -27,6 +27,9 @@ const FORBIDDEN = [
  */
 const FOREIGN_ID_COLUMNS = new Set([
   'key_id',
+  // Communication provider identifiers are opaque keys, not our UUIDs (DATABASE §3.12).
+  'provider_message_id',
+  'provider_event_id',
   // Stage M dataset record ids (`med_<16 hex>`, `syn_<16 hex>`) and price source ids, per DATABASE §3.8.
   'dataset_record_id',
   'source_id',

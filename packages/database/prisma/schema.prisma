@@ -2218,3 +2218,161 @@ model FollowUpTask {
   @@index([tenantId,status,dueAt,id], map: "ix_follow_up_tasks_due")
   @@map("follow_up_tasks")
 }
+// ---------------------------------------------------------------- 0012 communication
+// Telemedicine is deferred to a separate section; applied communication SQL will stay immutable.
+model Communication {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  patientId String? @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  actorUserId String? @map("actor_user_id") @db.VarChar(36)
+  /// @ascii
+  channel String @map("channel") @db.VarChar(16)
+  /// @ascii
+  purpose String @map("purpose") @db.VarChar(48)
+  /// @ascii
+  templateKey String @map("template_key") @db.VarChar(64)
+  templateVersion Int @map("template_version") @db.SmallInt
+  /// @ascii
+  locale String @map("locale") @db.VarChar(20)
+  /// @ascii
+  consentId String? @map("consent_id") @db.VarChar(36)
+  /// @ascii
+  businessType String @map("business_type") @db.VarChar(48)
+  /// @ascii
+  businessId String @map("business_id") @db.VarChar(36)
+  /// @ascii
+  status String @map("status") @db.VarChar(24)
+  /// @ascii
+  idempotencyKey String @map("idempotency_key") @db.VarChar(191)
+  /// @ascii
+  fallbackOfCommunicationId String? @map("fallback_of_communication_id") @db.VarChar(36)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String? @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String? @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+  @@unique([tenantId,id], map: "uq_communications_tenant_id")
+  @@unique([tenantId,idempotencyKey], map: "uq_communications_idempotency")
+  @@index([tenantId,patientId,createdAt,id], map: "ix_communications_patient")
+  @@index([tenantId,status,createdAt], map: "ix_communications_status")
+  @@map("communications")
+}
+
+model CommunicationAttempt {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  communicationId String @map("communication_id") @db.VarChar(36)
+  attemptNumber Int @map("attempt_number") @db.UnsignedSmallInt
+  /// @ascii
+  providerAdapter String @map("provider_adapter") @db.VarChar(32)
+  /// @ascii
+  providerMessageId String? @map("provider_message_id") @db.VarChar(191)
+  /// @ascii
+  status String @map("status") @db.VarChar(24)
+  /// @ascii
+  errorClass String? @map("error_class") @db.VarChar(64)
+  /// @ascii
+  smsCredentialScope String? @map("sms_credential_scope") @db.VarChar(16)
+  /// @ascii
+  smsCredentialId String? @map("sms_credential_id") @db.VarChar(36)
+  /// @ascii
+  encoding String? @map("encoding") @db.VarChar(16)
+  segmentsEstimated Int? @map("segments_estimated") @db.UnsignedSmallInt
+  /// @ascii
+  outcomeClass String? @map("outcome_class") @db.VarChar(32)
+  possibleDuplicate Boolean @default(false) @map("possible_duplicate")
+  sentAt DateTime? @map("sent_at") @db.DateTime(3)
+  deliveredAt DateTime? @map("delivered_at") @db.DateTime(3)
+  readAt DateTime? @map("read_at") @db.DateTime(3)
+  failedAt DateTime? @map("failed_at") @db.DateTime(3)
+  providerMeta Json? @map("provider_meta")
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String? @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String? @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+  @@unique([tenantId,id], map: "uq_communication_attempts_tenant_id")
+  @@unique([tenantId,communicationId,attemptNumber], map: "uq_communication_attempts_number")
+  @@unique([providerAdapter,providerMessageId], map: "uq_communication_attempts_provider_message")
+  @@map("communication_attempts")
+}
+
+model CommunicationPreference {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  patientId String @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  channel String @map("channel") @db.VarChar(16)
+  /// @ascii
+  contactId String? @map("contact_id") @db.VarChar(36)
+  /// @ascii
+  preference String @map("preference") @db.VarChar(16)
+  consentVersion Int @map("consent_version") @db.UnsignedInt
+  effectiveFrom DateTime @map("effective_from") @db.DateTime(3)
+  effectiveTo DateTime? @map("effective_to") @db.DateTime(3)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String? @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String? @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+  @@unique([tenantId,id], map: "uq_communication_preferences_tenant_id")
+  @@index([tenantId,patientId,channel,effectiveFrom], map: "ix_communication_preferences_patient")
+  @@map("communication_preferences")
+}
+
+model CommunicationShortLink {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  tokenHash String @map("token_hash") @db.VarChar(64)
+  /// @ascii
+  targetType String @map("target_type") @db.VarChar(24)
+  /// @ascii
+  targetId String @map("target_id") @db.VarChar(36)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  expiresAt DateTime @map("expires_at") @db.DateTime(3)
+  firstUsedAt DateTime? @map("first_used_at") @db.DateTime(3)
+
+  @@unique([tenantId,id], map: "uq_communication_short_links_tenant_id")
+  @@unique([tokenHash], map: "uq_communication_short_links_token")
+  @@index([expiresAt], map: "ix_communication_short_links_expiry")
+  @@map("communication_short_links")
+}
+
+model ProviderWebhookEvent {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  providerAdapter String @map("provider_adapter") @db.VarChar(32)
+  /// @ascii
+  providerEventId String @map("provider_event_id") @db.VarChar(191)
+  receivedAt DateTime @map("received_at") @db.DateTime(3)
+  signatureValid Boolean @map("signature_valid")
+  /// @ascii
+  payloadSha256 String @map("payload_sha256") @db.VarChar(64)
+  /// @ascii
+  tenantId String? @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  mappedAttemptId String? @map("mapped_attempt_id") @db.VarChar(36)
+  payloadRef String? @map("payload_ref") @db.VarChar(255)
+  @@unique([providerAdapter,providerEventId], map: "uq_provider_webhook_events_event")
+  @@map("provider_webhook_events")
+}

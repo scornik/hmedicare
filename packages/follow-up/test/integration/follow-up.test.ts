@@ -15,7 +15,7 @@ const service = new FollowUpService(db.prisma, audit, clinical.access, schedulin
 afterAll(() => db.close());
 beforeEach(() => truncateAll());
 async function fixture() {
-  const f = await chamberWithCalledSerial(db.prisma, 'followup');
+  const f = await chamberWithCalledSerial(db.prisma, 'followup', clock.now());
   const actor: ClinicalActor = {
     userId: f.userId,
     doctorProfileId: f.doctorProfileId,
@@ -54,6 +54,23 @@ const booking = (chamberId: string, expectedRowVersion = 1) => ({
   careMode: 'PHYSICAL' as const,
 });
 describe('follow-up plans and booking', () => {
+  it('rearms a consumed reminder when a planned follow-up moves to a later date', async () => {
+    const f = await fixture(),
+      plan = await service.create(f.actor, f.encounter.id, input);
+    await db.prisma.followUpTask.updateMany({ where: { followUpPlanId: plan.id }, data: { status: 'DONE' } });
+    await service.update(f.actor, plan.id, {
+      expectedRowVersion: 1,
+      dueStartDate: '2026-10-11',
+      dueEndDate: '2026-10-12',
+    });
+    const tasks = await db.prisma.followUpTask.findMany({
+      where: { followUpPlanId: plan.id },
+      orderBy: { createdAt: 'asc' },
+    });
+    expect(tasks).toHaveLength(2);
+    expect(tasks.some((t) => t.status === 'DONE')).toBe(true);
+    expect(tasks.find((t) => t.status === 'OPEN')?.dueAt).toEqual(dueInstant('2026-10-11'));
+  });
   it('creates a doctor-authored plan and Dhaka reminder without prose in events/audit', async () => {
     const f = await fixture(),
       p = await service.create(f.actor, f.encounter.id, input);

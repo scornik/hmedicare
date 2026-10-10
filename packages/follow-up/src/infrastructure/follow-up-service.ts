@@ -206,6 +206,29 @@ export class FollowUpService {
           rowVersion: { increment: 1 },
         },
       });
+      // A reminder already consumed by the worker needs a new task when its date is moved.
+      if (
+        !input.status &&
+        start !== p.dueStartDate.toISOString().slice(0, 10) &&
+        !(await tx.followUpTask.count({
+          where: { tenantId, followUpPlanId: id, taskType: 'REMINDER', status: 'OPEN' },
+        }))
+      ) {
+        await tx.followUpTask.create({
+          data: {
+            id: newId(),
+            tenantId,
+            followUpPlanId: id,
+            taskType: 'REMINDER',
+            status: 'OPEN',
+            dueAt: dueInstant(start),
+            createdAt: now,
+            updatedAt: now,
+            createdByUserId: actor.userId,
+            updatedByUserId: actor.userId,
+          },
+        });
+      }
       await this.record(tx, actor, changed, 'FollowUpPlanUpdated');
       return view(changed);
     });

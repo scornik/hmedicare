@@ -28,8 +28,7 @@ export function tenantContext(tenantId: TenantId, role: StaffRole = 'doctor'): T
 }
 
 /** A tenant with a doctor, a chamber, an open day and one CALLED serial: the state a consultation starts from. */
-export async function chamberWithCalledSerial(p: PrismaClient, label: string) {
-  const now = new Date();
+export async function chamberWithCalledSerial(p: PrismaClient, label: string, now = new Date()) {
   const tenantId = newId<TenantId>();
   const userId = newId();
   const doctorProfileId = newId();
@@ -123,6 +122,8 @@ export async function chamberWithCalledSerial(p: PrismaClient, label: string) {
       timezone: 'Asia/Dhaka',
       status: 'OPEN',
       queuePolicy: {},
+      // The fixture creates serial 1 immediately below; the allocator must advance with it.
+      nextSerialNumber: 2,
       createdAt: now,
       updatedAt: now,
     },

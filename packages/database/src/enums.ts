@@ -171,6 +171,38 @@ export const DB_ENUMS = {
   'follow_up_plans.status': ['PLANNED', 'BOOKED', 'COMPLETED', 'CANCELLED', 'MISSED'],
   'follow_up_tasks.status': ['OPEN', 'DONE', 'CANCELLED'],
   'follow_up_tasks.task_type': ['REMINDER', 'CALL', 'BOOKING_ASSIST'],
+  'communications.channel': ['in_app', 'email', 'sms', 'whatsapp', 'push', 'phone'],
+  'communications.status': [
+    'CREATED',
+    'CONSENT_CHECKED',
+    'QUEUED',
+    'SENDING',
+    'SENT',
+    'DELIVERED',
+    'READ',
+    'FAILED',
+    'RETRY_SCHEDULED',
+    'CANCELLED',
+  ],
+  'communication_attempts.status': ['SENDING', 'SENT', 'DELIVERED', 'READ', 'FAILED', 'UNKNOWN'],
+  'communication_attempts.sms_credential_scope': ['PLATFORM', 'TENANT'],
+  'communication_attempts.encoding': ['text', 'unicode'],
+  'communication_attempts.outcome_class': [
+    'ACCEPTED',
+    'REJECTED',
+    'PROVIDER_UNAVAILABLE',
+    'UNKNOWN_OUTCOME',
+    'RATE_LIMITED',
+  ],
+  'communication_preferences.channel': ['in_app', 'email', 'sms', 'whatsapp', 'push', 'phone'],
+  'communication_preferences.preference': ['OPT_IN', 'OPT_OUT'],
+  'communication_short_links.target_type': [
+    'SERIAL',
+    'APPOINTMENT',
+    'PAYMENT_INTENT',
+    'PRESCRIPTION',
+    'DOCUMENT_LIST',
+  ],
 } as const;
 
 export type DbEnumKey = keyof typeof DB_ENUMS;
