@@ -65,3 +65,35 @@ describe('SMS templates (lint in CI)', () => {
     ).toContain('123456');
   });
 });
+
+// SMS-006 transactional catalog: safe fields, pinned versions and render-time segment/PHI checks.
+describe('transactional SMS templates', () => {
+  const worst = {
+    appName: 'Hakeemify',
+    clinicSmsName: 'A'.repeat(48),
+    serialNumber: '999999',
+    localDate: '2099-12-31',
+    localTime: '23:59',
+    shortLink: 'https://example.invalid/s/' + 'Z'.repeat(22),
+  };
+  it('renders every transactional key in both locales within its segment budget', () => {
+    for (const t of SMS_TEMPLATES.filter((t) => !t.key.startsWith('otp_'))) {
+      const text = renderTemplate(t.key, t.locale, worst, t.version);
+      expect(estimateSegments(text).segments).toBeLessThanOrEqual(t.maxSegments);
+      expect(text).not.toMatch(/\{[A-Za-z]+\}/);
+    }
+    expect(new Set(SMS_TEMPLATES.map((t) => t.key)).size).toBe(10);
+  });
+  it('refuses substituted clinical prose, overlong output and an unknown pinned version', () => {
+    expect(() =>
+      renderTemplate('serial_called', 'en-BD', { ...worst, clinicSmsName: 'SYNTHETIC prescription details' }),
+    ).toThrow(/forbidden/);
+    expect(() =>
+      renderTemplate('serial_called', 'bn-BD', { ...worst, clinicSmsName: 'ক'.repeat(500) }),
+    ).toThrow(/segment/);
+    expect(() => renderTemplate('serial_called', 'en-BD', worst, 99)).toThrow(/unknown/);
+    expect(() =>
+      renderTemplate('otp_login', 'en-BD', { appName: 'A'.repeat(200), otpCode: '123456', otpMinutes: '5' }),
+    ).toThrow(/segment/);
+  });
+});

@@ -517,7 +517,7 @@ describe('timeline projection, redaction, rebuild and retention', () => {
     expect(await db.prisma.job.count({ where: { status: 'QUEUED', queue: 'timeline' } })).toBe(0);
     expect(
       await db.prisma.job.count({ where: { type: 'BackfillTimelineSources', status: 'SUCCEEDED' } }),
-    ).toBe(9);
+    ).toBe(10);
   });
   it.each([{ outcome: 'UNSAFE' }, { projectionVersion: 0 }, { tenantId: newId() }])(
     'enforces durable receipt boundaries %j',

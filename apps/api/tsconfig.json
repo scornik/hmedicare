@@ -58,6 +58,12 @@
     },
     {
       "path": "../../packages/follow-up"
+    },
+    {
+      "path": "../../packages/communication"
+    },
+    {
+      "path": "../../packages/communication-adapters/mock"
     }
   ]
 }

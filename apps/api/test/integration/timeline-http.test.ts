@@ -1,3 +1,5 @@
+import { createHmac } from 'node:crypto';
+import { CommunicationSummary, CommunicationPreferenceView } from '@hmedic/contracts';
 import request from 'supertest';
 import { beforeAll, afterAll, beforeEach, describe, it, expect, vi } from 'vitest';
 import { loadConfig, type ServerConfig } from '@hmedic/config';
@@ -541,6 +543,189 @@ describe('follow-up HTTP authorization and timeline projection', () => {
       });
     } finally {
       completion.mockRestore();
+    }
+  });
+});
+
+describe('communication HTTP', () => {
+  it('projects communication metadata and inherits source encounter withdrawal masking', async () => {
+    const planId = newId(),
+      commId = newId();
+    await api.runtime.prisma.followUpPlan.create({
+      data: {
+        id: planId,
+        tenantId: base.tenantId,
+        patientId: base.patientId,
+        sourceEncounterId: encounterId,
+        doctorProfileId: base.doctorProfileId,
+        dueStartDate: new Date('2026-10-10'),
+        reason: 'SYNTHETIC private followup',
+        status: 'PLANNED',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await api.runtime.prisma.communication.create({
+      data: {
+        id: commId,
+        tenantId: base.tenantId,
+        patientId: base.patientId,
+        channel: 'email',
+        purpose: 'follow_up_reminder',
+        templateKey: 'follow_up_reminder',
+        templateVersion: 1,
+        locale: 'en-BD',
+        businessType: 'follow_up_plan',
+        businessId: planId,
+        status: 'SENT',
+        idempotencyKey: newId(),
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await new TimelineProjector(api.runtime.prisma, timelineSources(api.runtime.prisma)).backfill(
+      base.tenantId,
+    );
+    const first = await request(server).get(url()).set(doctor).expect(200);
+    expect(
+      first.body.data.items.some(
+        (row: { source: { type: string; id: string } | null }) =>
+          row.source?.type === 'communication' && row.source.id === commId,
+      ),
+    ).toBe(true);
+    expect(JSON.stringify(first.body)).not.toContain('SYNTHETIC private followup');
+    await api.runtime.prisma.encounter.update({
+      where: { id: encounterId },
+      data: { status: 'ENTERED_IN_ERROR', enteredInErrorReason: 'SYNTHETIC withdrawn' },
+    });
+    const after = await request(server).get(url()).set(doctor).expect(200);
+    expect(
+      after.body.data.items.some((row: { source: { id: string } | null }) => row.source?.id === commId),
+    ).toBe(false);
+  });
+  const commPath = () => `/api/v1/patients/${base.patientId}/communications`;
+  const prefPath = () => `/api/v1/patients/${base.patientId}/communication-preferences`;
+  it('reads bounded operational statuses with no destinations or clinical content', async () => {
+    await api.runtime.prisma.communication.create({
+      data: {
+        id: newId(),
+        tenantId: base.tenantId,
+        patientId: base.patientId,
+        channel: 'email',
+        purpose: 'follow_up_reminder',
+        templateKey: 'follow_up_reminder',
+        templateVersion: 1,
+        locale: 'en-BD',
+        businessType: 'follow_up_plan',
+        businessId: newId(),
+        status: 'SENT',
+        idempotencyKey: newId(),
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await request(server).get(commPath()).expect(401);
+    const r = await request(server).get(commPath()).set(doctor).expect(200);
+    expect(CommunicationSummary.safeParse(r.body.data[0]).success).toBe(true);
+    expect(r.body.data[0].status).toBe('SENT');
+    expect(JSON.stringify(r.body)).not.toContain('SYNTHETIC');
+    await account();
+    await request(server).get(commPath()).set(patientHeaders()).expect(200);
+    const other = await chamberWithCalledSerial(api.runtime.prisma, 'communication-http-other');
+    await request(server)
+      .get(`/api/v1/patients/${other.patientId}/communications`)
+      .set(patientHeaders())
+      .expect(403);
+    await request(server).get(`/api/v1/patients/${other.patientId}/communications`).set(doctor).expect(404);
+  });
+  it('allows verified SELF preference changes, preserves PUT idempotence and never grants consent implicitly', async () => {
+    await account();
+    const body = { channel: 'email', preference: 'OPT_OUT', consentVersion: 1 };
+    const first = await request(server).put(prefPath()).set(patientHeaders()).send(body).expect(200);
+    const second = await request(server).put(prefPath()).set(patientHeaders()).send(body).expect(200);
+    expect(CommunicationPreferenceView.safeParse(first.body.data).success).toBe(true);
+    expect(second.body.data.id).toBe(first.body.data.id);
+    expect(await api.runtime.prisma.communicationPreference.count()).toBe(1);
+    const prefs = await request(server).get(prefPath()).set(patientHeaders()).expect(200);
+    expect(prefs.body.data[0].preference).toBe('OPT_OUT');
+    await request(server)
+      .put(prefPath())
+      .set(patientHeaders())
+      .send({ ...body, preference: 'OPT_IN' })
+      .expect(200);
+    expect(await api.runtime.prisma.patientConsent.count()).toBe(0);
+    await request(server)
+      .put(prefPath())
+      .set(patientHeaders())
+      .send({ ...body, channel: 'push' })
+      .expect(400);
+    const audit = await api.runtime.prisma.auditLog.findFirstOrThrow({
+      where: { action: 'COMMUNICATION_PREFERENCE_CHANGED' },
+    });
+    expect(audit.actorType).toBe('PATIENT_CONTEXT');
+    expect(audit.actorUserId).toBe(base.userId);
+  });
+  it('requires guardian consent scope and revalidates revoked links', async () => {
+    const guardian = await staff('receptionist');
+    const link = await api.runtime.prisma.patientGuardianship.create({
+      data: {
+        id: newId(),
+        tenantId: base.tenantId,
+        guardianUserId: guardian.id,
+        dependentPatientId: base.patientId,
+        relationship: 'PARENT',
+        authorityScope: ['VIEW_RECORDS'],
+        verificationMethod: 'STAFF_VERIFIED_IN_PERSON',
+        status: 'ACTIVE',
+        startsOn: new Date('2026-01-01'),
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const headers = { ...guardian.headers, 'x-patient-context': base.patientId };
+    const body = { channel: 'email', preference: 'OPT_OUT', consentVersion: 1 };
+    await request(server).put(prefPath()).set(headers).send(body).expect(403);
+    await api.runtime.prisma.patientGuardianship.update({
+      where: { id: link.id },
+      data: { authorityScope: ['VIEW_RECORDS', 'GIVE_CONSENT'] },
+    });
+    await request(server).put(prefPath()).set(headers).send(body).expect(200);
+    await api.runtime.prisma.patientGuardianship.update({
+      where: { id: link.id },
+      data: { status: 'REVOKED' },
+    });
+    await request(server).get(prefPath()).set(headers).expect(403);
+  });
+  it('authenticates the original webhook bytes, deduplicates receipts and disables mocks in production', async () => {
+    const path = '/api/v1/webhooks/communication/mock-email';
+    const body = ' { "eventId": "http-event", "messageId": "mock-unknown", "status": "delivered" } ';
+    const signature = createHmac('sha256', api.runtime.config.LOG_HASH_PEPPER).update(body).digest('hex');
+    await request(server).post(path).set('content-type', 'application/json').send(body).expect(403);
+    await request(server)
+      .post(path)
+      .set('content-type', 'application/json')
+      .set('x-mock-signature', signature)
+      .send(body.trim())
+      .expect(403);
+    for (let i = 0; i < 2; i++)
+      await request(server)
+        .post(path)
+        .set('content-type', 'application/json')
+        .set('x-mock-signature', signature)
+        .send(body)
+        .expect(200);
+    expect(await api.runtime.prisma.providerWebhookEvent.count()).toBe(1);
+    const previous = api.runtime.config.APP_ENV;
+    try {
+      api.runtime.config.APP_ENV = 'production';
+      await request(server)
+        .post(path)
+        .set('content-type', 'application/json')
+        .set('x-mock-signature', signature)
+        .send(body)
+        .expect(409);
+    } finally {
+      api.runtime.config.APP_ENV = previous;
     }
   });
 });

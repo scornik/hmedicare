@@ -1,3 +1,4 @@
+import { CommunicationHistoryMetadata } from '@hmedic/communication';
 import { FollowUpHistoryMetadata } from '@hmedic/follow-up';
 import { z } from 'zod';
 import { type PrismaClient, pendingTimelineTenants, timelineBootstrapTenants } from '@hmedic/database';
@@ -43,6 +44,7 @@ export function createTimelineProjector(prisma: PrismaClient, version: number, c
     new QueueHistoryMetadata(prisma),
     new SchedulingHistoryMetadata(prisma),
     new FollowUpHistoryMetadata(prisma),
+    new CommunicationHistoryMetadata(prisma, new FollowUpHistoryMetadata(prisma)),
     new DocumentHistoryMetadata(prisma),
   ];
   return {

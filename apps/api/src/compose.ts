@@ -1,3 +1,14 @@
+import {
+  CommunicationController,
+  CommunicationWebhookController,
+  COMMUNICATION_SERVICE,
+  COMMUNICATION_PROVIDERS,
+} from './communication/communication.controller';
+import { CommunicationService, type CommunicationProvider } from '@hmedic/communication';
+import { registerDeliveryJobs, registerReminderJobs } from '@hmedic/communication/worker';
+import { PatientCommunicationSource } from '@hmedic/patient';
+import { FollowUpReminderSource } from '@hmedic/follow-up';
+import { MockEmailAdapter, MockWhatsAppAdapter } from '@hmedic/communication-adapters-mock';
 import { FollowUpController } from './follow-up/follow-up.controller';
 import { FollowUpService } from '@hmedic/follow-up';
 import { FollowUpModule } from '@hmedic/follow-up/nest';
@@ -126,6 +137,8 @@ export class ApiModule {
     clinical: ClinicalServices,
     prescriptions: PrescriptionServices,
     documents: DocumentServices | null,
+    communication: CommunicationService,
+    notificationProviders: ReadonlyMap<string, CommunicationProvider>,
   ): DynamicModule {
     const mode = runtime.config.JOB_RUNNER_MODE;
     const devInbox = identity.mockOtp !== null || identity.mockReset !== null;
@@ -161,7 +174,13 @@ export class ApiModule {
         // present and failing, so a client discovers the capability from the API rather than from a 409.
         ...(documents ? [DocumentModule.forRoot(documents)] : []),
       ],
+      providers: [
+        { provide: COMMUNICATION_SERVICE, useValue: communication },
+        { provide: COMMUNICATION_PROVIDERS, useValue: notificationProviders },
+      ],
       controllers: [
+        CommunicationController,
+        CommunicationWebhookController,
         FollowUpController,
         AuthController,
         SessionController,
@@ -239,6 +258,19 @@ export async function buildApi(
   // real connection that ADR-014's per-connection init ran. From Stage 6 these tables hold clinical text.
   runtime.readinessChecks.push(sessionModeCheck(runtime));
   const sms = createSmsServices(runtime);
+  const reminderSource = new FollowUpReminderSource(runtime.prisma, runtime.clock);
+  const notificationProviders = new Map<string, CommunicationProvider>([
+    ['email', new MockEmailAdapter(config.LOG_HASH_PEPPER)],
+    ['whatsapp', new MockWhatsAppAdapter(config.LOG_HASH_PEPPER)],
+  ]);
+  const communication = new CommunicationService(
+    runtime.prisma,
+    runtime.audit,
+    new PatientCommunicationSource(),
+    reminderSource,
+    config.APP_ENV === 'production' ? new Map() : notificationProviders,
+    runtime.clock,
+  );
   const context = composeSchedulingAndQueue({
     prisma: runtime.prisma,
     audit: runtime.audit,
@@ -280,9 +312,13 @@ export async function buildApi(
           sms,
           ({ registry, runner, subscriptions }) => {
             // PrescriptionApproved feeds the tenant prescribing boost (EVENT-ARCHITECTURE §4).
+            registerDeliveryJobs(registry, runner, subscriptions, communication);
             subscriptions.subscribe('PrescriptionApproved', { handler: RECORD_MEDICATION_USAGE });
             registerPrescriptionJobs(registry, runner, catalogJobDeps);
             return [
+              ...(config.APP_ENV !== 'production'
+                ? registerReminderJobs(registry, runner, communication, reminderSource)
+                : []),
               ...registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger }),
               ...registerTimelineJobs(registry, runner, subscriptions, {
                 prisma: runtime.prisma,
@@ -363,6 +399,8 @@ export async function buildApi(
       clinical,
       prescriptions,
       documents,
+      communication,
+      notificationProviders,
     ),
     runtime,
     { cors: true },

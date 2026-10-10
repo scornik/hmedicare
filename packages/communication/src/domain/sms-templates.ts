@@ -56,6 +56,51 @@ export const SMS_TEMPLATES: readonly SmsTemplate[] = [
     maxSegments: 1,
     body: '{appName} যাচাই কোড: {otpCode}। {otpMinutes} মিনিট বৈধ। কাউকে জানাবেন না।',
   },
+  ...[
+    [
+      'serial_called',
+      '{clinicSmsName}: Serial {serialNumber} has been called. {shortLink}',
+      '{clinicSmsName}: সিরিয়াল {serialNumber} ডাক দেওয়া হয়েছে। {shortLink}',
+    ],
+    [
+      'serial_near',
+      '{clinicSmsName}: Serial {serialNumber} will be called soon. {shortLink}',
+      '{clinicSmsName}: সিরিয়াল {serialNumber} শিগগিরই ডাকা হবে। {shortLink}',
+    ],
+    [
+      'appointment_reminder',
+      '{clinicSmsName}: Booking reminder for {localDate} at {localTime}. {shortLink}',
+      '{clinicSmsName}: {localDate} {localTime}-এ আপনার বুকিং মনে রাখুন। {shortLink}',
+    ],
+    [
+      'appointment_confirmed',
+      '{clinicSmsName}: Booking confirmed for {localDate} at {localTime}. {shortLink}',
+      '{clinicSmsName}: {localDate} {localTime}-এ আপনার বুকিং নিশ্চিত হয়েছে। {shortLink}',
+    ],
+    [
+      'appointment_cancelled',
+      '{clinicSmsName}: Your booking has been cancelled. {shortLink}',
+      '{clinicSmsName}: আপনার বুকিং বাতিল হয়েছে। {shortLink}',
+    ],
+    [
+      'payment_received',
+      '{appName}: Payment received. Log in for details. {shortLink}',
+      '{appName}: পেমেন্ট পাওয়া গেছে। বিস্তারিত দেখতে লগইন করুন। {shortLink}',
+    ],
+    [
+      'payment_link',
+      '{appName}: Log in to complete your payment. {shortLink}',
+      '{appName}: পেমেন্ট করতে লগইন করুন। {shortLink}',
+    ],
+    [
+      'follow_up_reminder',
+      '{appName}: You have a follow-up reminder. Log in for details. {shortLink}',
+      '{appName}: আপনার ফলো-আপের অনুস্মারক আছে। বিস্তারিত দেখতে লগইন করুন। {shortLink}',
+    ],
+  ].flatMap(([key, en, bn]) => [
+    { key: key!, locale: 'en-BD' as const, version: 1, maxSegments: 3, body: en! },
+    { key: key!, locale: 'bn-BD' as const, version: 1, maxSegments: 3, body: bn! },
+  ]),
 ];
 
 /** Words that must never appear in SMS templates (COMMUNICATION §6.3 CI check). */
@@ -84,10 +129,10 @@ export function lintTemplate(t: SmsTemplate): string[] {
   return problems;
 }
 
-export function findTemplate(key: string, locale: SmsLocale): SmsTemplate {
-  const candidates = SMS_TEMPLATES.filter((t) => t.key === key && t.locale === locale).sort(
-    (a, b) => b.version - a.version,
-  );
+export function findTemplate(key: string, locale: SmsLocale, version?: number): SmsTemplate {
+  const candidates = SMS_TEMPLATES.filter(
+    (t) => t.key === key && t.locale === locale && (version === undefined || t.version === version),
+  ).sort((a, b) => b.version - a.version);
   const t = candidates[0];
   if (!t) throw new Error(`unknown SMS template ${key}.${locale}`);
   return t;
@@ -98,15 +143,21 @@ export function renderTemplate(
   key: string,
   locale: SmsLocale,
   vars: Partial<Record<Placeholder, string>>,
+  version?: number,
 ): string {
-  const t = findTemplate(key, locale);
+  const t = findTemplate(key, locale, version);
   const problems = lintTemplate(t);
   if (problems.length) throw new Error(`template lint failed: ${problems.join('; ')}`);
-  return t.body.replace(PLACEHOLDER_RE, (_, name: string) => {
+  const rendered = t.body.replace(PLACEHOLDER_RE, (_, name: string) => {
     const v = vars[name as Placeholder];
     if (v === undefined) throw new Error(`missing template value {${name}}`);
     return v;
   });
+  if (FORBIDDEN_TEMPLATE_WORDS.some((pattern) => pattern.test(rendered)))
+    throw new Error('rendered SMS contains forbidden content');
+  if (estimateSegments(rendered).segments > t.maxSegments)
+    throw new Error('rendered SMS exceeds the segment limit');
+  return rendered;
 }
 
 /** Longest rendering check used by CI (`maxSegments`, OTP = 1). */

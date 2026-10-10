@@ -1,3 +1,8 @@
+import { CommunicationService, type CommunicationProvider } from '@hmedic/communication';
+import { registerDeliveryJobs, registerReminderJobs } from '@hmedic/communication/worker';
+import { PatientCommunicationSource } from '@hmedic/patient';
+import { FollowUpReminderSource } from '@hmedic/follow-up';
+import { MockEmailAdapter, MockWhatsAppAdapter } from '@hmedic/communication-adapters-mock';
 import { registerTimelineJobs } from '@hmedic/timeline/worker';
 import { timelineChainSource } from '@hmedic/timeline';
 import { type DynamicModule, Module } from '@nestjs/common';
@@ -60,6 +65,19 @@ export async function buildWorker(
 ): Promise<WorkerInstance> {
   const { runtime, database } = createRuntime('worker', config, overrides);
   const sms = createSmsServices(runtime);
+  const reminderSource = new FollowUpReminderSource(runtime.prisma, runtime.clock);
+  const notificationProviders = new Map<string, CommunicationProvider>([
+    ['email', new MockEmailAdapter(config.LOG_HASH_PEPPER)],
+    ['whatsapp', new MockWhatsAppAdapter(config.LOG_HASH_PEPPER)],
+  ]);
+  const communication = new CommunicationService(
+    runtime.prisma,
+    runtime.audit,
+    new PatientCommunicationSource(),
+    reminderSource,
+    config.APP_ENV === 'production' ? new Map() : notificationProviders,
+    runtime.clock,
+  );
   const context = composeSchedulingAndQueue({
     prisma: runtime.prisma,
     audit: runtime.audit,
@@ -72,6 +90,7 @@ export async function buildWorker(
       // The medication import runs here and only here: it is minutes of streaming and batched writes on
       // its own queue, and the API process should never be the thing holding that work.
       // PrescriptionApproved feeds the tenant prescribing boost (EVENT-ARCHITECTURE §4).
+      registerDeliveryJobs(registry, runner, subscriptions, communication);
       subscriptions.subscribe('PrescriptionApproved', { handler: RECORD_MEDICATION_USAGE });
       registerPrescriptionJobs(registry, runner, {
         prisma: runtime.prisma,
@@ -90,6 +109,9 @@ export async function buildWorker(
         logger: runtime.logger,
       });
       return [
+        ...(config.APP_ENV !== 'production'
+          ? registerReminderJobs(registry, runner, communication, reminderSource)
+          : []),
         ...registerQueueJobs(registry, runner, context.serials, { logger: runtime.logger }),
         ...registerTimelineJobs(registry, runner, subscriptions, {
           prisma: runtime.prisma,

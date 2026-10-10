@@ -321,6 +321,12 @@ importers:
       '@hmedic/clinical':
         specifier: workspace:*
         version: link:../../packages/clinical
+      '@hmedic/communication':
+        specifier: workspace:*
+        version: link:../../packages/communication
+      '@hmedic/communication-adapters-mock':
+        specifier: workspace:*
+        version: link:../../packages/communication-adapters/mock
       '@hmedic/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -394,9 +400,6 @@ importers:
         specifier: 3.25.76
         version: 3.25.76
     devDependencies:
-      '@hmedic/communication':
-        specifier: workspace:*
-        version: link:../../packages/communication
       '@hmedic/communication-adapters-zamanit':
         specifier: workspace:*
         version: link:../../packages/communication-adapters/zamanit
@@ -470,12 +473,21 @@ importers:
 
   apps/worker:
     dependencies:
+      '@hmedic/communication':
+        specifier: workspace:*
+        version: link:../../packages/communication
+      '@hmedic/communication-adapters-mock':
+        specifier: workspace:*
+        version: link:../../packages/communication-adapters/mock
       '@hmedic/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@hmedic/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@hmedic/follow-up':
+        specifier: workspace:*
+        version: link:../../packages/follow-up
       '@hmedic/http-kit':
         specifier: workspace:*
         version: link:../../packages/http-kit
@@ -488,6 +500,9 @@ importers:
       '@hmedic/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@hmedic/patient':
+        specifier: workspace:*
+        version: link:../../packages/patient
       '@hmedic/prescriptions':
         specifier: workspace:*
         version: link:../../packages/prescriptions
@@ -609,6 +624,16 @@ importers:
       zod:
         specifier: 3.25.76
         version: 3.25.76
+    devDependencies:
+      '@hmedic/communication-adapters-mock':
+        specifier: workspace:*
+        version: link:../communication-adapters/mock
+      '@hmedic/follow-up':
+        specifier: workspace:*
+        version: link:../follow-up
+      '@hmedic/patient':
+        specifier: workspace:*
+        version: link:../patient
 
   packages/communication-adapters/mock:
     dependencies:
@@ -1110,6 +1135,9 @@ importers:
       '@hmedic/clinical':
         specifier: workspace:*
         version: link:../clinical
+      '@hmedic/communication':
+        specifier: workspace:*
+        version: link:../communication
       '@hmedic/config':
         specifier: workspace:*
         version: link:../config

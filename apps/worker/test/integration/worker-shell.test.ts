@@ -49,11 +49,12 @@ describe('worker mode', () => {
     // `>=` not `===`: the count must reach the number of periodic jobs asserted below, and an equality
     // check only passes when a poll lands on that exact instant. It went unnoticed while the previous
     // number was one short of the real total and the runs were slow enough to be caught mid-flight.
-    await waitFor(async () => (await a.runtime.prisma.job.count({ where: { status: 'SUCCEEDED' } })) >= 6);
+    await waitFor(async () => (await a.runtime.prisma.job.count({ where: { status: 'SUCCEEDED' } })) >= 7);
     const jobs = await a.runtime.prisma.job.findMany({ select: { type: true, lockedBy: true } });
     expect(jobs.map((j) => j.type).sort()).toEqual([
       'ApplyNoShowPolicy',
       'CheckSmsBalance',
+      'CreateFollowUpReminders',
       'MaintenanceTtlCleanup',
       'ProjectTimelineBacklog',
       'ReencryptProviderCredentials',

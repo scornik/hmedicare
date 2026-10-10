@@ -35,7 +35,9 @@
     "rxjs": "7.8.2",
     "zod": "3.25.76",
     "@hmedic/timeline": "workspace:*",
-    "@hmedic/follow-up": "workspace:*"
+    "@hmedic/follow-up": "workspace:*",
+    "@hmedic/communication-adapters-mock": "workspace:*",
+    "@hmedic/communication": "workspace:*"
   },
   "devDependencies": {
     "@hmedic/communication": "workspace:*",

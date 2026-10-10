@@ -20,8 +20,6 @@ export class MockCommunicationAdapter<C extends Channel> implements Communicatio
   readonly code: string;
   private readonly scenarios: MockCommunicationScenario[] = [];
   private readonly accepted = new Map<string, { fingerprint: string; result: ProviderSendResult }>();
-  private sequence = 0;
-
   constructor(
     readonly channel: C,
     private readonly webhookSecret: string,
@@ -62,7 +60,7 @@ export class MockCommunicationAdapter<C extends Channel> implements Communicatio
     if (scenario === 'rate_limit') return { outcome: 'RATE_LIMITED', retryAfterSeconds: 30 };
     const result: ProviderSendResult = {
       outcome: 'ACCEPTED',
-      providerMessageId: `${this.code}-${++this.sequence}`,
+      providerMessageId: `${this.code}-${createHash('sha256').update(key).digest('hex').slice(0, 32)}`,
     };
     this.accepted.set(key, { fingerprint, result: { ...result } });
     return result;

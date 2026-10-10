@@ -24,7 +24,11 @@
     "@nestjs/platform-fastify": "11.2.5",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
-    "@hmedic/timeline": "workspace:*"
+    "@hmedic/timeline": "workspace:*",
+    "@hmedic/patient": "workspace:*",
+    "@hmedic/follow-up": "workspace:*",
+    "@hmedic/communication-adapters-mock": "workspace:*",
+    "@hmedic/communication": "workspace:*"
   },
   "devDependencies": {
     "@types/supertest": "7.2.1",

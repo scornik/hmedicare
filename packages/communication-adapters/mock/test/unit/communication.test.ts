@@ -52,6 +52,14 @@ describe.each([MockEmailAdapter, MockWhatsAppAdapter, MockPushAdapter])(
       });
     });
 
+    it('keeps synthetic message IDs stable across restarts without colliding with different attempts', async () => {
+      const first = new Adapter(secret),
+        restarted = new Adapter(secret);
+      expect(await first.send(input)).toEqual(await restarted.send(input));
+      expect(await restarted.send({ ...input, idempotencyKey: 'another-attempt' })).not.toEqual(
+        await first.send(input),
+      );
+    });
     it('allows retry after transient and rate-limit outcomes', async () => {
       const adapter = new Adapter(secret).enqueue('transient_failure', 'rate_limit', 'success');
       expect((await adapter.send(input)).outcome).toBe('TRANSIENT_FAILURE');

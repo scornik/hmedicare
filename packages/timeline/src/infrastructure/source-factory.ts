@@ -1,3 +1,4 @@
+import { CommunicationHistoryMetadata } from '@hmedic/communication';
 import { FollowUpHistoryMetadata } from '@hmedic/follow-up';
 import type { PrismaClient } from '@hmedic/database';
 import { ClinicalHistoryMetadata } from '@hmedic/clinical';
@@ -13,6 +14,7 @@ export function timelineSources(prisma: PrismaClient): HistoryMetadataPort[] {
     new QueueHistoryMetadata(prisma),
     new SchedulingHistoryMetadata(prisma),
     new FollowUpHistoryMetadata(prisma),
+    new CommunicationHistoryMetadata(prisma, new FollowUpHistoryMetadata(prisma)),
     new DocumentHistoryMetadata(prisma),
   ];
 }
