@@ -298,10 +298,41 @@ export class CommunicationService {
     if (signal?.aborted) return;
     const snapshot = await this.prisma.communication.findFirst({ where: { tenantId, id } });
     if (!snapshot || terminal.has(snapshot.status)) return;
-    if (!snapshot.patientId || !['email', 'whatsapp'].includes(snapshot.channel))
-      throw new NonRetryableJobError('COMMUNICATION_CHANNEL_UNSUPPORTED');
-    const provider = this.providers.get(snapshot.channel);
-    if (!provider) throw new NonRetryableJobError('COMMUNICATION_PROVIDER_UNAVAILABLE');
+    const supported = !!snapshot.patientId && ['email', 'whatsapp'].includes(snapshot.channel);
+    const provider = supported ? this.providers.get(snapshot.channel) : undefined;
+    if (!provider) {
+      await withTransaction(this.prisma, async (tx) => {
+        if (!(await lockRow(tx, 'communications', id, tenantId))) return;
+        const current = await tx.communication.findFirstOrThrow({ where: { tenantId, id } });
+        if (terminal.has(current.status) || current.rowVersion !== snapshot.rowVersion) return;
+        const sending = await tx.communicationAttempt.findFirst({
+          where: { tenantId, communicationId: id, status: 'SENDING' },
+          orderBy: { attemptNumber: 'desc' },
+        });
+        const now = this.clock.now();
+        if (sending) {
+          await lockRow(tx, 'communication_attempts', sending.id, tenantId);
+          await tx.communicationAttempt.update({
+            where: { id: sending.id },
+            data: {
+              status: 'UNKNOWN',
+              errorClass: 'UNKNOWN_OUTCOME',
+              outcomeClass: 'UNKNOWN_OUTCOME',
+              updatedAt: now,
+              rowVersion: { increment: 1 },
+            },
+          });
+        }
+        await tx.communication.update({
+          where: { id },
+          data: { status: 'FAILED', updatedAt: now, rowVersion: { increment: 1 } },
+        });
+        await this.record(tx, tenantId, id, 'FAILED', 'CommunicationFailed');
+      });
+      throw new NonRetryableJobError(
+        supported ? 'COMMUNICATION_PROVIDER_UNAVAILABLE' : 'COMMUNICATION_CHANNEL_UNSUPPORTED',
+      );
+    }
     const prepared = await withTransaction(this.prisma, async (tx) => {
       const recipient = await this.recipient(
         tx,

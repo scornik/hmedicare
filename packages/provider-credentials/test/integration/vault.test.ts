@@ -121,6 +121,24 @@ describe('ProviderCredentialVault', () => {
     });
   });
 
+  it('blocks an old active handle when a newer tenant account is configured', async () => {
+    const t = await tenant();
+    const old = await create(t);
+    await vault.setStatus(t, old.id, 'ACTIVE', null);
+    const selected = await vault.selectTransactionalSms(t);
+    if (selected.scope !== 'TENANT_ACCOUNT' || !selected.handle) throw Error('missing handle');
+    const next = await create(t, KEY + '_replacement');
+    expect(await vault.selectTransactionalSms(t)).toMatchObject({
+      scope: 'TENANT_ACCOUNT',
+      credentialId: next.id,
+      status: 'PENDING_VALIDATION',
+      handle: null,
+    });
+    await expect(selected.handle.use(async () => 'called')).rejects.toMatchObject({
+      code: 'RESOURCE_NOT_FOUND',
+    });
+  });
+
   it('re-wraps data keys after KEK rotation (ReencryptProviderCredentials)', async () => {
     const t = await tenant();
     const v = await create(t);
@@ -142,5 +160,54 @@ describe('ProviderCredentialVault', () => {
     );
     expect(await (await onlyNew.resolveForAdapter(t, v.id)).use(async (b) => b.apiKey)).toBe(KEY);
     expect(await rotated.rewrapBatch()).toBe(0);
+  });
+  it('uses platform only before the tenant configures its own account', async () => {
+    const t = await tenant();
+    expect(await vault.selectTransactionalSms(t)).toEqual({ scope: 'PLATFORM_ACCOUNT' });
+    const account = await create(t);
+    for (const status of [
+      'PENDING_VALIDATION',
+      'SUSPENDED_BALANCE',
+      'INVALID',
+      'DISABLED',
+      'REVOKED',
+    ] as const) {
+      if (status === 'REVOKED') await vault.revoke(t, account.id, null);
+      else await vault.setStatus(t, account.id, status, null);
+      expect(await vault.selectTransactionalSms(t)).toEqual({
+        scope: 'TENANT_ACCOUNT',
+        credentialId: account.id,
+        status,
+        handle: null,
+      });
+    }
+    expect(await vault.selectTransactionalSms(await tenant())).toEqual({ scope: 'PLATFORM_ACCOUNT' });
+  });
+
+  it('selects the replacement account and rechecks its status before decrypting', async () => {
+    const t = await tenant();
+    const first = await create(t);
+    await vault.setStatus(t, first.id, 'ACTIVE', null);
+    let selection = await vault.selectTransactionalSms(t);
+    expect(selection.scope).toBe('TENANT_ACCOUNT');
+    if (selection.scope !== 'TENANT_ACCOUNT' || !selection.handle) throw Error('missing handle');
+    expect(await selection.handle.use(async (bundle) => bundle.apiKey)).toBe(KEY);
+    await vault.revoke(t, first.id, null);
+    await expect(selection.handle.use(async () => 'called')).rejects.toMatchObject({
+      code: 'RESOURCE_NOT_FOUND',
+    });
+    const replacement = await create(t);
+    await vault.setStatus(t, replacement.id, 'ACTIVE', null);
+    selection = await vault.selectTransactionalSms(t);
+    expect(selection).toMatchObject({
+      scope: 'TENANT_ACCOUNT',
+      credentialId: replacement.id,
+      status: 'ACTIVE',
+    });
+    if (selection.scope !== 'TENANT_ACCOUNT' || !selection.handle) throw Error('missing replacement');
+    await vault.setStatus(t, replacement.id, 'SUSPENDED_BALANCE', 'INSUFFICIENT_BALANCE');
+    await expect(selection.handle.use(async () => 'called')).rejects.toMatchObject({
+      code: 'RESOURCE_NOT_FOUND',
+    });
   });
 });

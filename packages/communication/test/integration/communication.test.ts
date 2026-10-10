@@ -120,6 +120,61 @@ async function fixture() {
   };
 }
 describe('communication intents and delivery', () => {
+  it('fails a queued intent when its provider is removed, without inventing an attempt', async () => {
+    const f = await fixture();
+    const intent = await service.requestReminder(f.input);
+    const disabled = new CommunicationService(
+      db.prisma,
+      new PrismaAuditPort(clock),
+      new PatientCommunicationSource(),
+      new FollowUpReminderSource(db.prisma, clock),
+      new Map(),
+      clock,
+    );
+    await expect(disabled.deliver(f.tenantId, intent.id)).rejects.toBeInstanceOf(NonRetryableJobError);
+    expect((await db.prisma.communication.findUniqueOrThrow({ where: { id: intent.id } })).status).toBe(
+      'FAILED',
+    );
+    expect(await db.prisma.communicationAttempt.count()).toBe(0);
+    expect(
+      await db.prisma.outboxEvent.count({
+        where: { eventName: 'CommunicationFailed', aggregateId: intent.id },
+      }),
+    ).toBe(1);
+    await disabled.deliver(f.tenantId, intent.id);
+    expect(
+      await db.prisma.outboxEvent.count({
+        where: { eventName: 'CommunicationFailed', aggregateId: intent.id },
+      }),
+    ).toBe(1);
+  });
+
+  it('keeps an unresolved sending attempt UNKNOWN when its provider is removed', async () => {
+    const f = await fixture();
+    const intent = await service.requestReminder(f.input);
+    adapter.send = async () => {
+      throw Error('synthetic lost response');
+    };
+    await expect(service.deliver(f.tenantId, intent.id)).rejects.toThrow();
+    const disabled = new CommunicationService(
+      db.prisma,
+      new PrismaAuditPort(clock),
+      new PatientCommunicationSource(),
+      new FollowUpReminderSource(db.prisma, clock),
+      new Map(),
+      clock,
+    );
+    await expect(disabled.deliver(f.tenantId, intent.id)).rejects.toBeInstanceOf(NonRetryableJobError);
+    const attempt = await db.prisma.communicationAttempt.findFirstOrThrow({
+      where: { communicationId: intent.id },
+    });
+    expect(attempt.status).toBe('UNKNOWN');
+    expect(attempt.errorClass).toBe('UNKNOWN_OUTCOME');
+    expect((await db.prisma.communication.findUniqueOrThrow({ where: { id: intent.id } })).status).toBe(
+      'FAILED',
+    );
+  });
+
   it('scans due tasks once, enqueues a reminder and consumes the task with a version check', async () => {
     const f = await fixture();
     const task = await db.prisma.followUpTask.create({

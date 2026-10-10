@@ -39,6 +39,15 @@ export interface CredentialHandle {
   use<T>(fn: (bundle: Readonly<Record<string, string>>) => Promise<T>): Promise<T>;
 }
 
+export type TransactionalSmsCredential =
+  | { scope: 'PLATFORM_ACCOUNT' }
+  | {
+      scope: 'TENANT_ACCOUNT';
+      credentialId: string;
+      status: CredentialStatus;
+      handle: CredentialHandle | null;
+    };
+
 /** AAD = credentialId|tenantId|providerKind|providerCode (DATABASE-IMPLEMENTATION §3.15). */
 export function credentialAad(id: string, tenantId: string, kind: string, code: string): string {
   return `${id}|${tenantId}|${kind}|${code}`;
@@ -185,6 +194,44 @@ export class ProviderCredentialVault {
         return fn(bundle);
       },
     };
+  }
+
+  /** Latest tenant-selected account wins; unusable accounts never imply platform fallback. */
+  async selectTransactionalSms(tenantId: string): Promise<TransactionalSmsCredential> {
+    const row = await this.prisma.providerCredential.findFirst({
+      where: { tenantId, ownerType: 'TENANT', providerKind: 'SMS', providerCode: 'zamanit' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: { id: true, status: true, rowVersion: true },
+    });
+    if (!row) return { scope: 'PLATFORM_ACCOUNT' };
+    if (row.status !== 'ACTIVE')
+      return {
+        scope: 'TENANT_ACCOUNT',
+        credentialId: row.id,
+        status: row.status as CredentialStatus,
+        handle: null,
+      };
+    const original = await this.resolveForAdapter(tenantId, row.id, ['ACTIVE']);
+    const prisma = this.prisma;
+    const handle: CredentialHandle = {
+      ...original,
+      async use(fn) {
+        const current = await prisma.providerCredential.findFirst({
+          where: { tenantId, ownerType: 'TENANT', providerKind: 'SMS', providerCode: 'zamanit' },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          select: { id: true, status: true, rowVersion: true },
+        });
+        if (
+          !current ||
+          current.id !== row.id ||
+          current.status !== 'ACTIVE' ||
+          current.rowVersion !== row.rowVersion
+        )
+          throw new AppError('RESOURCE_NOT_FOUND');
+        return original.use(fn);
+      },
+    };
+    return { scope: 'TENANT_ACCOUNT', credentialId: row.id, status: 'ACTIVE', handle };
   }
 
   async setStatus(
