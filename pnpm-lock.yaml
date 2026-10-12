@@ -315,6 +315,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@hmedic/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@hmedic/audit':
         specifier: workspace:*
         version: link:../../packages/audit

@@ -17,3 +17,4 @@ export * from './follow-up';
 export * from './communication';
 export * from './sms-accounts';
 export * from './telemedicine';
+export * from './ai';

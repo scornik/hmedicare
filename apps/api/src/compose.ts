@@ -1,6 +1,15 @@
 import { AppError } from '@hmedic/kernel';
 import { MockTelemedicineProvider, TelemedicineSessionService } from '@hmedic/telemedicine';
 import { TELEMEDICINE_SESSIONS, TelemedicineSessionController } from './telemedicine/session.controller';
+import { AI_SERVICES, AiController, type AiServices } from './ai/ai.controllers';
+import {
+  AIAcknowledgementStore,
+  AICredentialSecrets,
+  AICredentialStore,
+  CURRENT_ACK_TEXT_VERSION,
+  TenantAIPolicyStore,
+} from '@hmedic/ai';
+import { SecretEnvelope, kekFromBase64 } from '@hmedic/secrets';
 import {
   CommunicationLinksController,
   COMMUNICATION_SHORT_LINKS,
@@ -165,6 +174,7 @@ export class ApiModule {
     shortLinks: CommunicationShortLinks | null,
     telemedicine: TelemedicineSessionService | null,
     notificationProviders: ReadonlyMap<string, CommunicationProvider>,
+    ai: AiServices | null,
   ): DynamicModule {
     const mode = runtime.config.JOB_RUNNER_MODE;
     const devInbox = identity.mockOtp !== null || identity.mockReset !== null;
@@ -206,8 +216,10 @@ export class ApiModule {
         { provide: SMS_ACCOUNT_SERVICE, useValue: smsAccounts },
         { provide: COMMUNICATION_SERVICE, useValue: communication },
         { provide: COMMUNICATION_PROVIDERS, useValue: notificationProviders },
+        { provide: AI_SERVICES, useValue: ai },
       ],
       controllers: [
+        AiController,
         TelemedicineSessionController,
         CommunicationLinksController,
         SmsAccountsController,
@@ -457,6 +469,57 @@ export async function buildApi(
   };
   const patient = createPatientServices(runtime);
   identity.patientContexts = patient.contexts;
+  /**
+   * AI stores, or null when this deployment has no AI encryption configured.
+   *
+   * `AI_CREDENTIAL_KEK` and its fingerprint pepper are optional, and a deployment without them must not
+   * expose routes that would fail at the first write. Null here makes every AI route answer
+   * FEATURE_DISABLED, which a client can tell apart from a refusal.
+   */
+  const ai: AiServices | null =
+    config.AI_CREDENTIAL_KEK && config.AI_CREDENTIAL_KEK_ID && config.AI_CREDENTIAL_FINGERPRINT_PEPPER
+      ? {
+          policy: new TenantAIPolicyStore({
+            prisma: runtime.prisma,
+            audit: runtime.audit,
+            environment: config.APP_ENV,
+            freeTierProductionGateClosed: config.AI_FREE_TIER_PRODUCTION_GATE_CLOSED,
+            enabledProviderCodes: config.AI_ENABLED_PROVIDER_CODES,
+            currentPolicyTextVersion: CURRENT_ACK_TEXT_VERSION,
+            clock: runtime.clock,
+          }),
+          acknowledgements: new AIAcknowledgementStore({
+            prisma: runtime.prisma,
+            audit: runtime.audit,
+            enabledProviderCodes: config.AI_ENABLED_PROVIDER_CODES,
+            clock: runtime.clock,
+          }),
+          credentials: new AICredentialStore({
+            prisma: runtime.prisma,
+            audit: runtime.audit,
+            secrets: new AICredentialSecrets(
+              new SecretEnvelope({
+                current: kekFromBase64(config.AI_CREDENTIAL_KEK_ID, config.AI_CREDENTIAL_KEK),
+                ...(config.AI_CREDENTIAL_KEK_PREVIOUS && config.AI_CREDENTIAL_KEK_PREVIOUS_ID
+                  ? {
+                      previous: kekFromBase64(
+                        config.AI_CREDENTIAL_KEK_PREVIOUS_ID,
+                        config.AI_CREDENTIAL_KEK_PREVIOUS,
+                      ),
+                    }
+                  : {}),
+              }),
+              config.AI_CREDENTIAL_FINGERPRINT_PEPPER,
+            ),
+            enabledProviderCodes: config.AI_ENABLED_PROVIDER_CODES,
+            platformManagedEnabled: config.AI_PLATFORM_MANAGED_ENABLED,
+            // Adapter metadata arrives with ADAPT-001. Until then no provider resolves, so a credential
+            // cannot be created: refusing is the honest answer while the register does not exist.
+            metadata: () => null,
+            clock: runtime.clock,
+          }),
+        }
+      : null;
   const telemedicine =
     config.APP_ENV !== 'production'
       ? new TelemedicineSessionService({
@@ -500,6 +563,7 @@ export async function buildApi(
       shortLinks,
       telemedicine,
       notificationProviders,
+      ai,
     ),
     runtime,
     { cors: true },
