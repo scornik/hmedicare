@@ -216,6 +216,9 @@ importers:
 
   .:
     devDependencies:
+      '@hmedic/ai':
+        specifier: workspace:*
+        version: link:packages/ai
       '@hmedic/api':
         specifier: workspace:*
         version: link:apps/api

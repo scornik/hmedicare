@@ -73,6 +73,7 @@
     "dev:otp": "node scripts/dev/otp-inbox.mjs"
   },
   "devDependencies": {
+    "@hmedic/ai": "workspace:*",
     "@hmedic/api": "workspace:*",
     "@hmedic/audit": "workspace:*",
     "@hmedic/communication": "workspace:*",
@@ -81,8 +82,8 @@
     "@hmedic/database": "workspace:*",
     "@hmedic/identity-access": "workspace:*",
     "@hmedic/jobs": "workspace:*",
-    "@hmedic/laboratory-documents": "workspace:*",
     "@hmedic/kernel": "workspace:*",
+    "@hmedic/laboratory-documents": "workspace:*",
     "@hmedic/observability": "workspace:*",
     "@hmedic/patient": "workspace:*",
     "@hmedic/provider-credentials": "workspace:*",
