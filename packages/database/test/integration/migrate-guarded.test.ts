@@ -63,17 +63,23 @@ afterAll(async () => {
  * These are the slowest tests in the suite and the timeout has to say so.
  *
  * Each one spawns the real guarded-migration script, which runs `mysqldump` over the whole schema,
- * verifies the dump and then applies migrations through the Prisma migration engine — 31 s and 40 s on an
- * idle machine. Against the project default of 60 s that is barely 1.5x of headroom, and a full
+ * verifies the dump and then applies migrations through the Prisma migration engine. A full
  * `checkpoint-verify` run has two MariaDB containers, a Playwright browser and the mobile toolchain
- * competing for the same cores. The result was a gate that failed on a different test in this file each
- * time while every one of them passed when run alone.
+ * competing for the same cores, so the limit has to clear the script's real cost by a wide margin. The
+ * failure it prevents is a gate that fails on a different test in this file each time while every one
+ * of them passes when run alone.
  *
- * Three minutes is not a looser assertion — nothing about what these tests check has changed. It is the
+ * **The cost grows with the migration count**, because every run replays the whole set. At 16
+ * migrations the slowest case took 31–40 s and three minutes was ample; at 24 it takes 57 s and three
+ * minutes was not enough under load. Seven minutes restores roughly the same headroom. Expect to raise
+ * this again, and treat a failure here as "the machine was busy" only after checking the timings
+ * printed by a solo run.
+ *
+ * This is not a looser assertion — nothing about what these tests check has changed. It is the
  * difference between a timeout that measures the machine's spare capacity and one that measures whether
  * the script finished.
  */
-const SLOW_MIGRATION_TIMEOUT_MS = 180_000;
+const SLOW_MIGRATION_TIMEOUT_MS = 420_000;
 
 describe('migrate-guarded (DEPLOYMENT.md §4.1)', { timeout: SLOW_MIGRATION_TIMEOUT_MS }, () => {
   it('takes and verifies a pre-migration dump itself in staging (DEPLOY-002)', async () => {

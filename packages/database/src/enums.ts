@@ -202,6 +202,9 @@ export const DB_ENUMS = {
     'PAYMENT_INTENT',
     'PRESCRIPTION',
     'DOCUMENT_LIST',
+    // Added by migration 0023 for follow-up reminder links. The live CHECK carried it from the start;
+    // this list did not, so the engine and these values disagreed until the contract test said so.
+    'COMMUNICATION',
   ],
 } as const;
 

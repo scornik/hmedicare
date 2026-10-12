@@ -38,13 +38,17 @@ describe('apps/api shell', () => {
       .set('authorization', `Bearer ${api.runtime.config.INTERNAL_CRON_TOKEN}`)
       .set('x-request-id', newId())
       .expect(200);
-    expect(res.body).toMatchObject({ maintenance: 5 }); // + ApplyNoShowPolicy (CP4)
-    expect(res.body.claimed).toBeGreaterThanOrEqual(5);
+    // One per periodic job every composition root registers. The exact list is asserted below rather
+    // than only the count, so adding a periodic job has to be a deliberate edit here.
+    expect(res.body).toMatchObject({ maintenance: 7 });
+    expect(res.body.claimed).toBeGreaterThanOrEqual(7);
     const types = await api.runtime.prisma.job.findMany({ select: { type: true, status: true } });
     expect(types.map((t) => t.type).sort()).toEqual([
       'ApplyNoShowPolicy',
       'CheckSmsBalance',
+      'CreateFollowUpReminders',
       'MaintenanceTtlCleanup',
+      'ProjectTimelineBacklog',
       'ReencryptProviderCredentials',
       'VerifyAppendOnlyChains',
     ]);
