@@ -1,0 +1,15 @@
+-- hmedic:normalized v1
+-- Hand-written (one column's nullability). It carries section 0013, the section whose table it alters:
+-- an ALTER to an existing table has no section of its own, and `migration-new.mjs` only diffs whole
+-- sections.
+-- Never edit after it has been applied anywhere (scripts/ci/check-applied-migrations.mjs).
+--
+-- `tenant_ai_policy_events.prev_row_hash` shipped NOT NULL, unlike every other hash-chained table in
+-- this schema, all of which allow NULL for the first row of a chain. That is not cosmetic:
+-- `VerifyAppendOnlyChains` starts a full verification with `prevHash = null` and compares it against the
+-- first row's stored value, so a genesis row holding a hash string can never verify — it fails with
+-- PREV_HASH_MISMATCH at seq 1, which is what it did.
+--
+-- Nullable here, so the AI policy chain is verified by the same code and the same rules as the audit and
+-- platform-gate chains rather than by an exception written around it.
+ALTER TABLE `tenant_ai_policy_events` MODIFY COLUMN `prev_row_hash` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL;

@@ -2518,7 +2518,9 @@ model TenantAiPolicyEvent {
   actorUserId String @map("actor_user_id") @db.VarChar(36)
   occurredAt DateTime @map("occurred_at") @db.DateTime(3)
   /// @ascii
-  prevRowHash String @map("prev_row_hash") @db.VarChar(64)
+  /// Null for the first row of a chain, as in every other hash-chained table here: the shared
+  /// verifier anchors a full run at null and compares it with this value.
+  prevRowHash String? @map("prev_row_hash") @db.VarChar(64)
   /// @ascii
   rowHash String @map("row_hash") @db.VarChar(64)
   @@unique([tenantId,seq], map: "uq_tenant_ai_policy_event_seq")

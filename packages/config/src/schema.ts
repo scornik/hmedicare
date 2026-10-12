@@ -252,6 +252,13 @@ export const aiSection = {
       'must contain unique lowercase provider codes',
     ),
   AI_FREE_TIER_ALLOWED_DEFAULT: bool(false),
+  /**
+   * ADR-017 §3: "AI provider use of patient data in Bangladesh" is an open research gate. Until it is
+   * closed, free-tier AI must not run against real patient data in production, so the policy engine
+   * forces `free_tier_ai_allowed` to false for every tenant regardless of what the tenant chose.
+   * Default false, which is the safe reading of "nobody has answered the question yet".
+   */
+  AI_FREE_TIER_PRODUCTION_GATE_CLOSED: bool(false),
   AI_PLATFORM_MANAGED_ENABLED: bool(false),
   AI_TRANSCRIPTION_ENABLED: bool(false),
 };
