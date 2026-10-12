@@ -106,6 +106,16 @@ export class AICredentialStore {
       declaredTier: DeclaredTier;
       billingMode: PolicyCredential['billingMode'];
       secret: string;
+      /**
+       * The live data-use acknowledgement that permits this credential (AIPOL-002).
+       *
+       * Required for a `MAY_TRAIN_OR_REVIEW` provider, which is what ADR-017 §3 makes it a hard
+       * precondition for. Stored rather than merely checked, because the link is what lets a withdrawn
+       * or superseded acknowledgement find the credentials that leaned on it and take them out of
+       * `ACTIVE`; without it the policy engine would keep reading a usable credential whose statement
+       * no longer stood.
+       */
+      dataUseAckId?: string;
     },
   ) {
     const meta = this.deps.metadata(input.providerCode, input.declaredTier);
@@ -127,6 +137,25 @@ export class AICredentialStore {
     try {
       return await withTransaction(this.deps.prisma, async (tx) => {
         await this.authorize(tx, actor, doctorProfileId);
+        if (input.dataUseAckId) {
+          // Scope is enforced by `fk_ai_credential_ack_scope`; liveness is not, so it is checked here.
+          const ack = await tx.aiDataUseAcknowledgement.findFirst({
+            where: {
+              tenantId: actor.tenantId,
+              id: input.dataUseAckId,
+              doctorProfileId,
+              providerCode: input.providerCode,
+              tier: input.declaredTier,
+              revokedAt: null,
+            },
+            select: { id: true },
+          });
+          if (!ack) throw new AppError('POLICY_BLOCKED');
+        }
+        // Not required here. ADR-017 §3 makes the acknowledgement a precondition for any *job* whose
+        // credential may be trained on, not for configuring one: a credential is created
+        // PENDING_VALIDATION, validated, and only then used. Demanding it at creation would be a
+        // stricter rule than the ADR states and would block the documented order of work.
         const id = newId(),
           now = this.clock.now();
         const sealed = this.deps.secrets.seal(
@@ -141,6 +170,7 @@ export class AICredentialStore {
             providerCode: input.providerCode,
             declaredTier: input.declaredTier,
             billingMode: input.billingMode,
+            ...(input.dataUseAckId ? { dataUseAckId: input.dataUseAckId } : {}),
             ...sealed,
             status: 'PENDING_VALIDATION',
             allowedModelIds: [],
