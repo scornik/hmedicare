@@ -37,9 +37,6 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "@hmedic/patient": "workspace:*",
-    "@hmedic/follow-up": "workspace:*",
-    "@hmedic/communication-adapters-mock": "workspace:*",
     "@hmedic/secrets": "workspace:*"
   }
 }

@@ -8,9 +8,14 @@ import { createHmac } from 'node:crypto';
 import { newId } from '@hmedic/kernel';
 import { deleteExpiredBatch } from '@hmedic/database';
 import { PrismaAuditPort } from '@hmedic/audit';
-import { PatientCommunicationSource } from '@hmedic/patient';
-import { FollowUpReminderSource } from '@hmedic/follow-up';
-import { MockSmsAdapter, MockEmailAdapter } from '@hmedic/communication-adapters-mock';
+import { PatientCommunicationSource } from '../../../patient/src/public/index';
+import { FollowUpReminderSource } from '../../../follow-up/src/public/index';
+// These three are imported by path rather than by package name, and the reason is structural.
+// `@hmedic/http-kit` depends on this context, and `@hmedic/identity-access` depends on http-kit, so a
+// dependency from here on `patient`, `follow-up` or the mock adapter closes a loop through them and
+// turbo refuses to build the workspace at all — every typecheck fails, not just this package's.
+// Test-only edges do not belong in the package graph; `tests/support/clinical.ts` does the same.
+import { MockSmsAdapter, MockEmailAdapter } from '../../../communication-adapters/mock/src/index';
 import {
   RateLimiter,
   JobRegistry,

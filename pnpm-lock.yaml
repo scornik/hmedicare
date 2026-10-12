@@ -647,15 +647,6 @@ importers:
         specifier: 3.25.76
         version: 3.25.76
     devDependencies:
-      '@hmedic/communication-adapters-mock':
-        specifier: workspace:*
-        version: link:../communication-adapters/mock
-      '@hmedic/follow-up':
-        specifier: workspace:*
-        version: link:../follow-up
-      '@hmedic/patient':
-        specifier: workspace:*
-        version: link:../patient
       '@hmedic/secrets':
         specifier: workspace:*
         version: link:../secrets
