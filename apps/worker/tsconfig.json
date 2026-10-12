@@ -12,6 +12,18 @@
   "include": ["src"],
   "references": [
     {
+      "path": "../../packages/ai"
+    },
+    {
+      "path": "../../packages/ai-adapters/mock"
+    },
+    {
+      "path": "../../packages/audit"
+    },
+    {
+      "path": "../../packages/secrets"
+    },
+    {
       "path": "../../packages/config"
     },
     {

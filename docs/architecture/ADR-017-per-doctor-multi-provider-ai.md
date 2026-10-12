@@ -96,6 +96,16 @@
   - `PHI_MINIMIZATION_FAILED`
   - `POLICY_BLOCKED`
   - `AI_CREDENTIAL_REVOKED`
+  
+  Two refinements were made when the port was built (ADAPT-001), recorded here so the code and this ADR
+  agree. `TIMEOUT` is split into `PROVIDER_UNAVAILABLE`, where the request provably never went out, and
+  `UNKNOWN_OUTCOME`, where it may have been processed: a caller may retry the first freely and must
+  never assume the second did not happen, and one name for both would have made that distinction
+  unavailable at the only place it matters. `TIER_MISMATCH` is an adapter-reportable class, since the
+  ADR already names it as a `last_error_class`. The last three classes above —
+  `PHI_MINIMIZATION_FAILED`, `POLICY_BLOCKED` and `AI_CREDENTIAL_REVOKED` — are decided before any
+  adapter is called and are therefore not part of what an adapter can return; they remain job and
+  policy outcomes.
 - **MVP adapters:** `MockAIProvider` (deterministic, fixtures for every error class), `GeminiApiAdapter` (Google AI Studio key; free or paid by declaration), `OpenAICompatibleAdapter` (configurable base URL; each concrete provider still needs its own metadata entry and register row before it can be selected).
 - Additional named adapters are Future. Their metadata slots are defined in the register. Vendor SDKs may be imported **only** inside `packages/ai-adapters/*`, enforced by dependency-cruiser.
 - **Models** come from `ai_model_catalog`, refreshed by a job through provider list-models APIs where available. No model ID is hard-coded in business code: defaults come from the catalog plus configuration, and tests use mock model IDs.

@@ -485,6 +485,15 @@ importers:
 
   apps/worker:
     dependencies:
+      '@hmedic/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
+      '@hmedic/ai-adapters-mock':
+        specifier: workspace:*
+        version: link:../../packages/ai-adapters/mock
+      '@hmedic/audit':
+        specifier: workspace:*
+        version: link:../../packages/audit
       '@hmedic/communication':
         specifier: workspace:*
         version: link:../../packages/communication
@@ -521,6 +530,9 @@ importers:
       '@hmedic/queue':
         specifier: workspace:*
         version: link:../../packages/queue
+      '@hmedic/secrets':
+        specifier: workspace:*
+        version: link:../../packages/secrets
       '@hmedic/storage-adapters-disk':
         specifier: workspace:*
         version: link:../../packages/storage-adapters/disk
@@ -567,9 +579,15 @@ importers:
       '@hmedic/kernel':
         specifier: workspace:*
         version: link:../kernel
+      '@hmedic/observability':
+        specifier: workspace:*
+        version: link:../observability
       '@hmedic/secrets':
         specifier: workspace:*
         version: link:../secrets
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
 
   packages/ai-adapters/mock:
     dependencies:

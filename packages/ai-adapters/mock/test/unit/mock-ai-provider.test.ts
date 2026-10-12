@@ -64,10 +64,11 @@ describe('mock AI provider', () => {
 
   it.each([
     ['invalid_credential', 'INVALID_CREDENTIAL'],
+    ['rate_limited', 'RATE_LIMITED'],
     ['quota_exhausted', 'QUOTA_EXHAUSTED'],
     ['tier_mismatch', 'TIER_MISMATCH'],
-    ['content_refused', 'CONTENT_REFUSED'],
-    ['schema_violation', 'SCHEMA_VIOLATION'],
+    ['content_blocked', 'CONTENT_BLOCKED'],
+    ['schema_invalid', 'SCHEMA_INVALID'],
     ['provider_error', 'PROVIDER_ERROR'],
     ['provider_unavailable', 'PROVIDER_UNAVAILABLE'],
     ['unknown_outcome', 'UNKNOWN_OUTCOME'],
@@ -80,22 +81,23 @@ describe('mock AI provider', () => {
     expect(result.outcome === 'ERROR' && result.errorClass).toBe(errorClass);
   });
 
-  it('reports a retry delay only for a quota refusal', async () => {
+  it('reports a retry delay only for a rate limit', async () => {
     const provider = new MockAIProvider();
-    provider.enqueue('quota_exhausted', 'provider_error');
+    provider.enqueue('rate_limited', 'quota_exhausted');
 
-    const quota = await provider.generate(credential(), { modelId: 'mock-text-1', prompt: PROMPT });
-    const other = await provider.generate(credential(), { modelId: 'mock-text-1', prompt: PROMPT });
+    const limited = await provider.generate(credential(), { modelId: 'mock-text-1', prompt: PROMPT });
+    const spent = await provider.generate(credential(), { modelId: 'mock-text-1', prompt: PROMPT });
 
-    expect(quota.outcome === 'ERROR' && quota.retryAfterSeconds).toBe(30);
-    // A caller must not learn a delay from a class that carries none.
-    expect(other.outcome === 'ERROR' && other.retryAfterSeconds).toBeUndefined();
+    expect(limited.outcome === 'ERROR' && limited.retryAfterSeconds).toBe(30);
+    // An exhausted quota carries no delay, because no wait inside one job clears it, and a caller
+    // must not learn a delay from a class that does not have one.
+    expect(spent.outcome === 'ERROR' && spent.retryAfterSeconds).toBeUndefined();
   });
 
   it('refuses a model it does not list, whatever the scenario', async () => {
     const provider = new MockAIProvider();
     const result = await provider.generate(credential(), { modelId: 'not-a-model', prompt: PROMPT });
-    expect(result.outcome === 'ERROR' && result.errorClass).toBe('MODEL_NOT_AVAILABLE');
+    expect(result.outcome === 'ERROR' && result.errorClass).toBe('MODEL_UNAVAILABLE');
   });
 
   it('answers UNKNOWN_OUTCOME when the lease was lost mid-call', async () => {
@@ -157,7 +159,11 @@ describe('mock AI provider', () => {
     // "safe to retry unchanged" and "the credential is the problem".
     for (const cls of AI_SAFE_TO_RETRY) expect(AI_CREDENTIAL_FAULTS).not.toContain(cls);
     expect(AI_SAFE_TO_RETRY).toContain('PROVIDER_UNAVAILABLE');
+    // A rate limit is a refusal to start, so retrying the same request is safe; an exhausted quota
+    // describes the account and belongs with the credential faults.
+    expect(AI_SAFE_TO_RETRY).toContain('RATE_LIMITED');
     expect(AI_CREDENTIAL_FAULTS).toContain('INVALID_CREDENTIAL');
+    expect(AI_CREDENTIAL_FAULTS).toContain('QUOTA_EXHAUSTED');
     // Deliberately absent from both: nobody may assume an unknown outcome did not happen.
     expect(AI_SAFE_TO_RETRY).not.toContain('UNKNOWN_OUTCOME');
     expect(AI_CREDENTIAL_FAULTS).not.toContain('UNKNOWN_OUTCOME');

@@ -10,6 +10,10 @@
     "start": "node dist/main.js"
   },
   "dependencies": {
+    "@hmedic/ai": "workspace:*",
+    "@hmedic/ai-adapters-mock": "workspace:*",
+    "@hmedic/audit": "workspace:*",
+    "@hmedic/secrets": "workspace:*",
     "@hmedic/config": "workspace:*",
     "@hmedic/database": "workspace:*",
     "@hmedic/http-kit": "workspace:*",

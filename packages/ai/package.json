@@ -27,6 +27,8 @@
     "@hmedic/identity-access": "workspace:*",
     "@hmedic/jobs": "workspace:*",
     "@hmedic/kernel": "workspace:*",
-    "@hmedic/secrets": "workspace:*"
+    "@hmedic/observability": "workspace:*",
+    "@hmedic/secrets": "workspace:*",
+    "zod": "3.25.76"
   }
 }

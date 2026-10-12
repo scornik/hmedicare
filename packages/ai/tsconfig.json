@@ -13,6 +13,7 @@
     { "path": "../database" },
     { "path": "../identity-access" },
     { "path": "../jobs" },
-    { "path": "../kernel" }
+    { "path": "../kernel" },
+    { "path": "../observability" }
   ]
 }

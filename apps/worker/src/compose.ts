@@ -9,6 +9,14 @@ import {
   registerReminderJobs,
   registerTransactionalSmsJobs,
 } from '@hmedic/communication/worker';
+import {
+  AICredentialSecrets,
+  AICredentialValidator,
+  AIProviderRegister,
+  registerAIValidationJobs,
+} from '@hmedic/ai';
+import { MockAIProvider } from '@hmedic/ai-adapters-mock';
+import { SecretEnvelope, kekFromBase64 } from '@hmedic/secrets';
 import { PatientCommunicationSource } from '@hmedic/patient';
 import { FollowUpReminderSource } from '@hmedic/follow-up';
 import { MockEmailAdapter, MockWhatsAppAdapter } from '@hmedic/communication-adapters-mock';
@@ -137,6 +145,48 @@ export async function buildWorker(
         handler: RECORD_MEDICATION_USAGE,
         orderedByAggregate: true,
       });
+      /**
+       * `ValidateAICredential` (AICRED-004).
+       *
+       * Composed only where AI encryption is configured, the same condition the API uses to decide
+       * whether AI routes exist: without the KEK a credential cannot be opened, so a job that could
+       * only fail on its first attempt should not be registered at all. The mock adapter is composed
+       * outside production only, so production registers no adapter and validation records
+       * `PROVIDER_NOT_SERVED` without moving the status until a vendor adapter ships.
+       */
+      if (
+        config.AI_CREDENTIAL_KEK &&
+        config.AI_CREDENTIAL_KEK_ID &&
+        config.AI_CREDENTIAL_FINGERPRINT_PEPPER
+      ) {
+        registerAIValidationJobs(
+          registry,
+          runner,
+          subscriptions,
+          new AICredentialValidator({
+            prisma: runtime.prisma,
+            audit: runtime.audit,
+            secrets: new AICredentialSecrets(
+              new SecretEnvelope({
+                current: kekFromBase64(config.AI_CREDENTIAL_KEK_ID, config.AI_CREDENTIAL_KEK),
+                ...(config.AI_CREDENTIAL_KEK_PREVIOUS && config.AI_CREDENTIAL_KEK_PREVIOUS_ID
+                  ? {
+                      previous: kekFromBase64(
+                        config.AI_CREDENTIAL_KEK_PREVIOUS_ID,
+                        config.AI_CREDENTIAL_KEK_PREVIOUS,
+                      ),
+                    }
+                  : {}),
+              }),
+              config.AI_CREDENTIAL_FINGERPRINT_PEPPER,
+            ),
+            providers: new AIProviderRegister(config.APP_ENV !== 'production' ? [new MockAIProvider()] : []),
+            environment: config.APP_ENV,
+            clock: runtime.clock,
+          }),
+          runtime.logger,
+        );
+      }
       registerPrescriptionJobs(registry, runner, {
         prisma: runtime.prisma,
         environment: config.APP_ENV,

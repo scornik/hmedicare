@@ -29,22 +29,24 @@ import { MOCK_PROVIDER_CODE, mockMetadata } from './metadata';
 export type MockAIScenario =
   | 'success'
   | 'invalid_credential'
+  | 'rate_limited'
   | 'quota_exhausted'
   | 'tier_mismatch'
-  | 'model_not_available'
-  | 'content_refused'
-  | 'schema_violation'
+  | 'model_unavailable'
+  | 'content_blocked'
+  | 'schema_invalid'
   | 'provider_error'
   | 'provider_unavailable'
   | 'unknown_outcome';
 
 const ERROR_FOR: Partial<Record<MockAIScenario, AIErrorClass>> = {
   invalid_credential: 'INVALID_CREDENTIAL',
+  rate_limited: 'RATE_LIMITED',
   quota_exhausted: 'QUOTA_EXHAUSTED',
   tier_mismatch: 'TIER_MISMATCH',
-  model_not_available: 'MODEL_NOT_AVAILABLE',
-  content_refused: 'CONTENT_REFUSED',
-  schema_violation: 'SCHEMA_VIOLATION',
+  model_unavailable: 'MODEL_UNAVAILABLE',
+  content_blocked: 'CONTENT_BLOCKED',
+  schema_invalid: 'SCHEMA_INVALID',
   provider_error: 'PROVIDER_ERROR',
   provider_unavailable: 'PROVIDER_UNAVAILABLE',
   unknown_outcome: 'UNKNOWN_OUTCOME',
@@ -95,7 +97,7 @@ export class MockAIProvider implements AIProvider {
       providerCode: `mock_${scenario}`,
       // Only where a provider would really say so; a caller must not learn a delay from a class that
       // carries none.
-      ...(errorClass === 'QUOTA_EXHAUSTED' ? { retryAfterSeconds: 30 } : {}),
+      ...(errorClass === 'RATE_LIMITED' ? { retryAfterSeconds: 30 } : {}),
     };
   }
 
@@ -138,7 +140,7 @@ export class MockAIProvider implements AIProvider {
       return { outcome: 'ERROR', errorClass: 'UNKNOWN_OUTCOME', providerCode: 'mock_aborted' };
     }
     if (!MOCK_MODELS.some((m) => m.modelId === input.modelId)) {
-      return this.fail('model_not_available');
+      return this.fail('model_unavailable');
     }
     if (scenario !== 'success') return this.fail(scenario);
 

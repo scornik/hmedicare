@@ -24,16 +24,24 @@ import type { AdapterPolicyMetadata, DeclaredTier } from '../policy/effective-po
 export type AIErrorClass =
   /** The key is wrong, revoked or not accepted by the provider. */
   | 'INVALID_CREDENTIAL'
-  /** Out of quota or rate limited. `retryAfterSeconds` says when, if the provider said. */
+  /**
+   * Refused for now, not refused outright: `retryAfterSeconds` says when, if the provider said.
+   *
+   * Separate from `QUOTA_EXHAUSTED` because the two settle differently. A rate limit says nothing
+   * about the credential and the caller waits; an exhausted quota is a state of the account that a
+   * wait inside one job will not clear.
+   */
+  | 'RATE_LIMITED'
+  /** The account's quota is spent. The caller stops and the credential records it. */
   | 'QUOTA_EXHAUSTED'
   /** The provider reports a tier that contradicts the doctor's declaration (ADR-017 §3). */
   | 'TIER_MISMATCH'
   /** The requested model is absent from the provider or from the catalog. */
-  | 'MODEL_NOT_AVAILABLE'
+  | 'MODEL_UNAVAILABLE'
   /** The provider refused the content on its own policy grounds. */
-  | 'CONTENT_REFUSED'
+  | 'CONTENT_BLOCKED'
   /** The response did not satisfy the schema that was requested. */
-  | 'SCHEMA_VIOLATION'
+  | 'SCHEMA_INVALID'
   /** Reached the provider, got an error this adapter has no better name for. */
   | 'PROVIDER_ERROR'
   /** Provably never processed: connect or DNS failure before request bytes went out. */
@@ -42,7 +50,7 @@ export type AIErrorClass =
   | 'UNKNOWN_OUTCOME';
 
 /** Classes where the request provably never reached the model, so a retry is safe. */
-export const AI_SAFE_TO_RETRY: readonly AIErrorClass[] = ['PROVIDER_UNAVAILABLE'];
+export const AI_SAFE_TO_RETRY: readonly AIErrorClass[] = ['PROVIDER_UNAVAILABLE', 'RATE_LIMITED'];
 
 /** Classes that describe the credential rather than the request, so retrying changes nothing. */
 export const AI_CREDENTIAL_FAULTS: readonly AIErrorClass[] = [
