@@ -23,11 +23,19 @@ import type { MedicationSearchService } from './medication-search';
 export const MAINTENANCE_QUEUE = 'maintenance';
 export const RECORD_MEDICATION_USAGE = 'RecordMedicationUsage';
 
-export const RecordMedicationUsagePayload = z.object({
-  v: z.literal(1),
-  prescriptionId: z.string().min(1).max(36),
-  tenantId: z.string().min(1).max(36),
-});
+/**
+ * The event payload the outbox publisher produces, not a payload of this job's own choosing: a
+ * subscribed handler receives `{ v, eventId, eventType, aggregateId }` and the tenant on the job row.
+ * The prescription id is the event's aggregate id.
+ */
+export const RecordMedicationUsagePayload = z
+  .object({
+    v: z.literal(1),
+    eventId: z.string().uuid(),
+    eventType: z.literal('PrescriptionApproved'),
+    aggregateId: z.string().uuid(),
+  })
+  .strict();
 
 export type RecordMedicationUsagePayload = z.infer<typeof RecordMedicationUsagePayload>;
 
@@ -53,10 +61,13 @@ export function registerMedicationUsageJobs(
   });
 
   runner?.handle(RECORD_MEDICATION_USAGE, async (ctx) => {
-    const payload = ctx.payload as RecordMedicationUsagePayload;
+    const payload = RecordMedicationUsagePayload.parse(ctx.payload);
+    if (!ctx.tenantId) throw new NonRetryableJobError('PRESCRIPTION_TENANT_REQUIRED');
+    const tenantId = ctx.tenantId,
+      prescriptionId = payload.aggregateId;
 
     const prescription = await deps.prisma.prescription.findFirst({
-      where: { tenantId: payload.tenantId, id: payload.prescriptionId },
+      where: { tenantId, id: prescriptionId },
       select: { clinicalStatus: true },
     });
     if (!prescription) {
@@ -67,14 +78,14 @@ export function registerMedicationUsageJobs(
       // Approved and then voided before this job ran. Counting it would record a prescription the
       // patient never kept, so the job succeeds having done nothing.
       deps.logger?.info(
-        { prescriptionId: payload.prescriptionId, status: prescription.clinicalStatus },
+        { prescriptionId, status: prescription.clinicalStatus },
         'medication usage skipped: no longer approved',
       );
       return;
     }
 
     const items = await deps.prisma.prescriptionItem.findMany({
-      where: { tenantId: payload.tenantId, prescriptionId: payload.prescriptionId },
+      where: { tenantId, prescriptionId },
       select: { medicationId: true },
     });
     const medicationIds = items.map((i) => i.medicationId).filter((id): id is string => id !== null);
@@ -82,6 +93,6 @@ export function registerMedicationUsageJobs(
     // clinic that prescribes mostly free text simply gets no boost rather than a wrong one.
     if (medicationIds.length === 0) return;
 
-    await deps.search.recordUsage({ tenantId: payload.tenantId, medicationIds });
+    await deps.search.recordUsage({ tenantId, medicationIds });
   });
 }

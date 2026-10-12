@@ -156,15 +156,28 @@ async function prescription(
   return id;
 }
 
-/** Enqueues the handler's job directly and runs it, as the outbox publisher would. */
+/**
+ * Enqueues the handler's job and runs it.
+ *
+ * The row is built exactly as `OutboxPublisher` builds one: the tenant lives on the job, and the
+ * payload is the event envelope `{ v, eventId, eventType, aggregateId }` rather than fields of this
+ * job's own choosing. A helper that invented a friendlier payload would pass while the real
+ * subscription path failed payload validation.
+ */
 async function runConsumer(prescriptionId: string): Promise<string> {
   const jobId = newId();
   await db.prisma.job.create({
     data: {
       id: jobId,
+      tenantId: TENANT,
       queue: MAINTENANCE_QUEUE,
       type: RECORD_MEDICATION_USAGE,
-      payload: { v: 1, prescriptionId, tenantId: TENANT },
+      payload: {
+        v: 1,
+        eventId: newId(),
+        eventType: 'PrescriptionApproved',
+        aggregateId: prescriptionId,
+      },
       status: 'QUEUED',
       runAt: new Date(),
       correlationId: newId(),

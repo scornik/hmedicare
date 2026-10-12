@@ -131,7 +131,12 @@ export async function buildWorker(
         communication.enableTransactionalSms(smsDelivery);
       }
       registerDeliveryJobs(registry, runner, subscriptions, communication);
-      subscriptions.subscribe('PrescriptionApproved', { handler: RECORD_MEDICATION_USAGE });
+      // Ordered per prescription: two jobs for one aggregate must not increment the same counters at
+      // once.
+      subscriptions.subscribe('PrescriptionApproved', {
+        handler: RECORD_MEDICATION_USAGE,
+        orderedByAggregate: true,
+      });
       registerPrescriptionJobs(registry, runner, {
         prisma: runtime.prisma,
         environment: config.APP_ENV,
