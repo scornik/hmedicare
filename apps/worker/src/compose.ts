@@ -18,6 +18,7 @@ import {
   registerAIValidationJobs,
 } from '@hmedic/ai';
 import { MockAIProvider } from '@hmedic/ai-adapters-mock';
+import { GeminiApiAdapter } from '@hmedic/ai-adapters-gemini';
 import { SecretEnvelope, kekFromBase64 } from '@hmedic/secrets';
 import { PatientCommunicationSource } from '@hmedic/patient';
 import { FollowUpReminderSource } from '@hmedic/follow-up';
@@ -184,9 +185,12 @@ export async function buildWorker(
           }),
           config.AI_CREDENTIAL_FINGERPRINT_PEPPER,
         );
-        const aiProviders = new AIProviderRegister(
-          config.APP_ENV !== 'production' ? [new MockAIProvider()] : [],
-        );
+        // Same rule as the API: the mock outside production only, Gemini where the configuration
+        // lists it. Its production gate still blocks activation in production (ADR-017 §7).
+        const aiProviders = new AIProviderRegister([
+          ...(config.APP_ENV !== 'production' ? [new MockAIProvider()] : []),
+          ...(config.AI_ENABLED_PROVIDER_CODES.includes('gemini') ? [new GeminiApiAdapter()] : []),
+        ]);
         registerAIValidationJobs(
           registry,
           runner,

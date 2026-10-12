@@ -12,6 +12,7 @@ import {
   TenantAIPolicyStore,
 } from '@hmedic/ai';
 import { MockAIProvider } from '@hmedic/ai-adapters-mock';
+import { GeminiApiAdapter } from '@hmedic/ai-adapters-gemini';
 import { SecretEnvelope, kekFromBase64 } from '@hmedic/secrets';
 import {
   CommunicationLinksController,
@@ -473,14 +474,21 @@ export async function buildApi(
   const patient = createPatientServices(runtime);
   identity.patientContexts = patient.contexts;
   /**
-   * The adapters this deployment can reach (ADAPT-001).
+   * The adapters this deployment can reach (ADAPT-001, ADAPT-003).
    *
    * The mock adapter is composed outside production only, the same rule the mock telemedicine provider
    * follows: a mock credential live in production would be a model that answers nothing pretending to
-   * be one that answers something. Vendor adapters join this register as they ship (ADAPT-003/004),
-   * which is why production currently registers none and every credential creation there is refused.
+   * be one that answers something.
+   *
+   * Gemini is composed where `AI_ENABLED_PROVIDER_CODES` lists it, which is staging in the register's
+   * MVP plan. Being composed is not permission to use it: its production gate is `OPEN`, so a
+   * credential for it cannot activate in production, and that gate closes only through a reviewed
+   * register change (ADR-017 §7).
    */
-  const aiProviders = new AIProviderRegister(config.APP_ENV !== 'production' ? [new MockAIProvider()] : []);
+  const aiProviders = new AIProviderRegister([
+    ...(config.APP_ENV !== 'production' ? [new MockAIProvider()] : []),
+    ...(config.AI_ENABLED_PROVIDER_CODES.includes('gemini') ? [new GeminiApiAdapter()] : []),
+  ]);
   /**
    * AI stores, or null when this deployment has no AI encryption configured.
    *

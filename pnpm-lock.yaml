@@ -321,6 +321,9 @@ importers:
       '@hmedic/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@hmedic/ai-adapters-gemini':
+        specifier: workspace:*
+        version: link:../../packages/ai-adapters/gemini
       '@hmedic/ai-adapters-mock':
         specifier: workspace:*
         version: link:../../packages/ai-adapters/mock
@@ -488,6 +491,9 @@ importers:
       '@hmedic/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@hmedic/ai-adapters-gemini':
+        specifier: workspace:*
+        version: link:../../packages/ai-adapters/gemini
       '@hmedic/ai-adapters-mock':
         specifier: workspace:*
         version: link:../../packages/ai-adapters/mock
@@ -591,6 +597,12 @@ importers:
       zod:
         specifier: 3.25.76
         version: 3.25.76
+
+  packages/ai-adapters/gemini:
+    dependencies:
+      '@hmedic/ai':
+        specifier: workspace:*
+        version: link:../../ai
 
   packages/ai-adapters/mock:
     dependencies:
