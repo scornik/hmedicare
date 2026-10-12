@@ -315,3 +315,39 @@ registry.registerPath({
   },
   responses: { 200: ok(AiCredential, 'Changed'), ...errorResponses },
 });
+
+export const AiModel = registry.register(
+  'AiModel',
+  z.object({
+    providerCode: z.string(),
+    modelId: z.string().openapi({
+      description: "The provider's own identifier, used verbatim. Never constructed by this platform",
+    }),
+    displayName: z.string(),
+    capabilities: z.array(z.string()),
+    tierAvailability: z.array(z.enum(['FREE', 'PAID'])),
+    contextTokens: z.number().int().nullable(),
+    lastVerifiedAt: Timestamp.openapi({
+      description: 'When a refresh last saw this model in the provider’s own list',
+    }),
+    source: z.enum(['PROVIDER_API', 'MANUAL_CONFIG']),
+  }),
+);
+
+export const AiModelList = registry.register('AiModelList', z.object({ items: z.array(AiModel) }));
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/ai/models',
+  operationId: 'listAiModels',
+  tags: ['AI'],
+  security: secured,
+  description:
+    'Live models from the catalog, optionally for one provider. Deprecated models are omitted: a ' +
+    'picker that still offered one would be offering a call the provider will refuse.',
+  request: {
+    headers: tenantHeaders,
+    query: z.object({ providerCode: z.string().min(1).max(32).optional() }),
+  },
+  responses: { 200: ok(AiModelList, 'Models'), ...errorResponses },
+});

@@ -15,3 +15,5 @@ export * from '../infrastructure/validation-jobs';
 export * from '../application/minimization/tokens';
 export * from '../application/minimization/detectors';
 export * from '../application/minimization/phi-minimization';
+export * from '../infrastructure/model-catalog-store';
+export * from '../infrastructure/catalog-jobs';

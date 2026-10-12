@@ -8,5 +8,6 @@ module.exports = {
     'no-secret-logging': require('./rules/no-secret-logging.cjs'),
     'no-get-provider-call': require('./rules/no-get-provider-call.cjs'),
     'no-tls-disable': require('./rules/no-tls-disable.cjs'),
+    'no-hardcoded-model-id': require('./rules/no-hardcoded-model-id.cjs'),
   },
 };

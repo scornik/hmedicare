@@ -12,7 +12,9 @@ import {
 import {
   AICredentialSecrets,
   AICredentialValidator,
+  AIModelCatalogStore,
   AIProviderRegister,
+  registerAICatalogJobs,
   registerAIValidationJobs,
 } from '@hmedic/ai';
 import { MockAIProvider } from '@hmedic/ai-adapters-mock';
@@ -38,6 +40,7 @@ import {
   jobLagCheck,
   sessionModeCheck,
 } from '@hmedic/http-kit';
+import type { PeriodicJob } from '@hmedic/jobs';
 import { composeSchedulingAndQueue, registerQueueJobs } from '@hmedic/queue';
 import { RECORD_MEDICATION_USAGE, medicationGateChainSource } from '@hmedic/prescriptions';
 import { registerPrescriptionJobs } from '@hmedic/prescriptions/worker';
@@ -109,6 +112,14 @@ export async function buildWorker(
     audit: runtime.audit,
     clock: runtime.clock,
   });
+  /**
+   * The AI periodic schedule, filled in below only where AI encryption is configured.
+   *
+   * Declared outside the callback because the scheduler is built from its return value, and a
+   * deployment with no AI keys must contribute no AI schedule rather than an entry whose job was
+   * never registered.
+   */
+  let aiPeriodic: PeriodicJob[] = [];
   const jobs = composePlatformJobs(
     runtime,
     sms,
@@ -159,6 +170,23 @@ export async function buildWorker(
         config.AI_CREDENTIAL_KEK_ID &&
         config.AI_CREDENTIAL_FINGERPRINT_PEPPER
       ) {
+        const aiSecrets = new AICredentialSecrets(
+          new SecretEnvelope({
+            current: kekFromBase64(config.AI_CREDENTIAL_KEK_ID, config.AI_CREDENTIAL_KEK),
+            ...(config.AI_CREDENTIAL_KEK_PREVIOUS && config.AI_CREDENTIAL_KEK_PREVIOUS_ID
+              ? {
+                  previous: kekFromBase64(
+                    config.AI_CREDENTIAL_KEK_PREVIOUS_ID,
+                    config.AI_CREDENTIAL_KEK_PREVIOUS,
+                  ),
+                }
+              : {}),
+          }),
+          config.AI_CREDENTIAL_FINGERPRINT_PEPPER,
+        );
+        const aiProviders = new AIProviderRegister(
+          config.APP_ENV !== 'production' ? [new MockAIProvider()] : [],
+        );
         registerAIValidationJobs(
           registry,
           runner,
@@ -166,26 +194,22 @@ export async function buildWorker(
           new AICredentialValidator({
             prisma: runtime.prisma,
             audit: runtime.audit,
-            secrets: new AICredentialSecrets(
-              new SecretEnvelope({
-                current: kekFromBase64(config.AI_CREDENTIAL_KEK_ID, config.AI_CREDENTIAL_KEK),
-                ...(config.AI_CREDENTIAL_KEK_PREVIOUS && config.AI_CREDENTIAL_KEK_PREVIOUS_ID
-                  ? {
-                      previous: kekFromBase64(
-                        config.AI_CREDENTIAL_KEK_PREVIOUS_ID,
-                        config.AI_CREDENTIAL_KEK_PREVIOUS,
-                      ),
-                    }
-                  : {}),
-              }),
-              config.AI_CREDENTIAL_FINGERPRINT_PEPPER,
-            ),
-            providers: new AIProviderRegister(config.APP_ENV !== 'production' ? [new MockAIProvider()] : []),
+            secrets: aiSecrets,
+            providers: aiProviders,
             environment: config.APP_ENV,
             clock: runtime.clock,
           }),
           runtime.logger,
         );
+        // RefreshAIModelCatalog (ADAPT-002). Its schedule leaves the callback so the maintenance
+        // scheduler can be built from it.
+        aiPeriodic = registerAICatalogJobs(registry, runner, {
+          prisma: runtime.prisma,
+          catalog: new AIModelCatalogStore({ prisma: runtime.prisma, clock: runtime.clock }),
+          providers: aiProviders,
+          secrets: aiSecrets,
+          logger: runtime.logger,
+        });
       }
       registerPrescriptionJobs(registry, runner, {
         prisma: runtime.prisma,
@@ -204,6 +228,7 @@ export async function buildWorker(
         logger: runtime.logger,
       });
       return [
+        ...aiPeriodic,
         ...(config.APP_ENV !== 'production'
           ? registerReminderJobs(registry, runner, communication, reminderSource)
           : []),

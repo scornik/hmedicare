@@ -66,6 +66,9 @@ export const LOCK_RANKING: Readonly<Record<string, number>> = {
   provider_credentials: 64,
   tenant_ai_policies: 17,
   ai_data_use_acknowledgements: 18,
+  // Global and read far more than written. Ranked above the policy tables and below the credential
+  // tables, which is the order a refresh takes them in: catalog first, then the credential it used.
+  ai_model_catalog: 19,
   ai_provider_credentials: 64,
   ai_credential_fallbacks: 65,
   communication_preferences: 27,

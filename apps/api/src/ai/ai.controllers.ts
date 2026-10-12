@@ -25,6 +25,7 @@ import { CurrentActor, CurrentTenant, RequirePermission } from '@hmedic/identity
 import {
   type AIAcknowledgementStore,
   type AICredentialStore,
+  type AIModelCatalogStore,
   type TenantAIPolicyStore,
   acknowledgementTextSha256,
   currentAcknowledgementTexts,
@@ -41,6 +42,7 @@ export interface AiServices {
   policy: TenantAIPolicyStore;
   acknowledgements: AIAcknowledgementStore;
   credentials: AICredentialStore;
+  models: AIModelCatalogStore;
 }
 
 /**
@@ -102,6 +104,24 @@ export class AiController {
     return this.svc()
       .policy.events(this.actor(actor, tenant, req), limit ? Number(limit) : undefined)
       .then((items) => ({ items }));
+  }
+
+  /**
+   * Live models (ADAPT-002).
+   *
+   * Deprecated rows are omitted by the store, so a picker cannot offer a model the provider has
+   * withdrawn — offering one would be offering a call that is going to be refused. The catalog is
+   * global and carries no patient data, so `ai.use` is the right gate: a doctor choosing a model
+   * needs to see the list.
+   */
+  @Get('ai/models')
+  @RequirePermission('ai.use')
+  listModels(@Query('providerCode') providerCode?: string) {
+    return this.svc()
+      .models.list(providerCode)
+      .then((items) => ({
+        items: items.map(({ deprecatedAt: _deprecatedAt, ...model }) => model),
+      }));
   }
 
   /**

@@ -6,6 +6,7 @@ import {
   AIAcknowledgementStore,
   AICredentialSecrets,
   AICredentialStore,
+  AIModelCatalogStore,
   AIProviderRegister,
   CURRENT_ACK_TEXT_VERSION,
   TenantAIPolicyStore,
@@ -527,6 +528,7 @@ export async function buildApi(
             metadata: aiProviders.metadata,
             clock: runtime.clock,
           }),
+          models: new AIModelCatalogStore({ prisma: runtime.prisma, clock: runtime.clock }),
         }
       : null;
   const telemedicine =

@@ -206,6 +206,20 @@ export const DB_ENUMS = {
     // this list did not, so the engine and these values disagreed until the contract test said so.
     'COMMUNICATION',
   ],
+  // AI (ADR-017). Listed here so the engine-contract test holds these CHECKs to the same source of
+  // truth as every other enum: a data-use tier or a credential status that drifted from its CHECK
+  // would be a policy decision made on a value the database does not accept.
+  'ai_data_use_acknowledgements.tier': ['FREE', 'PAID'],
+  'ai_provider_credentials.declared_tier': ['FREE', 'PAID'],
+  'ai_provider_credentials.status': [
+    'PENDING_VALIDATION',
+    'ACTIVE',
+    'INVALID',
+    'QUOTA_EXHAUSTED',
+    'DISABLED',
+    'REVOKED',
+  ],
+  'ai_model_catalog.source': ['PROVIDER_API', 'MANUAL_CONFIG'],
 } as const;
 
 export type DbEnumKey = keyof typeof DB_ENUMS;
@@ -220,3 +234,5 @@ export type ChamberDayStatus = DbEnum<'chamber_days.status'>;
 export type AppointmentStatus = DbEnum<'appointments.status'>;
 export type SerialStatus = DbEnum<'serials.status'>;
 export type QueueEventType = DbEnum<'queue_events.event_type'>;
+export type AiCredentialStatusCode = DbEnum<'ai_provider_credentials.status'>;
+export type AiModelCatalogSource = DbEnum<'ai_model_catalog.source'>;

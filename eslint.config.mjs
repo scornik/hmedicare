@@ -44,6 +44,7 @@ export default tseslint.config(
       'hmedic/no-append-only-mutation': 'error',
       'hmedic/no-secret-logging': 'error',
       'hmedic/no-tls-disable': 'error',
+      'hmedic/no-hardcoded-model-id': 'error',
     },
   },
   {
@@ -86,6 +87,7 @@ export default tseslint.config(
       'hmedic/no-tls-disable': 'off',
       'hmedic/no-secret-logging': 'off',
       'hmedic/no-append-only-mutation': 'off',
+      'hmedic/no-hardcoded-model-id': 'off',
     },
   },
   {

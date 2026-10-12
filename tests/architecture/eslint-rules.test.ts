@@ -100,3 +100,27 @@ describe('hmedic/no-tls-disable', () => {
     ],
   });
 });
+
+describe('hmedic/no-hardcoded-model-id', () => {
+  tester.run('no-hardcoded-model-id', plugin.rules['no-hardcoded-model-id'], {
+    valid: [
+      // The catalog is where a model id comes from (ADAPT-002).
+      'const model = await catalog.list(providerCode);',
+      "const id = credential.defaultModelId ?? '';",
+      // Not a vendor model id shape: a rule that flagged every hyphenated string would be turned off.
+      "const queue = 'ai-models';",
+      "const code = 'gemini';",
+      "const label = 'GPT is a kind of model';",
+    ],
+    invalid: [
+      { code: "const model = 'gemini-2.5-flash';", errors: [{ messageId: 'literal' }] },
+      { code: "generate({ modelId: 'gpt-4o-mini' });", errors: [{ messageId: 'literal' }] },
+      { code: "const fallback = 'claude-3-5-sonnet';", errors: [{ messageId: 'literal' }] },
+      // The static head of a template is the same literal with extra steps.
+      {
+        code: 'const model = `gemini-2.5-flash${suffix}`;',
+        errors: [{ messageId: 'literal' }],
+      },
+    ],
+  });
+});

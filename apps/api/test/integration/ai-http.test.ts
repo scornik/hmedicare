@@ -332,3 +332,62 @@ describe('AI credentials over HTTP', () => {
       .expect(403);
   });
 });
+
+describe('AI model catalog over HTTP (ADAPT-002)', () => {
+  const seed = async (modelId: string, deprecated = false) => {
+    const now = new Date();
+    await api.runtime.prisma.aiModelCatalogEntry.create({
+      data: {
+        id: newId(),
+        providerCode: 'mock',
+        modelId,
+        displayName: modelId,
+        capabilities: ['text'],
+        tierAvailability: ['FREE'],
+        contextTokens: 8192,
+        ...(deprecated ? { deprecatedAt: now } : {}),
+        lastVerifiedAt: now,
+        source: 'PROVIDER_API',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+  };
+
+  it('serves live models and omits deprecated ones', async () => {
+    const f = await fixture();
+    await seed('mock-text-1');
+    await seed('mock-withdrawn-1', true);
+
+    const res = await request(server).get('/api/v1/ai/models').set(f.doctor.headers).expect(200);
+    // A picker that still offered a withdrawn model would be offering a call the provider refuses.
+    expect(res.body.data.items).toHaveLength(1);
+    expect(res.body.data.items[0]).toMatchObject({
+      providerCode: 'mock',
+      modelId: 'mock-text-1',
+      tierAvailability: ['FREE'],
+      contextTokens: 8192,
+      source: 'PROVIDER_API',
+    });
+    // `deprecatedAt` is not part of the response: every row in it is live by construction.
+    expect(res.body.data.items[0].deprecatedAt).toBeUndefined();
+  });
+
+  it('filters by provider', async () => {
+    const f = await fixture();
+    await seed('mock-text-1');
+    const res = await request(server)
+      .get('/api/v1/ai/models?providerCode=absent')
+      .set(f.doctor.headers)
+      .expect(200);
+    expect(res.body.data.items).toEqual([]);
+  });
+
+  it('refuses a member without ai.use', async () => {
+    const f = await fixture();
+    const receptionist = await member(f.tenantId, 'receptionist');
+    await seed('mock-text-1');
+    const res = await request(server).get('/api/v1/ai/models').set(receptionist.headers);
+    expect(res.status).toBe(403);
+  });
+});

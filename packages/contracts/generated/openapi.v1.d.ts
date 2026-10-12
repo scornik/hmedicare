@@ -120,6 +120,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ai/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Live models from the catalog, optionally for one provider. Deprecated models are omitted: a picker that still offered one would be offering a call the provider will refuse. */
+        get: operations["listAiModels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/appointments": {
         parameters: {
             query?: never;
@@ -2298,6 +2315,26 @@ export interface components {
         };
         AiCredentialList: {
             items: components["schemas"]["AiCredential"][];
+        };
+        AiModel: {
+            capabilities: string[];
+            contextTokens: number | null;
+            displayName: string;
+            /**
+             * Format: date-time
+             * @description When a refresh last saw this model in the provider’s own list
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            lastVerifiedAt: string;
+            /** @description The provider's own identifier, used verbatim. Never constructed by this platform */
+            modelId: string;
+            providerCode: string;
+            /** @enum {string} */
+            source: "PROVIDER_API" | "MANUAL_CONFIG";
+            tierAvailability: ("FREE" | "PAID")[];
+        };
+        AiModelList: {
+            items: components["schemas"]["AiModel"][];
         };
         AmendNoteRequest: {
             /** @description Required. A revision after the first explains itself or it is not accepted */
@@ -5613,6 +5650,105 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["AiAcknowledgement"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listAiModels: {
+        parameters: {
+            query?: {
+                providerCode?: string;
+            };
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Models */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AiModelList"];
                         meta: components["schemas"]["ResponseMeta"];
                     };
                 };

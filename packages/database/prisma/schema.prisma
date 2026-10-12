@@ -2638,3 +2638,33 @@ model AiCredentialFallback {
   @@unique([tenantId,doctorProfileId,credentialId], map: "uq_ai_fallback_credential")
   @@map("ai_credential_fallbacks")
 }
+
+// ---------------------------------------------------------------- 0024 ai_models
+// The model catalog (ADAPT-002, AI-IMPLEMENTATION §2). Global rather than per tenant: a provider's
+// model list is a property of the provider, and one copy per tenant would be the same rows repeated
+// with no way to tell which copy was stale.
+model AiModelCatalogEntry {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  providerCode String @map("provider_code") @db.VarChar(32)
+  /// The provider's own identifier, used verbatim. Never constructed in business code.
+  /// @ascii
+  modelId String @map("model_id") @db.VarChar(128)
+  displayName String @map("display_name") @db.VarChar(128)
+  capabilities Json
+  tierAvailability Json @map("tier_availability")
+  contextTokens Int? @map("context_tokens") @db.UnsignedInt
+  /// Set when a refresh stops seeing the model. Rows are never deleted, so a job that referenced a
+  /// model can still be read back and explained after the provider withdrew it.
+  deprecatedAt DateTime? @map("deprecated_at") @db.DateTime(3)
+  lastVerifiedAt DateTime @map("last_verified_at") @db.DateTime(3)
+  /// @ascii
+  source String @db.VarChar(16)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+  @@unique([providerCode,modelId], map: "uq_ai_model_catalog")
+  @@index([providerCode,deprecatedAt], map: "ix_ai_model_catalog_live")
+  @@map("ai_model_catalog")
+}
