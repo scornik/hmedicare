@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@hmedic/ai": "workspace:*",
+    "@hmedic/ai-adapters-mock": "workspace:*",
     "@hmedic/audit": "workspace:*",
     "@hmedic/clinical": "workspace:*",
     "@hmedic/communication": "workspace:*",

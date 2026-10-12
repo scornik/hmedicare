@@ -259,16 +259,44 @@ describe('AI credentials over HTTP', () => {
     expect(res.body.data.items).toEqual([]);
   });
 
-  it('refuses to store a credential while no provider register exists', async () => {
+  it('stores a credential for a provider the register serves (ADAPT-001)', async () => {
     const f = await fixture();
-    // `metadata` resolves nothing until ADAPT-001 ships the register, and a provider whose data-use
-    // class is unknown must not be configurable. The refusal is the honest answer, not a gap.
     const res = await request(server)
       .post(`/api/v1/doctors/${f.doctorProfileId}/ai/credentials`)
       .set(f.doctor.headers)
       .set('idempotency-key', idem())
       .send({
         providerCode: 'mock',
+        declaredTier: 'FREE',
+        billingMode: 'DOCTOR_BYOK_FREE',
+        secret: 'synthetic_test_credential_0123456789',
+      })
+      .expect(201);
+    // PENDING_VALIDATION, never ACTIVE: a key nobody has exercised must not be reachable by a job
+    // (AICRED-004 validates it).
+    expect(res.body.data).toMatchObject({
+      providerCode: 'mock',
+      declaredTier: 'FREE',
+      status: 'PENDING_VALIDATION',
+    });
+    // The register serves the mock outside production only, so production still refuses here until a
+    // vendor adapter ships (ADAPT-003/004).
+    expect(res.body.data.secret).toBeUndefined();
+  });
+
+  it('refuses a provider code this deployment does not serve', async () => {
+    const f = await fixture();
+    // `gemini` is outside this deployment's enabled list and has no adapter yet, and either alone is
+    // enough to refuse. Both matter: a provider whose data-use class nothing can state must not be
+    // configurable, because the policy engine would have no terms to apply and the assumed default
+    // would be the permissive one. `provider-register` unit tests cover the null-metadata path on its
+    // own.
+    const res = await request(server)
+      .post(`/api/v1/doctors/${f.doctorProfileId}/ai/credentials`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({
+        providerCode: 'gemini',
         declaredTier: 'FREE',
         billingMode: 'DOCTOR_BYOK_FREE',
         secret: 'synthetic_test_credential_0123456789',

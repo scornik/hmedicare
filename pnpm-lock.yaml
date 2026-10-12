@@ -321,6 +321,9 @@ importers:
       '@hmedic/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@hmedic/ai-adapters-mock':
+        specifier: workspace:*
+        version: link:../../packages/ai-adapters/mock
       '@hmedic/audit':
         specifier: workspace:*
         version: link:../../packages/audit

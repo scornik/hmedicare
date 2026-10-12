@@ -6,9 +6,11 @@ import {
   AIAcknowledgementStore,
   AICredentialSecrets,
   AICredentialStore,
+  AIProviderRegister,
   CURRENT_ACK_TEXT_VERSION,
   TenantAIPolicyStore,
 } from '@hmedic/ai';
+import { MockAIProvider } from '@hmedic/ai-adapters-mock';
 import { SecretEnvelope, kekFromBase64 } from '@hmedic/secrets';
 import {
   CommunicationLinksController,
@@ -470,6 +472,15 @@ export async function buildApi(
   const patient = createPatientServices(runtime);
   identity.patientContexts = patient.contexts;
   /**
+   * The adapters this deployment can reach (ADAPT-001).
+   *
+   * The mock adapter is composed outside production only, the same rule the mock telemedicine provider
+   * follows: a mock credential live in production would be a model that answers nothing pretending to
+   * be one that answers something. Vendor adapters join this register as they ship (ADAPT-003/004),
+   * which is why production currently registers none and every credential creation there is refused.
+   */
+  const aiProviders = new AIProviderRegister(config.APP_ENV !== 'production' ? [new MockAIProvider()] : []);
+  /**
    * AI stores, or null when this deployment has no AI encryption configured.
    *
    * `AI_CREDENTIAL_KEK` and its fingerprint pepper are optional, and a deployment without them must not
@@ -513,9 +524,7 @@ export async function buildApi(
             ),
             enabledProviderCodes: config.AI_ENABLED_PROVIDER_CODES,
             platformManagedEnabled: config.AI_PLATFORM_MANAGED_ENABLED,
-            // Adapter metadata arrives with ADAPT-001. Until then no provider resolves, so a credential
-            // cannot be created: refusing is the honest answer while the register does not exist.
-            metadata: () => null,
+            metadata: aiProviders.metadata,
             clock: runtime.clock,
           }),
         }
