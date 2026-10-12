@@ -36,6 +36,15 @@ const SELF_REFERENCING: Readonly<Record<string, string>> = {
 
 /** Tenant fixtures in delete-safe order (children first). */
 const TABLES = [
+  // `diagnoses` first: an AI-approved diagnosis points at the approval that created it, so the
+  // approval cannot be deleted while the diagnosis still references it.
+  'diagnoses',
+  'ai_approvals',
+  'ai_suggestions',
+  'ai_drafts',
+  'ai_usage_ledger',
+  'ai_usage_counters',
+  'ai_jobs',
   'ai_model_catalog',
   'ai_credential_fallbacks',
   'ai_provider_credentials',
@@ -71,7 +80,6 @@ const TABLES = [
   'documents',
   // 0008 clinical_observations: children of encounters, so they go before them.
   'symptom_observations',
-  'diagnoses',
   // 0007 encounters: children first. `serials.encounter_id` points here, so the serials delete below
   // would fail on the foreign key if these were left behind.
   'encounter_note_versions',

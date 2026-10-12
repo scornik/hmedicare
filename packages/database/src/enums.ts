@@ -220,6 +220,23 @@ export const DB_ENUMS = {
     'REVOKED',
   ],
   'ai_model_catalog.source': ['PROVIDER_API', 'MANUAL_CONFIG'],
+  'ai_jobs.purpose': ['NOTE_DRAFT', 'HISTORY_SUMMARY', 'TRANSCRIPTION'],
+  'ai_jobs.status': ['QUEUED', 'RUNNING', 'WAITING_RATE_LIMIT', 'SUCCEEDED', 'FAILED', 'CANCELLED'],
+  'ai_jobs.effective_data_use_policy': ['MAY_TRAIN_OR_REVIEW', 'NO_TRAINING_CONTRACTUAL'],
+  'ai_usage_counters.window': ['MINUTE', 'DAY'],
+  'ai_usage_ledger.outcome': ['SUCCESS', 'ERROR'],
+  'ai_drafts.draft_type': ['NOTE_DRAFT', 'HISTORY_SUMMARY'],
+  'ai_drafts.status': ['READY_FOR_REVIEW', 'IN_REVIEW', 'CLOSED', 'EXPIRED'],
+  'ai_suggestions.suggestion_type': [
+    'NOTE_SECTION',
+    'DIAGNOSIS',
+    'HISTORY_ITEM',
+    'PRESCRIPTION_ITEM',
+    'FOLLOW_UP',
+  ],
+  'ai_suggestions.confidence': ['LOW', 'MEDIUM', 'HIGH', 'UNKNOWN'],
+  'ai_suggestions.status': ['PENDING', 'ACCEPTED', 'EDITED', 'REJECTED', 'IGNORED', 'APPROVED'],
+  'ai_approvals.approved_target': ['ENCOUNTER_NOTE_SECTION', 'DIAGNOSIS'],
 } as const;
 
 export type DbEnumKey = keyof typeof DB_ENUMS;
@@ -236,3 +253,9 @@ export type SerialStatus = DbEnum<'serials.status'>;
 export type QueueEventType = DbEnum<'queue_events.event_type'>;
 export type AiCredentialStatusCode = DbEnum<'ai_provider_credentials.status'>;
 export type AiModelCatalogSource = DbEnum<'ai_model_catalog.source'>;
+export type AiJobStatus = DbEnum<'ai_jobs.status'>;
+export type AiJobPurpose = DbEnum<'ai_jobs.purpose'>;
+export type AiDraftStatus = DbEnum<'ai_drafts.status'>;
+export type AiSuggestionStatus = DbEnum<'ai_suggestions.status'>;
+export type AiSuggestionType = DbEnum<'ai_suggestions.suggestion_type'>;
+export type AiApprovalTarget = DbEnum<'ai_approvals.approved_target'>;

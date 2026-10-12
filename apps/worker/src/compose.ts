@@ -16,6 +16,8 @@ import {
   AIProviderRegister,
   registerAICatalogJobs,
   registerAIValidationJobs,
+  aiApprovalChainSource,
+  aiPolicyChainSource,
 } from '@hmedic/ai';
 import { MockAIProvider } from '@hmedic/ai-adapters-mock';
 import { GeminiApiAdapter } from '@hmedic/ai-adapters-gemini';
@@ -254,8 +256,10 @@ export async function buildWorker(
         }),
       ];
     },
-    // http-kit never imports a context, so the medication gate chain is handed down from here.
-    [medicationGateChainSource, timelineChainSource],
+    // http-kit never imports a context, so every context chain is handed down from here. The AI chains
+    // belong in this list for the same reason as the others: a policy decision or an approval that
+    // nobody verifies is a record that can be edited without anyone noticing.
+    [medicationGateChainSource, timelineChainSource, aiPolicyChainSource, aiApprovalChainSource],
   );
   runtime.smsDiagnostics = config.DIAGNOSTICS_ENABLED ? createSmsDiagnostics(runtime, sms) : null;
   runtime.runnerLoop = jobs?.loop ?? null;

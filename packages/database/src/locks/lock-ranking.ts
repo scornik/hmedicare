@@ -71,6 +71,11 @@ export const LOCK_RANKING: Readonly<Record<string, number>> = {
   ai_model_catalog: 19,
   ai_provider_credentials: 64,
   ai_credential_fallbacks: 65,
+  // Ranked after the credential tables, which is the order a job takes them in: the credential is
+  // read and locked first, then the job row it belongs to, then the draft and its suggestions.
+  ai_jobs: 66,
+  ai_drafts: 67,
+  ai_suggestions: 68,
   communication_preferences: 27,
   communications: 66,
   communication_attempts: 68,

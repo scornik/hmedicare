@@ -1535,10 +1535,14 @@ model Diagnosis {
   clinicalStatus        String   @map("clinical_status") @db.VarChar(20)
   /// @ascii
   certainty             String   @db.VarChar(16)
-  /// `doctor` for everything a human enters. `ai_approved` exists for Stage 10 and no code path can set
-  /// it; a test asserts that.
+  /// `doctor` for everything a human enters. `ai_approved` is set only by `ApproveAISuggestion`, which
+  /// writes `ai_approval_id` in the same transaction; a CHECK ties the two together so the label
+  /// cannot be claimed without the approval that justifies it (AI-001).
   /// @ascii
   source                String   @db.VarChar(16)
+  /// The approval that created this row. Added by migration 0025; null for every human-entered row.
+  /// @ascii
+  aiApprovalId          String?  @map("ai_approval_id") @db.VarChar(36)
   notes                 String?  @db.VarChar(1000)
   /// Required when the row is voided, which is the only way a signed diagnosis changes.
   voidReason            String?  @map("void_reason") @db.VarChar(500)
@@ -2667,4 +2671,233 @@ model AiModelCatalogEntry {
   @@unique([providerCode,modelId], map: "uq_ai_model_catalog")
   @@index([providerCode,deprecatedAt], map: "ix_ai_model_catalog_live")
   @@map("ai_model_catalog")
+}
+
+// ---------------------------------------------------------------- 0025 ai_jobs
+// AI jobs, drafts, suggestions, approvals and usage (AI-001, DATABASE-IMPLEMENTATION §3.13).
+//
+// `ai_transcripts` is deliberately absent. The spec lists it as created and unused because
+// transcription is disabled in MVP, and a table with no reader is schema nobody tests; it arrives with
+// the feature that needs it. Everything else in §3.13 is here, because the job handler, the review
+// flow and the approval chain all write on their first run.
+model AiJob {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  requestedByUserId String @map("requested_by_user_id") @db.VarChar(36)
+  /// @ascii
+  doctorProfileId String @map("doctor_profile_id") @db.VarChar(36)
+  /// @ascii
+  patientId String @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  encounterId String @map("encounter_id") @db.VarChar(36)
+  /// @ascii
+  purpose String @db.VarChar(24)
+  /// @ascii
+  status String @db.VarChar(24)
+  /// @ascii
+  credentialId String @map("credential_id") @db.VarChar(36)
+  /// @ascii
+  fallbackFromCredentialId String? @map("fallback_from_credential_id") @db.VarChar(36)
+  /// @ascii
+  fallbackReason String? @map("fallback_reason") @db.VarChar(48)
+  /// @ascii
+  providerCode String @map("provider_code") @db.VarChar(32)
+  /// The provider's own model identifier. Never constructed in business code (ADAPT-002).
+  /// @ascii
+  modelId String @map("model_id") @db.VarChar(128)
+  /// @ascii
+  declaredTier String @map("declared_tier") @db.VarChar(8)
+  /// @ascii
+  billingMode String @map("billing_mode") @db.VarChar(24)
+  /// Resolved from adapter metadata at job creation, so a later register change cannot rewrite history.
+  /// @ascii
+  effectiveDataUsePolicy String @map("effective_data_use_policy") @db.VarChar(32)
+  /// Categories and counts only, plus the service version. Never the values it replaced (AIPOL-004).
+  minimizationReport Json? @map("minimization_report")
+  /// @ascii
+  promptTemplateVersion String @map("prompt_template_version") @db.VarChar(32)
+  /// @ascii
+  outputSchemaVersion String @map("output_schema_version") @db.VarChar(32)
+  sourceSelection Json @map("source_selection")
+  retrievalEffective Json? @map("retrieval_effective")
+  /// The platform job row that runs this (ADR-015). Null until it is enqueued.
+  /// @ascii
+  jobId String? @map("job_id") @db.VarChar(36)
+  /// @ascii
+  errorClass String? @map("error_class") @db.VarChar(64)
+  /// A rule or category name. Never a provider message, which may quote the prompt.
+  /// @ascii
+  errorReason String? @map("error_reason") @db.VarChar(64)
+  cancelRequestedAt DateTime? @map("cancel_requested_at") @db.DateTime(3)
+  startedAt DateTime? @map("started_at") @db.DateTime(3)
+  finishedAt DateTime? @map("finished_at") @db.DateTime(3)
+  /// @ascii
+  correlationId String @map("correlation_id") @db.VarChar(36)
+  /// @ascii
+  idempotencyKey String @map("idempotency_key") @db.VarChar(191)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+  @@unique([tenantId,id], map: "uq_ai_job_tenant_id")
+  @@unique([tenantId,idempotencyKey], map: "uq_ai_job_idempotency")
+  @@index([tenantId,encounterId,createdAt], map: "ix_ai_job_encounter")
+  @@index([tenantId,status,createdAt], map: "ix_ai_job_status")
+  @@map("ai_jobs")
+}
+
+model AiUsageCounter {
+  /// @ascii
+  credentialId String @map("credential_id") @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  window String @db.VarChar(8)
+  windowStart DateTime @map("window_start") @db.DateTime(3)
+  requestCount Int @default(0) @map("request_count") @db.UnsignedInt
+  inputTokens BigInt @default(0) @map("input_tokens") @db.UnsignedBigInt
+  outputTokens BigInt @default(0) @map("output_tokens") @db.UnsignedBigInt
+  last429At DateTime? @map("last_429_at") @db.DateTime(3)
+  /// Read before any provider call: a client-side throttle costs nothing and a 429 costs the doctor.
+  retryAfterUntil DateTime? @map("retry_after_until") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  @@id([credentialId,window,windowStart])
+  @@index([tenantId,updatedAt], map: "ix_ai_usage_counter_tenant")
+  @@map("ai_usage_counters")
+}
+
+model AiUsageLedgerEntry {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  jobId String @map("job_id") @db.VarChar(36)
+  /// @ascii
+  credentialId String @map("credential_id") @db.VarChar(36)
+  /// @ascii
+  doctorProfileId String @map("doctor_profile_id") @db.VarChar(36)
+  /// @ascii
+  providerCode String @map("provider_code") @db.VarChar(32)
+  /// @ascii
+  modelId String @map("model_id") @db.VarChar(128)
+  /// @ascii
+  billingMode String @map("billing_mode") @db.VarChar(24)
+  inputTokens Int @default(0) @map("input_tokens") @db.UnsignedInt
+  outputTokens Int @default(0) @map("output_tokens") @db.UnsignedInt
+  /// Hashed, never the provider's own request id: it is an identifier in the provider's system.
+  /// @ascii
+  providerRequestIdHash String? @map("provider_request_id_hash") @db.VarChar(64)
+  /// @ascii
+  outcome String @db.VarChar(16)
+  /// @ascii
+  errorClass String? @map("error_class") @db.VarChar(64)
+  occurredAt DateTime @map("occurred_at") @db.DateTime(3)
+  @@index([tenantId,doctorProfileId,occurredAt], map: "ix_ai_usage_ledger_doctor")
+  @@map("ai_usage_ledger")
+}
+
+model AiDraft {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  aiJobId String @map("ai_job_id") @db.VarChar(36)
+  /// @ascii
+  encounterId String @map("encounter_id") @db.VarChar(36)
+  /// @ascii
+  patientId String @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  draftType String @map("draft_type") @db.VarChar(24)
+  /// @ascii
+  status String @db.VarChar(20)
+  /// @ascii
+  outputSchemaVersion String @map("output_schema_version") @db.VarChar(32)
+  /// Already validated against the schema and already token-restored. Never the raw provider body.
+  validatedOutput Json @map("validated_output")
+  /// @ascii
+  rawOutputObjectKey String? @map("raw_output_object_key") @db.VarChar(255)
+  /// Suggestions the validator dropped for citing nothing. Shown so a thin draft is explainable.
+  droppedUnsourcedCount Int @default(0) @map("dropped_unsourced_count") @db.UnsignedSmallInt
+  expiresAt DateTime @map("expires_at") @db.DateTime(3)
+  openedAt DateTime? @map("opened_at") @db.DateTime(3)
+  closedAt DateTime? @map("closed_at") @db.DateTime(3)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+  @@unique([tenantId,id], map: "uq_ai_draft_tenant_id")
+  @@unique([tenantId,aiJobId], map: "uq_ai_draft_job")
+  @@index([tenantId,status,expiresAt], map: "ix_ai_draft_expiry")
+  @@index([tenantId,encounterId,createdAt], map: "ix_ai_draft_encounter")
+  @@map("ai_drafts")
+}
+
+model AiSuggestion {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  aiDraftId String @map("ai_draft_id") @db.VarChar(36)
+  /// @ascii
+  suggestionType String @map("suggestion_type") @db.VarChar(32)
+  /// @ascii
+  targetSection String? @map("target_section") @db.VarChar(24)
+  /// Non-empty by CHECK: a suggestion that cites nothing is a claim nobody can check.
+  sourceRefs Json @map("source_refs")
+  candidate Json
+  /// What the doctor revised it to. The approval records which of the two was approved.
+  editedCandidate Json? @map("edited_candidate")
+  /// @ascii
+  confidence String @db.VarChar(8)
+  /// @ascii
+  status String @db.VarChar(16)
+  /// @ascii
+  reviewedByDoctorProfileId String? @map("reviewed_by_doctor_profile_id") @db.VarChar(36)
+  reviewedAt DateTime? @map("reviewed_at") @db.DateTime(3)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+  @@unique([tenantId,id], map: "uq_ai_suggestion_tenant_id")
+  @@index([tenantId,aiDraftId,status], map: "ix_ai_suggestion_draft")
+  @@map("ai_suggestions")
+}
+
+model AiApproval {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  seq Int @db.UnsignedInt
+  /// @ascii
+  aiSuggestionId String @map("ai_suggestion_id") @db.VarChar(36)
+  /// The version approved. With the unique below, a second approval of the same version cannot land.
+  suggestionRowVersion Int @map("suggestion_row_version") @db.UnsignedInt
+  /// @ascii
+  approvedTarget String @map("approved_target") @db.VarChar(32)
+  /// @ascii
+  approvedRecordType String @map("approved_record_type") @db.VarChar(48)
+  /// @ascii
+  approvedRecordId String @map("approved_record_id") @db.VarChar(36)
+  /// @ascii
+  approvedSection String? @map("approved_section") @db.VarChar(24)
+  /// @ascii
+  reviewerDoctorProfileId String @map("reviewer_doctor_profile_id") @db.VarChar(36)
+  attestationVersion Int @map("attestation_version") @db.UnsignedSmallInt
+  /// Hash of what the doctor actually saw and attested, so a later edit cannot be mistaken for it.
+  /// @ascii
+  approvedContentSha256 String @map("approved_content_sha256") @db.VarChar(64)
+  approvedAt DateTime @map("approved_at") @db.DateTime(3)
+  /// @ascii
+  /// Null for the first row of a chain, as in every other hash-chained table here.
+  prevRowHash String? @map("prev_row_hash") @db.VarChar(64)
+  /// @ascii
+  rowHash String @map("row_hash") @db.VarChar(64)
+  @@unique([tenantId,id], map: "uq_ai_approval_tenant_id")
+  @@unique([tenantId,aiSuggestionId,suggestionRowVersion], map: "uq_ai_approvals_once")
+  @@unique([tenantId,seq], map: "uq_ai_approval_seq")
+  @@map("ai_approvals")
 }
