@@ -12,3 +12,6 @@ export * from '../application/providers/provider-register';
 export * from '../application/credentials/validation-outcome';
 export * from '../infrastructure/credential-validator';
 export * from '../infrastructure/validation-jobs';
+export * from '../application/minimization/tokens';
+export * from '../application/minimization/detectors';
+export * from '../application/minimization/phi-minimization';

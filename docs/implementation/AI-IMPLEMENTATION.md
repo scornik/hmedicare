@@ -238,6 +238,11 @@ The job fails with `PHI_MINIMIZATION_FAILED` (non-retryable, visible to the doct
 
 ### 5.5 Honest limits (documented in the acknowledgement text and register)
 
+Two implementation notes from AIPOL-004, because both are visible in the output and would otherwise look like defects:
+
+- **Banglish matching uses the search skeleton.** A name stored as `রহিম` transliterates to `rohim`, while the staff member typing the note writes `Rahim`; neither exact form finds the other. Both reduce to the same skeleton (`search-normalize.ts`), so a skeleton pass over whole words catches the spelling that exact matching misses. Skeletons shorter than three characters are not used, since `skeleton` drops vowels and a one-character skeleton matches ordinary words. The consequence is deliberate **over**-redaction: a clinical word whose skeleton collides with a name is replaced too, costing the model some context. The other direction would send the name to a provider that may train on it.
+- **Digit runs are classified, not redacted wholesale.** A run is replaced only where it cleans to a Bangladesh mobile number, an E.164 number, or an identifier length (10, 13, 17). Doses, vitals and lab values are digit runs as well, and redacting them would strip the clinical content the payload exists to carry.
+
 Minimization removes **known** identifiers and **pattern** identifiers. It cannot guarantee removal of unknown names or places typed as free text, rare identifier formats, or identifying clinical narratives. Mitigations:
 - templates send doctor-selected sections only;
 - the doctor is warned in the UI;
