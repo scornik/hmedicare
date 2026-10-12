@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "note": "sha256 per prompt template file. A locked version is immutable: change the template by adding a new version, never by editing a listed file (AI-IMPLEMENTATION 9).",
+  "files": {
+    "note-draft/v1.md": "79e509f2c2308edc6cf5fa18e70fbcd7687919374b0cad7b8a8eb1b95a0a6e79",
+    "note-draft/v1.schema.json": "358e96d768d51d70e37c205c48dab9f6f4406db00004a6071bb682314d18b4a2",
+    "history-summary/v1.md": "04b15fe6f5d8b5c0c73462ea6f907aa72501756448b48fe488f4803b2d594709",
+    "history-summary/v1.schema.json": "ebb4d158e464dcf3287419e3a4f66fe518d208cfefd9e2630be21b0cda980959"
+  }
+}

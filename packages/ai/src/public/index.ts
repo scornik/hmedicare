@@ -18,3 +18,4 @@ export * from '../application/minimization/detectors';
 export * from '../application/minimization/phi-minimization';
 export * from '../infrastructure/model-catalog-store';
 export * from '../infrastructure/catalog-jobs';
+export * from '../application/prompts/template-registry';
