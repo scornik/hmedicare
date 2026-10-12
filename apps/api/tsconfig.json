@@ -21,6 +21,9 @@
       "path": "../../packages/ai-adapters/mock"
     },
     {
+      "path": "../../packages/ai-adapters/openai-compatible"
+    },
+    {
       "path": "../../packages/audit"
     },
     {

@@ -327,6 +327,9 @@ importers:
       '@hmedic/ai-adapters-mock':
         specifier: workspace:*
         version: link:../../packages/ai-adapters/mock
+      '@hmedic/ai-adapters-openai-compatible':
+        specifier: workspace:*
+        version: link:../../packages/ai-adapters/openai-compatible
       '@hmedic/audit':
         specifier: workspace:*
         version: link:../../packages/audit
@@ -497,6 +500,9 @@ importers:
       '@hmedic/ai-adapters-mock':
         specifier: workspace:*
         version: link:../../packages/ai-adapters/mock
+      '@hmedic/ai-adapters-openai-compatible':
+        specifier: workspace:*
+        version: link:../../packages/ai-adapters/openai-compatible
       '@hmedic/audit':
         specifier: workspace:*
         version: link:../../packages/audit
@@ -605,6 +611,12 @@ importers:
         version: link:../../ai
 
   packages/ai-adapters/mock:
+    dependencies:
+      '@hmedic/ai':
+        specifier: workspace:*
+        version: link:../../ai
+
+  packages/ai-adapters/openai-compatible:
     dependencies:
       '@hmedic/ai':
         specifier: workspace:*

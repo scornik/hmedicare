@@ -13,6 +13,7 @@
     "@hmedic/ai": "workspace:*",
     "@hmedic/ai-adapters-gemini": "workspace:*",
     "@hmedic/ai-adapters-mock": "workspace:*",
+    "@hmedic/ai-adapters-openai-compatible": "workspace:*",
     "@hmedic/audit": "workspace:*",
     "@hmedic/clinical": "workspace:*",
     "@hmedic/communication": "workspace:*",

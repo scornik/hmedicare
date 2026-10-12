@@ -108,8 +108,14 @@ export interface AICredentialHandle {
 
 export interface AIProvider {
   readonly providerCode: string;
-  /** One entry per `(providerCode, tier)`, matching AI-PROVIDER-REGISTER.md §2. */
-  metadata(tier: DeclaredTier): AdapterPolicyMetadata & AdapterTermsMetadata;
+  /**
+   * One entry per `(providerCode, tier)`, matching AI-PROVIDER-REGISTER.md §2.
+   *
+   * Null where the register has no row for that tier, which happens for a provider whose terms cover
+   * only one of them. Null rather than a default: an unclassified tier is one nobody has reviewed, and
+   * the credential store refuses on null instead of assuming the permissive classification.
+   */
+  metadata(tier: DeclaredTier): (AdapterPolicyMetadata & AdapterTermsMetadata) | null;
   /** The models this credential may use, for the catalog refresh (ADAPT-002). */
   listModels(credential: AICredentialHandle): Promise<AIProviderResult<readonly AIModelDescriptor[]>>;
   /** Text generation, optionally schema-constrained. */

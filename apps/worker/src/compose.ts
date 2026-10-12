@@ -19,6 +19,10 @@ import {
 } from '@hmedic/ai';
 import { MockAIProvider } from '@hmedic/ai-adapters-mock';
 import { GeminiApiAdapter } from '@hmedic/ai-adapters-gemini';
+import {
+  OPENAI_COMPATIBLE_PROVIDER_CODES,
+  OpenAICompatibleAdapter,
+} from '@hmedic/ai-adapters-openai-compatible';
 import { SecretEnvelope, kekFromBase64 } from '@hmedic/secrets';
 import { PatientCommunicationSource } from '@hmedic/patient';
 import { FollowUpReminderSource } from '@hmedic/follow-up';
@@ -190,6 +194,11 @@ export async function buildWorker(
         const aiProviders = new AIProviderRegister([
           ...(config.APP_ENV !== 'production' ? [new MockAIProvider()] : []),
           ...(config.AI_ENABLED_PROVIDER_CODES.includes('gemini') ? [new GeminiApiAdapter()] : []),
+          // One instance per enabled provider (ADAPT-004): shared protocol, separate terms and base
+          // URLs, and the register keys adapters by provider code.
+          ...OPENAI_COMPATIBLE_PROVIDER_CODES.filter((code) =>
+            config.AI_ENABLED_PROVIDER_CODES.includes(code),
+          ).map((providerCode) => new OpenAICompatibleAdapter({ providerCode })),
         ]);
         registerAIValidationJobs(
           registry,

@@ -13,6 +13,10 @@ import {
 } from '@hmedic/ai';
 import { MockAIProvider } from '@hmedic/ai-adapters-mock';
 import { GeminiApiAdapter } from '@hmedic/ai-adapters-gemini';
+import {
+  OPENAI_COMPATIBLE_PROVIDER_CODES,
+  OpenAICompatibleAdapter,
+} from '@hmedic/ai-adapters-openai-compatible';
 import { SecretEnvelope, kekFromBase64 } from '@hmedic/secrets';
 import {
   CommunicationLinksController,
@@ -488,6 +492,11 @@ export async function buildApi(
   const aiProviders = new AIProviderRegister([
     ...(config.APP_ENV !== 'production' ? [new MockAIProvider()] : []),
     ...(config.AI_ENABLED_PROVIDER_CODES.includes('gemini') ? [new GeminiApiAdapter()] : []),
+    // One instance per enabled provider: they share a wire protocol, not terms or a base URL, and the
+    // register keys adapters by provider code (ADAPT-004).
+    ...OPENAI_COMPATIBLE_PROVIDER_CODES.filter((code) => config.AI_ENABLED_PROVIDER_CODES.includes(code)).map(
+      (providerCode) => new OpenAICompatibleAdapter({ providerCode }),
+    ),
   ]);
   /**
    * AI stores, or null when this deployment has no AI encryption configured.

@@ -43,6 +43,9 @@ export class AIProviderRegister {
     const provider = this.byCode.get(providerCode);
     if (!provider) return null;
     const meta = provider.metadata(tier);
+    // An adapter that serves the code but not this tier answers null, and null is the refusal the
+    // credential store acts on.
+    if (!meta) return null;
     // An adapter answering for a code or tier other than the one asked for would silently classify a
     // credential by the wrong terms, which is the one mistake this lookup must not pass on.
     if (meta.providerCode !== providerCode || meta.tier !== tier) {
