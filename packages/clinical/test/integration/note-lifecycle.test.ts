@@ -406,6 +406,13 @@ describe('immutability (test 6)', () => {
         'saveDraft',
         'sign',
         'lockDraftForCompletion',
+        /*
+         * Added by AI-003. It writes the **draft**, inside the approval's transaction, and refuses a
+         * note that is already signed — so a signed revision is still unreachable, which is what this
+         * case is about. Listed here because that is the point of pinning the surface: a new mutator
+         * has to be argued for rather than appearing unnoticed.
+         */
+        'applyApprovedSection',
       ].sort(),
     );
 
