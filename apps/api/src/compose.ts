@@ -129,6 +129,7 @@ import {
   SerialEncounterController,
 } from './clinical/encounter.controllers';
 import { DiagnosisController, EncounterNoteController } from './clinical/note.controllers';
+import { AiApprovalController } from './clinical/ai-approval.controllers';
 import {
   MedicationImportAdminController,
   MedicationSearchController,
@@ -267,6 +268,8 @@ export class ApiModule {
         TimelineController,
         EncounterNoteController,
         DiagnosisController,
+        // A clinical controller, because approving writes a clinical record (AI-003).
+        AiApprovalController,
         PrescriptionController,
         MedicationImportAdminController,
         MedicationSearchController,

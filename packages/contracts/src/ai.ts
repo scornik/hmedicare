@@ -595,3 +595,82 @@ registry.registerPath({
   },
   responses: { 200: ok(AiSuggestion, 'Reviewed'), ...errorResponses },
 });
+
+/**
+ * Approving a suggestion into the chart (AI-003).
+ *
+ * The only route by which anything a model produced becomes a clinical record. It carries what the
+ * doctor saw: the content being approved, the attestation version they were shown, and the row version
+ * of both the suggestion and the note draft, so an approval from a stale screen is refused rather than
+ * silently overwriting a decision the doctor could not see.
+ *
+ * `PRESCRIPTION_ITEM` and `FOLLOW_UP` are V1+. They are absent from this enum rather than present and
+ * refused, because each would be a different clinical command with its own rules, and offering a
+ * target that cannot be executed would be the API promising something it cannot do.
+ */
+export const ApproveAiSuggestionRequest = registry.register(
+  'ApproveAiSuggestionRequest',
+  z
+    .object({
+      approvedTarget: z.enum(['ENCOUNTER_NOTE_SECTION', 'DIAGNOSIS']),
+      expectedRowVersion: z.number().int(),
+      attestationVersion: z.number().int().min(1),
+      noteSection: z
+        .object({
+          section: z.enum(['chief_complaint', 'history', 'examination', 'assessment', 'plan']),
+          mode: z.enum(['APPEND', 'REPLACE']).openapi({
+            description: 'APPEND joins what the doctor wrote; REPLACE substitutes the section',
+          }),
+          text: z.string().min(1).max(20_000),
+          expectedNoteRowVersion: z.number().int(),
+        })
+        .strict()
+        .optional(),
+      diagnosis: z
+        .object({
+          display: z.string().min(1).max(300),
+          displayBn: z.string().max(300).nullable().optional(),
+          codeSystem: z.string().max(32).nullable().optional(),
+          code: z.string().max(32).nullable().optional(),
+          certainty: z.enum(['CONFIRMED', 'PROVISIONAL', 'DIFFERENTIAL']),
+          clinicalStatus: z.enum(['ACTIVE', 'RESOLVED', 'RULED_OUT']).optional(),
+          notes: z.string().max(1000).nullable().optional(),
+        })
+        .strict()
+        .optional(),
+    })
+    .strict(),
+);
+
+export const AiApproval = registry.register(
+  'AiApproval',
+  z.object({
+    id: Uuid,
+    aiSuggestionId: Uuid,
+    approvedTarget: z.enum(['ENCOUNTER_NOTE_SECTION', 'DIAGNOSIS']),
+    approvedRecordType: z.string(),
+    approvedRecordId: Uuid,
+    approvedSection: z.string().nullable(),
+    attestationVersion: z.number().int(),
+    approvedAt: Timestamp,
+  }),
+);
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/ai/suggestions/{id}/approve',
+  operationId: 'approveAiSuggestion',
+  tags: ['AI'],
+  security: secured,
+  description:
+    'Puts an accepted or edited suggestion into the chart. Needs `ai.approve`, which the authorization ' +
+    'matrix gives to doctors only, plus assignment to the encounter. The clinical write, the approval ' +
+    'row and the suggestion’s status all commit together: an approval that landed separately from the ' +
+    'record it created would leave one existing without the other.',
+  request: {
+    headers: tenantIdemHeaders,
+    params: z.object({ id: Uuid }),
+    body: { content: json(ApproveAiSuggestionRequest) },
+  },
+  responses: { 201: ok(AiApproval, 'Approved'), ...errorResponses },
+});

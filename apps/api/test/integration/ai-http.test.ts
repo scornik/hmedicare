@@ -999,3 +999,251 @@ describe('AI draft review over HTTP (AI-002)', () => {
     expect(res.status).toBe(403);
   });
 });
+
+/**
+ * Approving a suggestion over HTTP (AI-003).
+ *
+ * The service has its own suite; this proves the route is wired to the clinical services rather than
+ * the AI ones, carries `ai.approve`, and returns the approval. The last case is the one that only HTTP
+ * can show: a nurse with `ai.review` is refused at the guard, before anything reads a draft.
+ */
+describe('approving an AI suggestion over HTTP (AI-003)', () => {
+  async function accepted(f: Awaited<ReturnType<typeof fixture>>) {
+    const now = new Date();
+    const p = api.runtime.prisma;
+    const patientId = newId();
+    const clinicId = newId();
+    const chamberId = newId();
+    const chamberDayId = newId();
+    const serialId = newId();
+    const encounterId = newId();
+    await p.patient.create({
+      data: {
+        id: patientId,
+        tenantId: f.tenantId,
+        medicalRecordNumber: patientId.slice(-12),
+        legalName: 'SYNTHETIC Patient',
+        displayName: 'SYNTHETIC Patient',
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.clinic.create({
+      data: {
+        id: clinicId,
+        tenantId: f.tenantId,
+        name: 'DEMO clinic',
+        nameNormalizedHash: newId().replace(/-/g, '').padEnd(64, '0').slice(0, 64),
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.chamber.create({
+      data: {
+        id: chamberId,
+        tenantId: f.tenantId,
+        clinicId,
+        doctorProfileId: f.doctorProfileId,
+        name: 'DEMO chamber',
+        supportsPhysical: true,
+        supportsRemote: false,
+        supportsHybrid: false,
+        defaultQueuePolicy: {},
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.chamberDay.create({
+      data: {
+        id: chamberDayId,
+        tenantId: f.tenantId,
+        chamberId,
+        doctorProfileId: f.doctorProfileId,
+        localDate: now,
+        localStartTime: new Date('1970-01-01T00:00:00.000Z'),
+        localEndTime: new Date('1970-01-01T23:59:00.000Z'),
+        timezone: 'Asia/Dhaka',
+        status: 'OPEN',
+        queuePolicy: {},
+        nextSerialNumber: 2,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.serial.create({
+      data: {
+        id: serialId,
+        tenantId: f.tenantId,
+        chamberDayId,
+        patientId,
+        serialNumber: 1,
+        source: 'WALK_IN',
+        careMode: 'PHYSICAL',
+        status: 'CALLED',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.encounter.create({
+      data: {
+        id: encounterId,
+        tenantId: f.tenantId,
+        patientId,
+        doctorProfileId: f.doctorProfileId,
+        chamberId,
+        serialId,
+        careMode: 'PHYSICAL',
+        status: 'IN_PROGRESS',
+        startedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const note = await p.encounterNote.create({
+      data: {
+        id: newId(),
+        tenantId: f.tenantId,
+        encounterId,
+        authorDoctorProfileId: f.doctorProfileId,
+        status: 'DRAFT',
+        history: 'What the doctor wrote.',
+        sectionSources: [{ section: 'history', source: 'doctor' }],
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const credential = await p.aiProviderCredential.create({
+      data: {
+        id: newId(),
+        tenantId: f.tenantId,
+        doctorProfileId: f.doctorProfileId,
+        providerCode: 'mock',
+        declaredTier: 'FREE',
+        billingMode: 'DOCTOR_BYOK_FREE',
+        encryptedSecret: 'x',
+        wrappedDataKey: 'x',
+        keyId: 'test-ai-1',
+        secretLast4: '6789',
+        secretFingerprint: newId().replace(/-/g, ''),
+        status: 'ACTIVE',
+        allowedModelIds: [],
+        createdByUserId: f.doctor.userId,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const job = await p.aiJob.create({
+      data: {
+        id: newId(),
+        tenantId: f.tenantId,
+        requestedByUserId: f.doctor.userId,
+        doctorProfileId: f.doctorProfileId,
+        patientId,
+        encounterId,
+        purpose: 'NOTE_DRAFT',
+        status: 'SUCCEEDED',
+        finishedAt: now,
+        credentialId: credential.id,
+        providerCode: 'mock',
+        modelId: 'mock-text-1',
+        declaredTier: 'FREE',
+        billingMode: 'DOCTOR_BYOK_FREE',
+        effectiveDataUsePolicy: 'MAY_TRAIN_OR_REVIEW',
+        promptTemplateVersion: 'note-draft/v1',
+        outputSchemaVersion: 'note-draft/v1',
+        sourceSelection: {},
+        correlationId: newId(),
+        idempotencyKey: `http-appr-${newId()}`,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const draft = await p.aiDraft.create({
+      data: {
+        id: newId(),
+        tenantId: f.tenantId,
+        aiJobId: job.id,
+        encounterId,
+        patientId,
+        draftType: 'NOTE_DRAFT',
+        status: 'IN_REVIEW',
+        openedAt: now,
+        outputSchemaVersion: 'note-draft/v1',
+        validatedOutput: { suggestions: [] },
+        expiresAt: new Date(now.getTime() + 72 * 3600_000),
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const suggestion = await p.aiSuggestion.create({
+      data: {
+        id: newId(),
+        tenantId: f.tenantId,
+        aiDraftId: draft.id,
+        suggestionType: 'NOTE_SECTION',
+        targetSection: 'history',
+        sourceRefs: [{ sourceType: 'diagnosis', sourceId: newId(), occurredAt: now.toISOString() }],
+        candidate: { suggestionType: 'NOTE_SECTION', targetSection: 'history', text: 'SYNTHETIC text.' },
+        confidence: 'MEDIUM',
+        status: 'ACCEPTED',
+        reviewedAt: now,
+        reviewedByDoctorProfileId: f.doctorProfileId,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    return { suggestionId: suggestion.id, noteId: note.id, encounterId };
+  }
+
+  const body = {
+    approvedTarget: 'ENCOUNTER_NOTE_SECTION',
+    expectedRowVersion: 1,
+    attestationVersion: 1,
+    noteSection: {
+      section: 'history',
+      mode: 'APPEND',
+      text: 'SYNTHETIC approved text.',
+      expectedNoteRowVersion: 1,
+    },
+  };
+
+  it('writes the section and returns the approval', async () => {
+    const f = await fixture();
+    const a = await accepted(f);
+
+    const res = await request(server)
+      .post(`/api/v1/ai/suggestions/${a.suggestionId}/approve`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send(body)
+      .expect(201);
+
+    expect(res.body.data).toMatchObject({
+      approvedTarget: 'ENCOUNTER_NOTE_SECTION',
+      approvedRecordType: 'encounter_note',
+      approvedSection: 'history',
+    });
+    const note = await api.runtime.prisma.encounterNote.findFirstOrThrow({ where: { id: a.noteId } });
+    expect(note.history).toBe('What the doctor wrote.\nSYNTHETIC approved text.');
+    // The section's provenance names the approval, which is what makes the claim checkable.
+    expect(JSON.stringify(note.sectionSources)).toContain(res.body.data.id);
+  });
+
+  it('refuses a nurse holding ai.review', async () => {
+    const f = await fixture();
+    const a = await accepted(f);
+    const nurse = await member(f.tenantId, 'nurse');
+
+    const res = await request(server)
+      .post(`/api/v1/ai/suggestions/${a.suggestionId}/approve`)
+      .set(nurse.headers)
+      .set('idempotency-key', idem())
+      .send(body);
+    // `ai.approve` is doctor-only in the matrix, so this is refused at the guard — before anything
+    // reads a draft or touches a chart.
+    expect(res.status).toBe(403);
+  });
+});

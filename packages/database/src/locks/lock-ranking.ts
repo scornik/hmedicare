@@ -71,11 +71,17 @@ export const LOCK_RANKING: Readonly<Record<string, number>> = {
   ai_model_catalog: 19,
   ai_provider_credentials: 64,
   ai_credential_fallbacks: 65,
-  // Ranked after the credential tables, which is the order a job takes them in: the credential is
-  // read and locked first, then the job row it belongs to, then the draft and its suggestions.
-  ai_jobs: 66,
-  ai_drafts: 67,
-  ai_suggestions: 68,
+  /*
+   * Ranked below the clinical tables, which is what the approval transaction requires: it locks the
+   * draft and the suggestion, then writes the note or the diagnosis, so the AI rows have to come
+   * first. Placing them after the credential tables read naturally and deadlocked against
+   * `encounter_notes` instead.
+   *
+   * Still above `patients` and `doctor_profiles`, which authorization locks before any of this.
+   */
+  ai_jobs: 30,
+  ai_drafts: 31,
+  ai_suggestions: 32,
   communication_preferences: 27,
   communications: 66,
   communication_attempts: 68,

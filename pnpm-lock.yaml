@@ -642,6 +642,9 @@ importers:
 
   packages/clinical:
     dependencies:
+      '@hmedic/ai':
+        specifier: workspace:*
+        version: link:../ai
       '@hmedic/audit':
         specifier: workspace:*
         version: link:../audit

@@ -1,5 +1,5 @@
 import { AppError, type Clock, newId, systemClock } from '@hmedic/kernel';
-import { type PrismaClient, lockRow, withTransaction } from '@hmedic/database';
+import { type PrismaClient, type Tx, lockRow, withTransaction } from '@hmedic/database';
 import type { PrismaAuditPort } from '@hmedic/audit';
 import type { Metrics } from '@hmedic/observability';
 import type { ClinicalAccessPolicy } from './clinical-access';
@@ -291,6 +291,117 @@ export class DiagnosisService {
       { ...TX_OPTS, context: 'diagnosis:add' },
     );
     return diagnosisView(row);
+  }
+
+  /**
+   * Records a diagnosis from an approved AI suggestion, inside the caller's transaction (AI-003, §7.4).
+   *
+   * Only the AI approval uses this, and it is not on the package's public surface: `packages/ai` cannot
+   * reach it and the worker container cannot resolve it. It has to share the approval's transaction
+   * because an approval row that committed separately from the diagnosis it created would leave a
+   * window where one exists without the other — and the chart would then contain a diagnosis labelled
+   * `ai_approved` with nothing to justify the label, which is the one thing the database CHECK on this
+   * table refuses.
+   *
+   * Authorization is the caller's: the approval has already established that this actor is the
+   * encounter's doctor, or covering for them, and holds `ai.approve`.
+   *
+   * `source` is `ai_approved` and `aiApprovalId` is set in the same statement, so the row can never
+   * exist in the half-state the CHECK forbids. The doctor is still the author — they read it and put
+   * it in the chart — which is why `author_doctor_profile_id` is theirs and not something about a
+   * model.
+   */
+  async addFromApproval(
+    tx: Tx,
+    actor: ClinicalActor,
+    input: AddDiagnosisInput & { id: string; encounterId: string; aiApprovalId: string },
+  ): Promise<DiagnosisView> {
+    const tenantId = actor.tenant.tenantId;
+    if (!actor.doctorProfileId) throw new AppError('FORBIDDEN');
+    this.assertCoding(input);
+    const encounter = await tx.encounter.findFirst({
+      where: { tenantId, id: input.encounterId },
+      select: { id: true, patientId: true, status: true },
+    });
+    if (!encounter) throw new AppError('RESOURCE_NOT_FOUND');
+    if (encounter.status === 'COMPLETED' || encounter.status === 'ENTERED_IN_ERROR') {
+      // The consultation is over. An approval into a closed record would be a decision taken after
+      // the visit it belongs to.
+      throw new AppError('INVALID_TRANSITION', undefined, {
+        details: { encounterStatus: encounter.status, command: 'addFromApproval' },
+      });
+    }
+    const { requestId, correlationId } = this.correlation(actor);
+    const now = this.clock.now();
+    /*
+     * The id is the caller's, because the approval row has to exist first: `diagnoses.ai_approval_id`
+     * has a foreign key to it, and a diagnosis written before its approval would be refused. So the
+     * approval names the record it is about to create, and this writes it with that id.
+     */
+    const id = input.id;
+    const created = (await tx.diagnosis.create({
+      data: {
+        id,
+        tenantId,
+        encounterId: input.encounterId,
+        patientId: encounter.patientId,
+        // The doctor who approved it is its author. They read it and decided; that is what authorship
+        // means here.
+        authorDoctorProfileId: actor.doctorProfileId,
+        codeSystem: input.codeSystem?.trim() || null,
+        code: input.code?.trim() || null,
+        display: input.display.trim(),
+        displayBn: input.displayBn?.trim() || null,
+        clinicalStatus: input.clinicalStatus ?? 'ACTIVE',
+        certainty: input.certainty,
+        source: 'ai_approved',
+        aiApprovalId: input.aiApprovalId,
+        notes: input.notes?.trim() || null,
+        createdAt: now,
+        updatedAt: now,
+        createdByUserId: actor.userId,
+        updatedByUserId: actor.userId,
+      },
+    })) as DiagnosisRow;
+
+    await this.audit.append(tx, {
+      tenantId,
+      actorUserId: actor.userId,
+      actorType: 'USER',
+      action: 'DIAGNOSIS_RECORDED',
+      resourceType: 'diagnosis',
+      resourceId: id,
+      outcome: 'SUCCESS',
+      requestId,
+      correlationId,
+      // No `display`, as with a doctor-entered one: the audit trail records that a diagnosis was made
+      // and that an approval justified it, never what it said.
+      metadata: {
+        encounterId: input.encounterId,
+        certainty: input.certainty,
+        coded: Boolean(input.code),
+        source: 'ai_approved',
+        aiApprovalId: input.aiApprovalId,
+      },
+    });
+    await this.outbox.emit(tx, {
+      tenantId,
+      name: 'DiagnosisRecorded',
+      aggregateType: 'diagnosis',
+      aggregateId: id,
+      payload: {
+        encounterId: input.encounterId,
+        patientId: encounter.patientId,
+        certainty: input.certainty,
+        coded: Boolean(input.code),
+        replacesId: null,
+        source: 'ai_approved',
+      },
+      actorId: actor.userId,
+      correlationId,
+      idempotencyKey: null,
+    });
+    return diagnosisView(created);
   }
 
   /**

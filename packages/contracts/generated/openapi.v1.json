@@ -366,6 +366,60 @@
         ],
         "type": "object"
       },
+      "AiApproval": {
+        "properties": {
+          "aiSuggestionId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "approvedAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "approvedRecordId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "approvedRecordType": {
+            "type": "string"
+          },
+          "approvedSection": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "approvedTarget": {
+            "enum": [
+              "ENCOUNTER_NOTE_SECTION",
+              "DIAGNOSIS"
+            ],
+            "type": "string"
+          },
+          "attestationVersion": {
+            "type": "integer"
+          },
+          "id": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "aiSuggestionId",
+          "approvedTarget",
+          "approvedRecordType",
+          "approvedRecordId",
+          "approvedSection",
+          "attestationVersion",
+          "approvedAt"
+        ],
+        "type": "object"
+      },
       "AiCredential": {
         "properties": {
           "billingMode": {
@@ -1115,6 +1169,128 @@
           "capacity",
           "bookedCount",
           "status"
+        ],
+        "type": "object"
+      },
+      "ApproveAiSuggestionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "approvedTarget": {
+            "enum": [
+              "ENCOUNTER_NOTE_SECTION",
+              "DIAGNOSIS"
+            ],
+            "type": "string"
+          },
+          "attestationVersion": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "diagnosis": {
+            "additionalProperties": false,
+            "properties": {
+              "certainty": {
+                "enum": [
+                  "CONFIRMED",
+                  "PROVISIONAL",
+                  "DIFFERENTIAL"
+                ],
+                "type": "string"
+              },
+              "clinicalStatus": {
+                "enum": [
+                  "ACTIVE",
+                  "RESOLVED",
+                  "RULED_OUT"
+                ],
+                "type": "string"
+              },
+              "code": {
+                "maxLength": 32,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "codeSystem": {
+                "maxLength": 32,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "display": {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              "displayBn": {
+                "maxLength": 300,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "notes": {
+                "maxLength": 1000,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "display",
+              "certainty"
+            ],
+            "type": "object"
+          },
+          "expectedRowVersion": {
+            "type": "integer"
+          },
+          "noteSection": {
+            "additionalProperties": false,
+            "properties": {
+              "expectedNoteRowVersion": {
+                "type": "integer"
+              },
+              "mode": {
+                "description": "APPEND joins what the doctor wrote; REPLACE substitutes the section",
+                "enum": [
+                  "APPEND",
+                  "REPLACE"
+                ],
+                "type": "string"
+              },
+              "section": {
+                "enum": [
+                  "chief_complaint",
+                  "history",
+                  "examination",
+                  "assessment",
+                  "plan"
+                ],
+                "type": "string"
+              },
+              "text": {
+                "maxLength": 20000,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "section",
+              "mode",
+              "text",
+              "expectedNoteRowVersion"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "approvedTarget",
+          "expectedRowVersion",
+          "attestationVersion"
         ],
         "type": "object"
       },
@@ -10268,6 +10444,165 @@
               }
             },
             "description": "Models"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/ai/suggestions/{id}/approve": {
+      "post": {
+        "description": "Puts an accepted or edited suggestion into the chart. Needs `ai.approve`, which the authorization matrix gives to doctors only, plus assignment to the encounter. The clinical write, the approval row and the suggestion’s status all commit together: an approval that landed separately from the record it created would leave one existing without the other.",
+        "operationId": "approveAiSuggestion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveAiSuggestionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AiApproval"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Approved"
           },
           "400": {
             "content": {

@@ -4,6 +4,7 @@ import type { PrismaAuditPort } from '@hmedic/audit';
 import { OutboxPort } from '@hmedic/jobs';
 import type { Metrics } from '@hmedic/observability';
 import { QueueSerialLifecycle, type SerialService } from '@hmedic/queue';
+import { AIApprovalService } from './ai-approval-service';
 import { AssignmentPolicy } from './assignment-policy';
 import { ClinicalAccessPolicy } from './clinical-access';
 import { DiagnosisService } from './diagnosis-service';
@@ -44,9 +45,24 @@ export function composeClinical(deps: {
     deps.metrics,
   );
   const diagnoses = new DiagnosisService(deps.prisma, deps.audit, outbox, access, clock, deps.metrics);
+  /**
+   * AI approval (AI-003).
+   *
+   * Built here, with the clinical services it writes through, because an approval *is* a clinical
+   * write. Composing it anywhere else would mean handing those commands to something outside this
+   * context — which is exactly what the worker is forbidden to hold.
+   */
+  const aiApprovals = new AIApprovalService({
+    prisma: deps.prisma,
+    audit: deps.audit,
+    access,
+    notes,
+    diagnoses,
+    clock,
+  });
   // Without this, cancelling a serial mid-consultation would leave an encounter that still looks live.
   deps.serials.attachEncounterInterruption(encounters);
   // `access` is returned because prescriptions answer to the same footing: a prescription is part of
   // the encounter, so it uses the encounter's access policy rather than growing a parallel one.
-  return { encounters, notes, diagnoses, access };
+  return { encounters, notes, diagnoses, access, aiApprovals };
 }

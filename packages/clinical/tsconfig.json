@@ -8,6 +8,7 @@
   "include": ["src"],
   "exclude": ["src/**/*.test.ts"],
   "references": [
+    { "path": "../ai" },
     { "path": "../audit" },
     { "path": "../database" },
     { "path": "../jobs" },

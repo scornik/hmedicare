@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type ServerConfig, loadConfig } from '@hmedic/config';
-import { testEnv } from '@hmedic/config/testing';
+import { generateSecret, testEnv } from '@hmedic/config/testing';
 import { newId } from '@hmedic/kernel';
 import { listAppliedMigrations } from '@hmedic/database';
 import { recordAppliedMigrations } from '@hmedic/http-kit';
@@ -236,5 +236,78 @@ describe('SMS-002 diagnostics (GET /internal/diagnostics/sms-balance)', () => {
     } finally {
       provider.close();
     }
+  });
+});
+
+/**
+ * The worker cannot write a clinical record (AI-003, AI-IMPLEMENTATION §7.5).
+ *
+ * This is the enforcement behind "no final write": the process that talks to AI providers must not be
+ * able to put anything into a chart, whatever a bug or a future change tries. Three things make that
+ * true, and all three are checked here rather than assumed.
+ *
+ * The DI boundary: the worker container has no clinical write services, so resolving one throws rather
+ * than returning something that would quietly work. The import boundary is dependency-cruiser's job
+ * and is checked by the gate. And the record itself: a diagnosis labelled `ai_approved` must have an
+ * approval behind it, which the database enforces and which is asserted here against a real insert.
+ */
+describe('the worker holds no clinical write path (AI-003 §7.5)', () => {
+  it('cannot resolve the clinical write services', async () => {
+    const w = await start();
+
+    // `CLINICAL_SERVICES` is provided only by `ClinicalWriteModule`, which only apps/api imports. A
+    // worker that could resolve it would be a worker that could write a note or a diagnosis.
+    expect(() => w.app.get<unknown>('CLINICAL_SERVICES')).toThrow();
+  });
+
+  it('runs AI jobs all the same', async () => {
+    const w = await start({
+      AI_CREDENTIAL_KEK: generateSecret(),
+      AI_CREDENTIAL_KEK_ID: 'test-ai-1',
+      AI_CREDENTIAL_FINGERPRINT_PEPPER: generateSecret(),
+      AI_ENABLED_PROVIDER_CODES: 'mock',
+    });
+    // The point of the boundary is that it costs the worker nothing it needs: `RunAIJob` is registered
+    // and claimable in the same process that cannot write a chart.
+    const types = (w.jobs?.registry.all() ?? []).map((definition) => definition.type);
+    expect(types).toContain('RunAIJob');
+    expect(types).toContain('ValidateAICredential');
+    expect(types).toContain('ExpireAIDrafts');
+  });
+
+  it('refuses a diagnosis claiming AI approval with no approval behind it', async () => {
+    const w = await start();
+    const now = new Date();
+    const tenantId = newId();
+    await w.runtime.prisma.tenant.create({
+      data: {
+        id: tenantId,
+        name: 'DEMO ai boundary',
+        slug: `ai-boundary-${tenantId.slice(-8)}`,
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+
+    // Attempted directly against the database, which is the only way left once the DI boundary holds.
+    // The CHECK is what makes `source='ai_approved'` a verifiable claim rather than a label.
+    await expect(
+      w.runtime.prisma.diagnosis.create({
+        data: {
+          id: newId(),
+          tenantId,
+          encounterId: newId(),
+          patientId: newId(),
+          authorDoctorProfileId: newId(),
+          display: 'SYNTHETIC unapproved',
+          clinicalStatus: 'ACTIVE',
+          certainty: 'CONFIRMED',
+          source: 'ai_approved',
+          createdAt: now,
+          updatedAt: now,
+        },
+      }),
+    ).rejects.toThrow();
   });
 });

@@ -22,6 +22,7 @@
     "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
   },
   "dependencies": {
+    "@hmedic/ai": "workspace:*",
     "@hmedic/audit": "workspace:*",
     "@hmedic/database": "workspace:*",
     "@hmedic/jobs": "workspace:*",

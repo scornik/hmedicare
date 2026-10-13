@@ -10,6 +10,7 @@ import {
   isEmptyNote,
   noteChainKey,
   noteContentSha256,
+  normalizeSection,
   normalizeSections,
   oversizedSections,
 } from '../domain/note-sections';
@@ -285,6 +286,105 @@ export class NoteService {
     );
     counted('saved');
     return noteDraftView(row);
+  }
+
+  /**
+   * Writes one section of the draft note inside a transaction the caller already owns (AI-003, §7.4).
+   *
+   * Only the AI approval uses this, and it is not exported from the package's public surface, so
+   * `packages/ai` cannot reach it and the worker container cannot resolve it. The approval has to run
+   * the clinical write in its own transaction: an approval row that committed separately from the note
+   * it changed would leave a window where one exists without the other, and a reviewer reading the
+   * chart afterwards could not tell which happened.
+   *
+   * Authorization is the caller's. The approval has already established that this actor is the
+   * encounter's doctor, or covering for them, and holds `ai.approve` — checking it twice here would
+   * mean two places to keep in step, and the one that matters is the one inside the transaction.
+   *
+   * `APPEND` is the default a doctor expects: an approved suggestion joins what they have written
+   * rather than erasing it. `REPLACE` exists because a doctor who accepted an AI version of a section
+   * they had drafted badly should not have to clear it first.
+   */
+  async applyApprovedSection(
+    tx: Tx,
+    actor: ClinicalActor,
+    input: {
+      encounterId: string;
+      section: NoteSection;
+      text: string;
+      mode: 'APPEND' | 'REPLACE';
+      expectedRowVersion: number;
+      aiApprovalId: string;
+    },
+  ): Promise<{ view: NoteDraftView; noteId: string }> {
+    const tenantId = actor.tenant.tenantId;
+    const text = normalizeSection(input.text);
+    if (!text) throw new AppError('VALIDATION_FAILED', undefined, { details: { reason: 'EMPTY_SECTION' } });
+
+    const found = await tx.encounterNote.findFirst({
+      where: { tenantId, encounterId: input.encounterId },
+      select: { id: true },
+    });
+    if (!found) throw new AppError('RESOURCE_NOT_FOUND');
+    await lockRow(tx, 'encounter_notes', found.id, tenantId);
+    const draft = (await tx.encounterNote.findFirst({ where: { id: found.id } })) as DraftRow | null;
+    if (!draft) throw new AppError('RESOURCE_NOT_FOUND');
+    if (draft.status !== 'DRAFT') {
+      // A signed note is fixed. An approved suggestion for one goes through the normal correction
+      // flow, which is a new signed revision with a reason — not a quiet edit.
+      throw new AppError('INVALID_TRANSITION', undefined, {
+        details: { noteStatus: draft.status, command: 'applyApprovedSection' },
+      });
+    }
+    if (draft.rowVersion !== input.expectedRowVersion) {
+      throw new AppError('STALE_VERSION', undefined, {
+        details: { currentRowVersion: draft.rowVersion, lastSignedRevision: draft.lastSignedRevision },
+      });
+    }
+
+    const existing = normalizeSection((draft as Record<string, unknown>)[input.section] as string | null);
+    const combined = input.mode === 'APPEND' && existing ? `${existing}\n${text}` : text;
+    if (combined.length > MAX_SECTION_CHARS) {
+      throw new AppError('VALIDATION_FAILED', undefined, {
+        fieldErrors: [{ path: `sections.${input.section}`, code: 'too_long', message: 'validation.tooLong' }],
+        details: { maxChars: MAX_SECTION_CHARS },
+      });
+    }
+
+    /*
+     * The section's provenance is replaced rather than added to: the section now contains approved AI
+     * text, and a reader needs to know that without working out which half came from where. The
+     * approval id is what makes the claim checkable — it leads to the suggestion, the draft, the job,
+     * the model and the data-use class.
+     */
+    const sources = (
+      Array.isArray(draft.sectionSources) ? (draft.sectionSources as NoteSectionSourceEntry[]) : []
+    ).filter((entry) => entry.section !== input.section);
+    sources.push({ section: input.section, source: 'ai_approved', aiApprovalId: input.aiApprovalId });
+
+    const now = this.clock.now();
+    const updated = (await tx.encounterNote.update({
+      where: { id: draft.id },
+      data: {
+        [input.section]: combined,
+        sectionSources: sources as unknown as Prisma.InputJsonValue,
+        updatedAt: now,
+        updatedByUserId: actor.userId,
+        rowVersion: { increment: 1 },
+      },
+    })) as DraftRow;
+
+    await this.outbox.emit(tx, {
+      tenantId,
+      name: 'EncounterNoteDraftSaved',
+      aggregateType: 'encounter_note',
+      aggregateId: draft.id,
+      // No text, as everywhere else: a subscriber learns the draft moved, never what it says.
+      payload: { encounterId: input.encounterId, rowVersion: updated.rowVersion },
+      actorId: actor.userId,
+      correlationId: this.correlation(actor).correlationId,
+    });
+    return { view: noteDraftView(updated), noteId: draft.id };
   }
 
   /**

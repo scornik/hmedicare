@@ -1,5 +1,6 @@
 // NestJS module of the clinical context. Controllers live in apps/api (REPOSITORY-STRUCTURE §2.2).
 import { type DynamicModule, Global, Module } from '@nestjs/common';
+import type { AIApprovalService } from '../infrastructure/ai-approval-service';
 import type { DiagnosisService } from '../infrastructure/diagnosis-service';
 import type { EncounterService } from '../infrastructure/encounter-service';
 import type { ClinicalAccessPolicy } from '../infrastructure/clinical-access';
@@ -11,6 +12,8 @@ export interface ClinicalServices {
   encounters: EncounterService;
   notes: NoteService;
   diagnoses: DiagnosisService;
+  /** AI approval, the only path from a draft to a chart (AI-003). */
+  aiApprovals: AIApprovalService;
   /** Shared with prescriptions: one encounter, one access footing. */
   access: ClinicalAccessPolicy;
 }

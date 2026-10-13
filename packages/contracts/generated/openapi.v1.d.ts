@@ -222,6 +222,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ai/suggestions/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Puts an accepted or edited suggestion into the chart. Needs `ai.approve`, which the authorization matrix gives to doctors only, plus assignment to the encounter. The clinical write, the approval row and the suggestion’s status all commit together: an approval that landed separately from the record it created would leave one existing without the other. */
+        post: operations["approveAiSuggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ai/suggestions/{id}/review": {
         parameters: {
             query?: never;
@@ -2438,6 +2455,33 @@ export interface components {
         AiAcknowledgementTextList: {
             items: components["schemas"]["AiAcknowledgementText"][];
         };
+        AiApproval: {
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            aiSuggestionId: string;
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            approvedAt: string;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            approvedRecordId: string;
+            approvedRecordType: string;
+            approvedSection: string | null;
+            /** @enum {string} */
+            approvedTarget: "ENCOUNTER_NOTE_SECTION" | "DIAGNOSIS";
+            attestationVersion: number;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            id: string;
+        };
         AiCredential: {
             /** @enum {string} */
             billingMode: "DOCTOR_BYOK_FREE" | "DOCTOR_BYOK_PAID" | "PLATFORM_MANAGED";
@@ -2722,6 +2766,34 @@ export interface components {
             startsAt: string;
             /** @enum {string} */
             status: "OPEN" | "FULL" | "CLOSED";
+        };
+        ApproveAiSuggestionRequest: {
+            /** @enum {string} */
+            approvedTarget: "ENCOUNTER_NOTE_SECTION" | "DIAGNOSIS";
+            attestationVersion: number;
+            diagnosis?: {
+                /** @enum {string} */
+                certainty: "CONFIRMED" | "PROVISIONAL" | "DIFFERENTIAL";
+                /** @enum {string} */
+                clinicalStatus?: "ACTIVE" | "RESOLVED" | "RULED_OUT";
+                code?: string | null;
+                codeSystem?: string | null;
+                display: string;
+                displayBn?: string | null;
+                notes?: string | null;
+            };
+            expectedRowVersion: number;
+            noteSection?: {
+                expectedNoteRowVersion: number;
+                /**
+                 * @description APPEND joins what the doctor wrote; REPLACE substitutes the section
+                 * @enum {string}
+                 */
+                mode: "APPEND" | "REPLACE";
+                /** @enum {string} */
+                section: "chief_complaint" | "history" | "examination" | "assessment" | "plan";
+                text: string;
+            };
         };
         ApprovePrescriptionRequest: {
             /** @description The attestation text the doctor read; a mismatch means reload and read it again */
@@ -6543,6 +6615,110 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["AiModelList"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    approveAiSuggestion: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ApproveAiSuggestionRequest"];
+            };
+        };
+        responses: {
+            /** @description Approved */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AiApproval"];
                         meta: components["schemas"]["ResponseMeta"];
                     };
                 };
