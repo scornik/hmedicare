@@ -17,6 +17,7 @@ import { AppError, type ActorContext, type TenantContext } from '@hmedic/kernel'
 import {
   ChangeAiCredentialRequest,
   CreateAiCredentialRequest,
+  CreateAiJobRequest,
   RecordAiAcknowledgementRequest,
   TenantAiPolicyDecision,
 } from '@hmedic/contracts';
@@ -25,6 +26,7 @@ import { CurrentActor, CurrentTenant, RequirePermission } from '@hmedic/identity
 import {
   type AIAcknowledgementStore,
   type AICredentialStore,
+  type AIJobStore,
   type AIModelCatalogStore,
   type TenantAIPolicyStore,
   acknowledgementTextSha256,
@@ -35,6 +37,7 @@ class DecidePolicyDto extends createZodDto(TenantAiPolicyDecision) {}
 class RecordAcknowledgementDto extends createZodDto(RecordAiAcknowledgementRequest) {}
 class CreateCredentialDto extends createZodDto(CreateAiCredentialRequest) {}
 class ChangeCredentialDto extends createZodDto(ChangeAiCredentialRequest) {}
+class CreateJobDto extends createZodDto(CreateAiJobRequest) {}
 
 export const AI_SERVICES = Symbol('AI_SERVICES');
 
@@ -43,6 +46,7 @@ export interface AiServices {
   acknowledgements: AIAcknowledgementStore;
   credentials: AICredentialStore;
   models: AIModelCatalogStore;
+  jobs: AIJobStore;
 }
 
 /**
@@ -215,6 +219,104 @@ export class AiController {
    * reading the credential first to find out who it belongs to — which would be a read decided before
    * anything had checked whether the caller may make it.
    */
+  /**
+   * Queues a draft job (AI-001).
+   *
+   * The response is the job, not the draft. The work runs in the worker, so a request never waits on
+   * a vendor and a client that times out has not lost the job.
+   */
+  @Post('encounters/:id/ai/note-draft')
+  @HttpCode(201)
+  @RequirePermission('ai.use')
+  @Idempotent()
+  createNoteDraftJob(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe()) encounterId: string,
+    @Body() dto: CreateJobDto,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.createJob(actor, tenant, encounterId, 'note-draft', dto, req);
+  }
+
+  @Post('encounters/:id/ai/history-summary')
+  @HttpCode(201)
+  @RequirePermission('ai.use')
+  @Idempotent()
+  createHistorySummaryJob(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe()) encounterId: string,
+    @Body() dto: CreateJobDto,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.createJob(actor, tenant, encounterId, 'history-summary', dto, req);
+  }
+
+  /**
+   * Transcription, which always refuses in MVP.
+   *
+   * The route exists so a client can tell "not built yet" from "not permitted". Transcription would
+   * send raw audio, and identifiers cannot be reliably removed from it (ADR-017 §3), so this is a
+   * feature gate rather than a stub waiting to be filled in quietly.
+   */
+  @Post('encounters/:id/ai/transcription')
+  @HttpCode(409)
+  @RequirePermission('ai.use')
+  createTranscriptionJob() {
+    this.svc();
+    throw new AppError('FEATURE_DISABLED');
+  }
+
+  private createJob(
+    actor: ActorContext,
+    tenant: TenantContext,
+    encounterId: string,
+    purpose: 'note-draft' | 'history-summary',
+    dto: CreateJobDto,
+    req: FastifyRequest,
+  ) {
+    const idempotencyKey = req.headers['idempotency-key'];
+    if (typeof idempotencyKey !== 'string' || idempotencyKey.length === 0) {
+      // The decorator already requires it; this keeps the store's uniqueness guarantee honest rather
+      // than inventing a key here that a retry would not repeat.
+      throw new AppError('VALIDATION_FAILED');
+    }
+    return this.svc().jobs.create(this.actor(actor, tenant, req), {
+      encounterId,
+      purpose,
+      ...(dto.credentialId ? { credentialId: dto.credentialId } : {}),
+      ...(dto.modelId ? { modelId: dto.modelId } : {}),
+      sourceSelection: dto.sourceSelection,
+      ...(dto.templateVersion ? { templateVersion: dto.templateVersion } : {}),
+      idempotencyKey,
+    });
+  }
+
+  @Get('ai/jobs/:id')
+  @RequirePermission('ai.use')
+  getJob(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.svc().jobs.get(this.actor(actor, tenant, req), id);
+  }
+
+  @Post('ai/jobs/:id/cancel')
+  @HttpCode(200)
+  @RequirePermission('ai.use')
+  @Idempotent('optional')
+  cancelJob(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.svc().jobs.cancel(this.actor(actor, tenant, req), id);
+  }
+
   @Post('doctors/:doctorId/ai/credentials/:id/actions')
   @HttpCode(200)
   @RequirePermission('ai.use')

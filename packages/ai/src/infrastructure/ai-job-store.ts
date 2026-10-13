@@ -172,20 +172,28 @@ export class AIJobStore {
           throw new AppError('POLICY_BLOCKED', undefined, { details: { reason: policy.reason } });
         }
 
-        const modelId = input.modelId ?? credential.defaultModelId;
-        if (!modelId) {
-          // No model named and none configured. Guessing one would be a model id invented in business
-          // code, which is what the catalog exists to prevent.
-          throw new AppError('VALIDATION_FAILED', undefined, { details: { reason: 'MODEL_REQUIRED' } });
-        }
+        /*
+         * The model comes from the request, the credential's default, or the catalog — in that order,
+         * and from nowhere else. The catalog fallback is not a guess: it is a row a refresh verified
+         * against the provider, which is exactly what `hmedic/no-hardcoded-model-id` exists to keep
+         * model choice made of. Ordered by id so two jobs queued a second apart pick the same model.
+         */
+        const named = input.modelId ?? credential.defaultModelId ?? null;
         const usable = await tx.aiModelCatalogEntry.findFirst({
           where: {
             providerCode: credential.providerCode,
-            modelId,
+            ...(named ? { modelId: named } : {}),
             deprecatedAt: null,
           },
+          orderBy: { modelId: 'asc' },
         });
         if (!usable) throw new AppError('MODEL_UNAVAILABLE');
+        const tiers = Array.isArray(usable.tierAvailability) ? (usable.tierAvailability as string[]) : [];
+        if (tiers.length > 0 && !tiers.includes(credential.declaredTier)) {
+          // A model the catalog records for another tier would be a request this key cannot make.
+          throw new AppError('MODEL_UNAVAILABLE');
+        }
+        const modelId = usable.modelId;
 
         const now = this.clock.now();
         const id = newId();

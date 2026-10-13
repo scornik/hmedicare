@@ -391,3 +391,341 @@ describe('AI model catalog over HTTP (ADAPT-002)', () => {
     expect(res.status).toBe(403);
   });
 });
+
+/**
+ * AI job routes (AI-001).
+ *
+ * The store owns the rules and has its own suite; this proves the wiring — that the permission the
+ * matrix names is enforced, that the response is the job rather than a draft, that a retried request
+ * returns the first job instead of queuing a second, and that transcription refuses rather than
+ * quietly doing nothing.
+ */
+describe('AI jobs over HTTP (AI-001)', () => {
+  /** A consultation the doctor is assigned to, with AI enabled and a validated credential. */
+  async function consultation(f: Awaited<ReturnType<typeof fixture>>) {
+    const now = new Date();
+    const patientId = newId();
+    const clinicId = newId();
+    const chamberId = newId();
+    const chamberDayId = newId();
+    const serialId = newId();
+    const encounterId = newId();
+    const p = api.runtime.prisma;
+    await p.patient.create({
+      data: {
+        id: patientId,
+        tenantId: f.tenantId,
+        medicalRecordNumber: patientId.slice(-12),
+        legalName: 'SYNTHETIC Patient',
+        displayName: 'SYNTHETIC Patient',
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.clinic.create({
+      data: {
+        id: clinicId,
+        tenantId: f.tenantId,
+        name: 'DEMO clinic',
+        nameNormalizedHash: newId().replace(/-/g, '').padEnd(64, '0').slice(0, 64),
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.chamber.create({
+      data: {
+        id: chamberId,
+        tenantId: f.tenantId,
+        clinicId,
+        doctorProfileId: f.doctorProfileId,
+        name: 'DEMO chamber',
+        supportsPhysical: true,
+        supportsRemote: false,
+        supportsHybrid: false,
+        defaultQueuePolicy: {},
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.chamberDay.create({
+      data: {
+        id: chamberDayId,
+        tenantId: f.tenantId,
+        chamberId,
+        doctorProfileId: f.doctorProfileId,
+        localDate: now,
+        localStartTime: new Date('1970-01-01T00:00:00.000Z'),
+        localEndTime: new Date('1970-01-01T23:59:00.000Z'),
+        timezone: 'Asia/Dhaka',
+        status: 'OPEN',
+        queuePolicy: {},
+        nextSerialNumber: 2,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.serial.create({
+      data: {
+        id: serialId,
+        tenantId: f.tenantId,
+        chamberDayId,
+        patientId,
+        serialNumber: 1,
+        source: 'WALK_IN',
+        careMode: 'PHYSICAL',
+        status: 'CALLED',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.encounter.create({
+      data: {
+        id: encounterId,
+        tenantId: f.tenantId,
+        patientId,
+        doctorProfileId: f.doctorProfileId,
+        chamberId,
+        serialId,
+        careMode: 'PHYSICAL',
+        status: 'IN_PROGRESS',
+        startedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.tenantAiPolicy.create({
+      data: {
+        id: newId(),
+        tenantId: f.tenantId,
+        aiEnabled: true,
+        freeTierAiAllowed: true,
+        allowedProviderCodes: ['mock'],
+        policyTextVersion: CURRENT_ACK_TEXT_VERSION,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.patientConsent.create({
+      data: {
+        id: newId(),
+        tenantId: f.tenantId,
+        patientId,
+        purpose: 'ai_assistance',
+        status: 'GRANTED',
+        policyVersion: 1,
+        givenByUserId: f.doctor.userId,
+        givenByRelationship: 'STAFF_RECORDED',
+        capturedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const ack = await request(server)
+      .post('/api/v1/ai/acknowledgements')
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({
+        doctorProfileId: f.doctorProfileId,
+        providerCode: 'mock',
+        tier: 'FREE',
+        locale: 'en-BD',
+        termsTextVersion: CURRENT_ACK_TEXT_VERSION,
+      })
+      .expect(201);
+    const credential = await request(server)
+      .post(`/api/v1/doctors/${f.doctorProfileId}/ai/credentials`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({
+        providerCode: 'mock',
+        declaredTier: 'FREE',
+        billingMode: 'DOCTOR_BYOK_FREE',
+        secret: 'synthetic_test_credential_0123456789',
+        dataUseAckId: ack.body.data.id,
+      })
+      .expect(201);
+    await p.aiProviderCredential.update({
+      where: { id: credential.body.data.id },
+      data: { status: 'ACTIVE', validatedAt: now },
+    });
+    await p.aiModelCatalogEntry.create({
+      data: {
+        id: newId(),
+        providerCode: 'mock',
+        modelId: 'mock-text-1',
+        displayName: 'Mock text 1',
+        capabilities: ['text', 'json_schema'],
+        tierAvailability: ['FREE'],
+        lastVerifiedAt: now,
+        source: 'PROVIDER_API',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    return { encounterId, patientId, credentialId: credential.body.data.id as string };
+  }
+
+  it('queues a history-summary job and reports it', async () => {
+    const f = await fixture();
+    const c = await consultation(f);
+
+    const res = await request(server)
+      .post(`/api/v1/encounters/${c.encounterId}/ai/history-summary`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({ sourceSelection: {} })
+      .expect(201);
+
+    expect(res.body.data).toMatchObject({
+      purpose: 'HISTORY_SUMMARY',
+      status: 'QUEUED',
+      providerCode: 'mock',
+      modelId: 'mock-text-1',
+      // Shown beside every suggestion: a doctor needs to know whether the provider may train on it.
+      effectiveDataUsePolicy: 'MAY_TRAIN_OR_REVIEW',
+    });
+    // The platform job row exists, which is what makes the request's promise real.
+    const queued = await api.runtime.prisma.job.findMany({ where: { type: 'RunAIJob' } });
+    expect(queued).toHaveLength(1);
+    expect(queued[0]!.concurrencyKey).toContain(res.body.data.id);
+  });
+
+  it('returns the same job for a retried request', async () => {
+    const f = await fixture();
+    const c = await consultation(f);
+    const key = idem();
+    const body = { sourceSelection: { draftSections: ['history'] } };
+
+    const first = await request(server)
+      .post(`/api/v1/encounters/${c.encounterId}/ai/note-draft`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', key)
+      .send(body)
+      .expect(201);
+    const second = await request(server)
+      .post(`/api/v1/encounters/${c.encounterId}/ai/note-draft`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', key)
+      .send(body);
+
+    expect(second.body.data.id).toBe(first.body.data.id);
+    // One job, not two: a doctor pressing a button twice must not send their patient's data twice.
+    expect(await api.runtime.prisma.aiJob.count()).toBe(1);
+  });
+
+  it('refuses a doctor who is not assigned to the encounter', async () => {
+    const f = await fixture();
+    const c = await consultation(f);
+    const other = await member(f.tenantId, 'doctor');
+    await api.runtime.prisma.doctorProfile.create({
+      data: {
+        id: newId(),
+        tenantId: f.tenantId,
+        userId: other.userId,
+        displayName: 'Dr. other',
+        specialties: [],
+        status: 'ACTIVE',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    const res = await request(server)
+      .post(`/api/v1/encounters/${c.encounterId}/ai/history-summary`)
+      .set(other.headers)
+      .set('idempotency-key', idem())
+      .send({ sourceSelection: {} });
+    // `ai.use` says what a role may do; the assignment says whose patient it is.
+    expect(res.status).toBe(403);
+  });
+
+  it('refuses a member without ai.use', async () => {
+    const f = await fixture();
+    const c = await consultation(f);
+    const receptionist = await member(f.tenantId, 'receptionist');
+
+    const res = await request(server)
+      .post(`/api/v1/encounters/${c.encounterId}/ai/history-summary`)
+      .set(receptionist.headers)
+      .set('idempotency-key', idem())
+      .send({ sourceSelection: {} });
+    expect(res.status).toBe(403);
+  });
+
+  it('refuses transcription with FEATURE_DISABLED', async () => {
+    const f = await fixture();
+    const c = await consultation(f);
+
+    const res = await request(server)
+      .post(`/api/v1/encounters/${c.encounterId}/ai/transcription`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({});
+    // Not built yet is a different answer from not permitted, and raw audio is the reason for both.
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('FEATURE_DISABLED');
+  });
+
+  it('reads and cancels a job', async () => {
+    const f = await fixture();
+    const c = await consultation(f);
+    const created = await request(server)
+      .post(`/api/v1/encounters/${c.encounterId}/ai/history-summary`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({ sourceSelection: {} })
+      .expect(201);
+
+    const read = await request(server)
+      .get(`/api/v1/ai/jobs/${created.body.data.id}`)
+      .set(f.doctor.headers)
+      .expect(200);
+    expect(read.body.data.status).toBe('QUEUED');
+
+    const cancelled = await request(server)
+      .post(`/api/v1/ai/jobs/${created.body.data.id}/cancel`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(200);
+    // Queued, so it is cancelled outright rather than merely marked.
+    expect(cancelled.body.data.status).toBe('CANCELLED');
+  });
+
+  it('refuses an unrelated doctor the job', async () => {
+    const f = await fixture();
+    const c = await consultation(f);
+    const created = await request(server)
+      .post(`/api/v1/encounters/${c.encounterId}/ai/history-summary`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({ sourceSelection: {} })
+      .expect(201);
+    const other = await member(f.tenantId, 'doctor');
+
+    const res = await request(server).get(`/api/v1/ai/jobs/${created.body.data.id}`).set(other.headers);
+    // Nobody else learns that a draft was requested for this patient.
+    expect(res.status).toBe(403);
+  });
+
+  it('refuses when the tenant has not enabled AI', async () => {
+    const f = await fixture();
+    const c = await consultation(f);
+    await api.runtime.prisma.tenantAiPolicy.updateMany({
+      where: { tenantId: f.tenantId },
+      data: { aiEnabled: false },
+    });
+
+    const res = await request(server)
+      .post(`/api/v1/encounters/${c.encounterId}/ai/history-summary`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({ sourceSelection: {} });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('POLICY_BLOCKED');
+    expect(await api.runtime.prisma.aiJob.count()).toBe(0);
+  });
+});

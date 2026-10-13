@@ -6,12 +6,14 @@ import {
   AIAcknowledgementStore,
   AICredentialSecrets,
   AICredentialStore,
+  AIJobStore,
   AIModelCatalogStore,
   AIProviderRegister,
   CURRENT_ACK_TEXT_VERSION,
   TenantAIPolicyStore,
   aiApprovalChainSource,
   aiPolicyChainSource,
+  enqueueAIJob,
 } from '@hmedic/ai';
 import { MockAIProvider } from '@hmedic/ai-adapters-mock';
 import { GeminiApiAdapter } from '@hmedic/ai-adapters-gemini';
@@ -550,6 +552,27 @@ export async function buildApi(
             clock: runtime.clock,
           }),
           models: new AIModelCatalogStore({ prisma: runtime.prisma, clock: runtime.clock }),
+          /**
+           * Job creation (AI-001).
+           *
+           * The API creates the `ai_jobs` row and its queue row in one transaction and then stops:
+           * the provider call happens in the worker, which is also the only process that can reach an
+           * adapter. A request that waited on a vendor would hold a connection for as long as the
+           * vendor took, and a client that timed out would have lost the job.
+           */
+          jobs: new AIJobStore({
+            prisma: runtime.prisma,
+            audit: runtime.audit,
+            providers: aiProviders,
+            environment: config.APP_ENV,
+            enabledProviderCodes: config.AI_ENABLED_PROVIDER_CODES,
+            currentAckTextVersion: CURRENT_ACK_TEXT_VERSION,
+            freeTierProductionGateClosed: config.AI_FREE_TIER_PRODUCTION_GATE_CLOSED,
+            transcriptionEnabled: config.AI_TRANSCRIPTION_ENABLED,
+            platformManagedEnabled: config.AI_PLATFORM_MANAGED_ENABLED,
+            enqueue: enqueueAIJob(() => runtime.clock.now()),
+            clock: runtime.clock,
+          }),
         }
       : null;
   const telemedicine =

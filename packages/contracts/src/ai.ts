@@ -351,3 +351,129 @@ registry.registerPath({
   },
   responses: { 200: ok(AiModelList, 'Models'), ...errorResponses },
 });
+
+/**
+ * AI jobs (AI-001).
+ *
+ * A job is the doctor's request, not the answer. It reports the provider, model and data-use class it
+ * was permitted to use, because those are what a screen must show beside a draft — a doctor reading a
+ * suggestion needs to know whether the provider that produced it may train on what it was sent.
+ *
+ * `errorClass` is the normalized class from the taxonomy, never a provider's own message: a message
+ * can quote the prompt that caused it.
+ */
+export const AiJob = registry.register(
+  'AiJob',
+  z.object({
+    id: Uuid,
+    purpose: z.enum(['NOTE_DRAFT', 'HISTORY_SUMMARY', 'TRANSCRIPTION']),
+    status: z.enum(['QUEUED', 'RUNNING', 'WAITING_RATE_LIMIT', 'SUCCEEDED', 'FAILED', 'CANCELLED']),
+    encounterId: Uuid,
+    providerCode: z.string(),
+    modelId: z.string(),
+    declaredTier: z.enum(['FREE', 'PAID']),
+    effectiveDataUsePolicy: z.enum(['MAY_TRAIN_OR_REVIEW', 'NO_TRAINING_CONTRACTUAL']).openapi({
+      description: 'Shown beside every suggestion this job produced',
+    }),
+    promptTemplateVersion: z.string(),
+    errorClass: z.string().nullable(),
+    errorReason: z.string().nullable().openapi({
+      description: 'A rule or category name, never a provider message',
+    }),
+    cancelRequestedAt: Timestamp.nullable(),
+    startedAt: Timestamp.nullable(),
+    finishedAt: Timestamp.nullable(),
+    rowVersion: z.number().int(),
+  }),
+);
+
+export const CreateAiJobRequest = registry.register(
+  'CreateAiJobRequest',
+  z.object({
+    credentialId: Uuid.optional().openapi({
+      description: 'Defaults to the doctor’s highest-priority active credential',
+    }),
+    modelId: z.string().min(1).max(128).optional(),
+    sourceSelection: z
+      .object({
+        draftSections: z
+          .array(z.enum(['chief_complaint', 'history', 'examination', 'assessment', 'plan']))
+          .max(5)
+          .optional()
+          .openapi({ description: 'Sections of the current draft note the doctor chose to send' }),
+        lookbackDays: z.number().int().min(1).max(3650).optional(),
+        maxItems: z.number().int().min(1).max(50).optional(),
+      })
+      .strict(),
+    templateVersion: z.string().min(1).max(32).optional(),
+  }),
+);
+
+for (const [path, operationId, description] of [
+  [
+    '/api/v1/encounters/{id}/ai/note-draft',
+    'createAiNoteDraftJob',
+    'Queues a note-draft job for this encounter. The response is the job, not the draft: the work ' +
+      'happens in the worker, so a request never waits on a vendor.',
+  ],
+  [
+    '/api/v1/encounters/{id}/ai/history-summary',
+    'createAiHistorySummaryJob',
+    'Queues a history-summary job for this encounter’s patient.',
+  ],
+] as const) {
+  registry.registerPath({
+    method: 'post',
+    path,
+    operationId,
+    tags: ['AI'],
+    security: secured,
+    description,
+    request: {
+      headers: tenantIdemHeaders,
+      params: z.object({ id: Uuid }),
+      body: { content: json(CreateAiJobRequest) },
+    },
+    responses: { 201: ok(AiJob, 'Queued'), ...errorResponses },
+  });
+}
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/encounters/{id}/ai/transcription',
+  operationId: 'createAiTranscriptionJob',
+  tags: ['AI'],
+  security: secured,
+  description:
+    'Always answers FEATURE_DISABLED in MVP. The route exists so a client can tell "not built yet" ' +
+    'from "not permitted": transcription would send raw audio, from which identifiers cannot be ' +
+    'reliably removed (ADR-017 §3).',
+  request: { headers: tenantIdemHeaders, params: z.object({ id: Uuid }) },
+  responses: errorResponses,
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/ai/jobs/{id}',
+  operationId: 'getAiJob',
+  tags: ['AI'],
+  security: secured,
+  description:
+    'The job’s current state. Readable by the doctor who asked and by the encounter’s assigned ' +
+    'doctor; nobody else learns that a draft was requested.',
+  request: { headers: tenantHeaders, params: z.object({ id: Uuid }) },
+  responses: { 200: ok(AiJob, 'Job'), ...errorResponses },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/ai/jobs/{id}/cancel',
+  operationId: 'cancelAiJob',
+  tags: ['AI'],
+  security: secured,
+  description:
+    'Requests cancellation. A queued or waiting job is cancelled outright; a running one is marked ' +
+    'and the runner discards its result rather than claiming to have stopped a call already sent.',
+  request: { headers: tenantIdemHeaders, params: z.object({ id: Uuid }) },
+  responses: { 200: ok(AiJob, 'Cancelled or cancelling'), ...errorResponses },
+});
