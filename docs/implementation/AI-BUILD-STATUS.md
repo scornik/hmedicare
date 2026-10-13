@@ -1,7 +1,10 @@
 # Stage 7 AI build status
 
-**Branch** `codex/timeline-foundation`. Last verified gate: **20/20 at `d21d39d`** (736 unit, 51
-architecture, 824 integration on MariaDB 10.6 and 11.8), tagged `stage7-cp16-ai-approval`.
+**Branch** `codex/timeline-foundation`. Last verified gate: **20/20 at `2a2e9dc`** (736 unit, 51
+architecture, 842 integration on MariaDB 10.6 and 11.8), tagged `stage7-cp17-ai-complete`.
+
+`AI-HANDOFF.md` beside this file is written for whoever takes the work over: what is load-bearing,
+and the half-dozen things that will bite you.
 
 This file is a working status note, not a specification. The specifications are ADR-017,
 `AI-IMPLEMENTATION.md`, `AI-PROVIDER-REGISTER.md` and `IMPLEMENTATION-BACKLOG.md`.
@@ -21,25 +24,20 @@ This file is a working status note, not a specification. The specifications are 
 | AI-001 (HTTP) | Job creation, status, cancel, transcription refusing with `FEATURE_DISABLED` | `stage7-cp15-ai-review` |
 | AI-002 | Draft review: read, open, close, suggestion decisions with row-version conflicts, `ExpireAIDrafts` | `stage7-cp15-ai-review` |
 | AI-003 | `ApproveAISuggestion` in the clinical context — one transaction for the clinical write, the hash-chained approval and the suggestion status — plus the §7.5 worker-boundary tests | `stage7-cp16-ai-approval` |
+| AICRED-005, §6.3, §11 | Usage endpoint with its estimate rules, credential fallback with the policy-rank refusal, and the audited raw-output read | `stage7-cp17-ai-complete` |
 
 ## Remaining
 
 In dependency order. Each line is work, not a reminder to decide something.
 
-1. **AICRED-005, the usage endpoint.** `GET /doctors/me/ai/usage` reporting per-credential request
-   and token counts with `estimatedRemaining` only where a `quota_hint` was configured, and always
-   labelled an estimate. `ai_usage_counters` and `ai_usage_ledger` are already written on every
-   provider call, so this is a read surface over data that exists.
-2. **Fallback between credentials** (§6.3). `ai_credential_fallbacks` exists and the runner settles a
-   spent or rejected credential, but it does not yet try the doctor's next one. The rule that matters
-   is the policy-rank comparison: a fallback may never be more permissive than the credential it
-   replaces.
-3. **`GET /ai/raw-outputs/{jobId}`** for `ai.audit.raw_read`, audited, streamed, and explicitly not
-   for clinical use. The objects are already stored post-minimization under `ai-raw`.
-4. **Web and mobile surfaces.** None of the AI work has a UI yet: the model picker, the draft review
-   screen with its data-use label, and the approval flow with its attestation text.
-5. **AIREG-002/003** register reviews, and the free-tier production gate. These are a reviewer's
-   decisions rather than code, and nothing in production can use an AI credential until they happen.
+1. **Web and mobile surfaces.** None of the AI work has a UI: the model picker, the draft review
+   screen with its data-use label, and the approval flow with its attestation text. This is the
+   largest remaining piece and the only one a doctor would notice.
+2. **AIREG-002/003** register reviews, and the free-tier production gate. These are a reviewer's
+   decisions rather than code, and nothing in production can use an AI credential until they happen —
+   every provider's `productionGate` is `OPEN`, which blocks activation there by design.
+3. **Transcription** (V1). The route exists and returns `FEATURE_DISABLED`; `ai_transcripts` is
+   deliberately not created until the feature that reads it is.
 
 ## Open items that are not code
 
