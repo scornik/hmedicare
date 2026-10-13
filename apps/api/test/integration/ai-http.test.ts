@@ -1247,3 +1247,52 @@ describe('approving an AI suggestion over HTTP (AI-003)', () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe('AI usage over HTTP (AICRED-005)', () => {
+  it('reports a doctor’s own usage and refuses a colleague’s', async () => {
+    const f = await fixture();
+    const credential = await request(server)
+      .post(`/api/v1/doctors/${f.doctorProfileId}/ai/credentials`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({
+        providerCode: 'mock',
+        declaredTier: 'FREE',
+        billingMode: 'DOCTOR_BYOK_FREE',
+        secret: 'synthetic_test_credential_0123456789',
+      })
+      .expect(201);
+
+    const own = await request(server)
+      .get(`/api/v1/doctors/${f.doctorProfileId}/ai/usage`)
+      .set(f.doctor.headers)
+      .expect(200);
+    expect(own.body.data.items).toHaveLength(1);
+    expect(own.body.data.items[0]).toMatchObject({
+      credentialId: credential.body.data.id,
+      requestsToday: 0,
+      // No provider reports a remaining quota, so nothing is estimated without a configured hint.
+      estimatedRemaining: null,
+    });
+
+    const other = await member(f.tenantId, 'doctor');
+    const otherProfile = newId();
+    await api.runtime.prisma.doctorProfile.create({
+      data: {
+        id: otherProfile,
+        tenantId: f.tenantId,
+        userId: other.userId,
+        displayName: 'Dr. other',
+        specialties: [],
+        status: 'ACTIVE',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+    const colleague = await request(server)
+      .get(`/api/v1/doctors/${f.doctorProfileId}/ai/usage`)
+      .set(other.headers);
+    // What a colleague spent on their own key is theirs to know; reading it needs ai.usage.read.
+    expect(colleague.status).toBe(403);
+  });
+});

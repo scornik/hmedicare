@@ -674,3 +674,58 @@ registry.registerPath({
   },
   responses: { 201: ok(AiApproval, 'Approved'), ...errorResponses },
 });
+
+/**
+ * AI usage per credential (AICRED-005).
+ *
+ * A doctor using their own key pays for it, so they can see what has been spent. Every number here is
+ * what this system observed on its own provider calls, not a billing record: a vendor's dashboard will
+ * differ, and the counts do not try to explain the difference.
+ *
+ * `estimatedRemaining` is null unless a quota hint was configured for that credential. No provider
+ * reports a remaining quota, so the only honest basis is a figure somebody entered — and a number
+ * derived from nothing would be read as the provider's own answer.
+ */
+export const AiCredentialUsage = registry.register(
+  'AiCredentialUsage',
+  z.object({
+    credentialId: Uuid,
+    providerCode: z.string(),
+    declaredTier: z.enum(['FREE', 'PAID']),
+    status: z.string(),
+    requestsToday: z.number().int(),
+    inputTokensToday: z.number().int().openapi({
+      description: 'Provider-reported where available, zero where not. An observation, not a bill',
+    }),
+    outputTokensToday: z.number().int(),
+    requestsThisMinute: z.number().int(),
+    lastRateLimitedAt: Timestamp.nullable(),
+    retryAfterUntil: Timestamp.nullable().openapi({
+      description: 'Set while the provider is still refusing; the runner throttles itself until then',
+    }),
+    estimatedRemaining: z.number().int().nullable().openapi({
+      description: 'Always an estimate, and null unless a quota hint was configured',
+    }),
+    callsRecorded: z.number().int(),
+    errorsRecorded: z.number().int(),
+  }),
+);
+
+export const AiCredentialUsageList = registry.register(
+  'AiCredentialUsageList',
+  z.object({ items: z.array(AiCredentialUsage) }),
+);
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/doctors/{doctorId}/ai/usage',
+  operationId: 'getAiUsage',
+  tags: ['AI'],
+  security: secured,
+  description:
+    'Usage for a doctor’s own credentials. A doctor reads their own without any extra permission; ' +
+    'reading a colleague’s needs `ai.usage.read`, because what they spent on their own key is theirs ' +
+    'to know.',
+  request: { headers: tenantHeaders, params: z.object({ doctorId: Uuid }) },
+  responses: { 200: ok(AiCredentialUsageList, 'Usage'), ...errorResponses },
+});

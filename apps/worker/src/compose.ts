@@ -259,6 +259,7 @@ export async function buildWorker(
             schemaRetries: config.AI_SCHEMA_RETRY,
             maxOutputBytes: config.AI_MAX_OUTPUT_BYTES,
             rateLimitMaxWaitSeconds: config.AI_RATE_LIMIT_MAX_WAIT_SECONDS,
+            maxFallbacksPerJob: config.AI_MAX_FALLBACKS_PER_JOB,
             draftTtlHours: config.AI_DRAFT_TTL_HOURS,
             draftGraceHoursAfterComplete: config.AI_DRAFT_GRACE_HOURS_AFTER_COMPLETE,
             clock: runtime.clock,

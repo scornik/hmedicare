@@ -30,6 +30,7 @@ import {
   type AIDraftStore,
   type AIJobStore,
   type AIModelCatalogStore,
+  type AIUsageStore,
   type TenantAIPolicyStore,
   acknowledgementTextSha256,
   currentAcknowledgementTexts,
@@ -51,6 +52,7 @@ export interface AiServices {
   models: AIModelCatalogStore;
   jobs: AIJobStore;
   drafts: AIDraftStore;
+  usage: AIUsageStore;
 }
 
 /**
@@ -327,6 +329,26 @@ export class AiController {
    * Reading and deciding, and nothing else: no route here writes a clinical record. The one that does
    * is the approval, which carries a doctor's attestation and lives with the clinical write it makes.
    */
+  /**
+   * Usage for a doctor's credentials (AICRED-005).
+   *
+   * Gated by `ai.use` at the route and by ownership inside the store: a doctor reads their own, and
+   * anyone else needs `ai.usage.read`. Doing the second half in the store keeps it in the transaction
+   * that resolves the live membership.
+   */
+  @Get('doctors/:doctorId/ai/usage')
+  @RequirePermission('ai.use')
+  getUsage(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('doctorId', new ParseUUIDPipe()) doctorProfileId: string,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.svc()
+      .usage.forDoctor(this.actor(actor, tenant, req), doctorProfileId)
+      .then((items) => ({ items }));
+  }
+
   @Get('ai/drafts/:id')
   @RequirePermission('ai.review')
   getDraft(

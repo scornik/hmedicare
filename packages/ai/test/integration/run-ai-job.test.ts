@@ -11,6 +11,7 @@ import {
   AIJobRunner,
   AIModelCatalogStore,
   AIProviderRegister,
+  AIUsageStore,
   CURRENT_ACK_TEXT_VERSION,
   RetrievalService,
   acknowledgementTextSha256,
@@ -630,5 +631,251 @@ describe('RunAIJob: races with revocation and cancellation', () => {
     // A draft nobody is waiting for still contains their patient's data.
     expect(report.outcome).toBe('CANCELLED');
     expect(await db.prisma.aiDraft.count()).toBe(0);
+  });
+});
+
+describe('AI usage (AICRED-005)', () => {
+  let usage: AIUsageStore;
+
+  beforeEach(() => {
+    usage = new AIUsageStore({ prisma: db.prisma, clock });
+  });
+
+  it('reports what the counters and ledger hold', async () => {
+    const f = await fixture();
+    const job = await queued(f);
+    provider.jsonResponse = summary();
+    await runner.run(f.tenantId, job.id);
+
+    const [entry] = await usage.forDoctor({ tenantId: f.tenantId, userId: f.userId }, f.doctorProfileId);
+    expect(entry).toMatchObject({
+      credentialId: f.credentialId,
+      providerCode: 'mock',
+      requestsToday: 1,
+      requestsThisMinute: 1,
+      callsRecorded: 1,
+      errorsRecorded: 0,
+    });
+    // Provider-reported counts, which the mock supplies.
+    expect(entry!.inputTokensToday).toBeGreaterThan(0);
+  });
+
+  it('reports no estimate without a configured quota hint', async () => {
+    const f = await fixture();
+    const [entry] = await usage.forDoctor({ tenantId: f.tenantId, userId: f.userId }, f.doctorProfileId);
+    // No provider here reports a remaining quota, so a number would be read as the provider's own
+    // answer about something it never said.
+    expect(entry!.estimatedRemaining).toBeNull();
+  });
+
+  it('estimates remaining requests from a configured hint', async () => {
+    const f = await fixture();
+    await db.prisma.aiProviderCredential.update({
+      where: { id: f.credentialId },
+      data: { quotaHint: { requestsPerDay: 50 } },
+    });
+    const job = await queued(f);
+    provider.jsonResponse = summary();
+    await runner.run(f.tenantId, job.id);
+
+    const [entry] = await usage.forDoctor({ tenantId: f.tenantId, userId: f.userId }, f.doctorProfileId);
+    expect(entry!.estimatedRemaining).toBe(49);
+  });
+
+  it('ignores a malformed hint rather than guessing', async () => {
+    const f = await fixture();
+    await db.prisma.aiProviderCredential.update({
+      where: { id: f.credentialId },
+      data: { quotaHint: { requestsPerDay: 'lots' } },
+    });
+    const [entry] = await usage.forDoctor({ tenantId: f.tenantId, userId: f.userId }, f.doctorProfileId);
+    expect(entry!.estimatedRemaining).toBeNull();
+  });
+
+  it('reports a rate limit and when it clears', async () => {
+    const f = await fixture();
+    const job = await queued(f);
+    provider.enqueue('rate_limited');
+    await runner.run(f.tenantId, job.id);
+
+    const [entry] = await usage.forDoctor({ tenantId: f.tenantId, userId: f.userId }, f.doctorProfileId);
+    expect(entry!.lastRateLimitedAt).toBe(now.toISOString());
+    // In the future, so the screen can say when the doctor may try again.
+    expect(entry!.retryAfterUntil).toBe(new Date(now.getTime() + 30_000).toISOString());
+    expect(entry!.errorsRecorded).toBe(1);
+  });
+
+  it('refuses another doctor’s usage without ai.usage.read', async () => {
+    const f = await fixture();
+    const other = await fixture();
+    // What a colleague spent on their own key is theirs to know.
+    await expect(
+      usage.forDoctor({ tenantId: f.tenantId, userId: f.userId }, other.doctorProfileId),
+    ).rejects.toThrow();
+  });
+});
+
+describe('RunAIJob: falling back to another credential (§6.3)', () => {
+  /**
+   * A second credential for the same doctor, listed as the first fallback.
+   *
+   * It carries its own acknowledgement for the FREE tier, because a may-train credential without a
+   * live one is refused — the fallback is held to every rule the original was.
+   */
+  async function withFallback(f: Fixture, tier: 'FREE' | 'PAID' = 'FREE') {
+    /*
+     * The fixture's acknowledgement is reused rather than a second one created: it is about the
+     * provider's terms for a tier, not about a particular key, and `uq_ai_ack_live` allows one live
+     * row per doctor, provider and tier. Two keys on the same terms share the one statement.
+     */
+    const ack =
+      tier === 'FREE'
+        ? await db.prisma.aiDataUseAcknowledgement.findFirst({
+            where: {
+              tenantId: f.tenantId,
+              doctorProfileId: f.doctorProfileId,
+              providerCode: 'mock',
+              tier: 'FREE',
+              revokedAt: null,
+            },
+          })
+        : null;
+    /*
+     * Sealed for real rather than with a placeholder. A credential whose envelope cannot be opened
+     * fails as UNKNOWN_OUTCOME before the provider is reached, which looks like a fallback that did
+     * not happen — it took one confusing run to notice.
+     */
+    const secondId = newId();
+    const sealed = secrets.seal(
+      {
+        credentialId: secondId,
+        tenantId: f.tenantId,
+        doctorProfileId: f.doctorProfileId,
+        providerCode: 'mock',
+      },
+      'synthetic_fallback_credential_0123456789',
+    );
+    const second = await db.prisma.aiProviderCredential.create({
+      data: {
+        id: secondId,
+        tenantId: f.tenantId,
+        doctorProfileId: f.doctorProfileId,
+        providerCode: 'mock',
+        declaredTier: tier,
+        billingMode: tier === 'FREE' ? 'DOCTOR_BYOK_FREE' : 'DOCTOR_BYOK_PAID',
+        ...sealed,
+        status: 'ACTIVE',
+        allowedModelIds: [],
+        ...(ack ? { dataUseAckId: ack.id } : {}),
+        createdByUserId: f.userId,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await db.prisma.aiCredentialFallback.create({
+      data: {
+        id: newId(),
+        tenantId: f.tenantId,
+        doctorProfileId: f.doctorProfileId,
+        position: 1,
+        credentialId: second.id,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    return second;
+  }
+
+  it('switches to the next credential when the first is spent', async () => {
+    const f = await fixture();
+    const second = await withFallback(f);
+    const job = await queued(f);
+    provider.enqueue('quota_exhausted');
+
+    const report = await runner.run(f.tenantId, job.id);
+    expect(report.outcome).toBe('RETRY');
+    expect(report.reason).toBe('FELL_BACK');
+
+    const after = await db.prisma.aiJob.findFirstOrThrow({ where: { id: job.id } });
+    // Queued again, on the other key, with where it came from recorded so the draft is explainable.
+    expect(after.status).toBe('QUEUED');
+    expect(after.credentialId).toBe(second.id);
+    expect(after.fallbackFromCredentialId).toBe(f.credentialId);
+    expect(after.fallbackReason).toBe('QUOTA_EXHAUSTED');
+    // The spent credential is still settled: the fallback does not excuse it.
+    expect(
+      (await db.prisma.aiProviderCredential.findFirstOrThrow({ where: { id: f.credentialId } })).status,
+    ).toBe('QUOTA_EXHAUSTED');
+  });
+
+  it('falls back at most once per job', async () => {
+    const f = await fixture();
+    await withFallback(f);
+    const job = await queued(f);
+    provider.enqueue('quota_exhausted');
+    await runner.run(f.tenantId, job.id);
+
+    // The second key fails the same way. A further fallback would mean a third provider seeing the
+    // same patient's data because the first two failed.
+    provider.enqueue('quota_exhausted');
+    const second = await runner.run(f.tenantId, job.id);
+    expect(second.outcome).toBe('FAILED');
+    expect((await db.prisma.aiJob.findFirstOrThrow({ where: { id: job.id } })).status).toBe('FAILED');
+  });
+
+  it('never falls back to a more permissive data-use class', async () => {
+    const f = await fixture();
+    /*
+     * The job runs on a PAID credential with contractual no-training; the only fallback is a FREE one
+     * that may be trained on.
+     *
+     * The acknowledgement link is cleared with the tier change, because `fk_ai_credential_ack_scope`
+     * is scoped to the tier: an acknowledgement is a statement about one provider's terms for one
+     * tier, so a PAID credential cannot keep pointing at a FREE one. The mock's PAID metadata is
+     * NO_TRAINING_CONTRACTUAL, which needs no acknowledgement.
+     */
+    await db.prisma.aiProviderCredential.update({
+      where: { id: f.credentialId },
+      data: { declaredTier: 'PAID', billingMode: 'DOCTOR_BYOK_PAID', dataUseAckId: null },
+    });
+    await withFallback(f, 'FREE');
+    const job = await queued(f, {
+      declaredTier: 'PAID',
+      billingMode: 'DOCTOR_BYOK_PAID',
+      effectiveDataUsePolicy: 'NO_TRAINING_CONTRACTUAL',
+    });
+    provider.enqueue('quota_exhausted');
+
+    const report = await runner.run(f.tenantId, job.id);
+    // The doctor consented to one arrangement; finishing on a weaker one would change that without
+    // asking.
+    expect(report.outcome).toBe('FAILED');
+    expect(
+      (await db.prisma.aiJob.findFirstOrThrow({ where: { id: job.id } })).fallbackFromCredentialId,
+    ).toBeNull();
+  });
+
+  it('does not fall back on blocked content', async () => {
+    const f = await fixture();
+    await withFallback(f);
+    const job = await queued(f);
+    provider.enqueue('content_blocked');
+
+    const report = await runner.run(f.tenantId, job.id);
+    // A different provider would be asked to accept what this one refused on policy grounds, which is
+    // shopping for one that says yes.
+    expect(report).toMatchObject({ outcome: 'FAILED', errorClass: 'CONTENT_BLOCKED' });
+    expect(
+      (await db.prisma.aiJob.findFirstOrThrow({ where: { id: job.id } })).fallbackFromCredentialId,
+    ).toBeNull();
+  });
+
+  it('fails where the doctor has no fallback configured', async () => {
+    const f = await fixture();
+    const job = await queued(f);
+    provider.enqueue('invalid_credential');
+
+    const report = await runner.run(f.tenantId, job.id);
+    expect(report).toMatchObject({ outcome: 'FAILED', errorClass: 'INVALID_CREDENTIAL' });
   });
 });

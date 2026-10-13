@@ -884,6 +884,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/doctors/{doctorId}/ai/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Usage for a doctor’s own credentials. A doctor reads their own without any extra permission; reading a colleague’s needs `ai.usage.read`, because what they spent on their own key is theirs to know. */
+        get: operations["getAiUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/doctors/{id}/ai/acknowledgements": {
         parameters: {
             query?: never;
@@ -2512,6 +2529,40 @@ export interface components {
         };
         AiCredentialList: {
             items: components["schemas"]["AiCredential"][];
+        };
+        AiCredentialUsage: {
+            callsRecorded: number;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            credentialId: string;
+            /** @enum {string} */
+            declaredTier: "FREE" | "PAID";
+            errorsRecorded: number;
+            /** @description Always an estimate, and null unless a quota hint was configured */
+            estimatedRemaining: number | null;
+            /** @description Provider-reported where available, zero where not. An observation, not a bill */
+            inputTokensToday: number;
+            /**
+             * Format: date-time
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            lastRateLimitedAt: string | null;
+            outputTokensToday: number;
+            providerCode: string;
+            requestsThisMinute: number;
+            requestsToday: number;
+            /**
+             * Format: date-time
+             * @description Set while the provider is still refusing; the runner throttles itself until then
+             * @example 2026-09-18T10:49:42.206Z
+             */
+            retryAfterUntil: string | null;
+            status: string;
+        };
+        AiCredentialUsageList: {
+            items: components["schemas"]["AiCredentialUsage"][];
         };
         AiDraft: {
             /**
@@ -11518,6 +11569,105 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["AiCredential"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getAiUsage: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path: {
+                doctorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Usage */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AiCredentialUsageList"];
                         meta: components["schemas"]["ResponseMeta"];
                     };
                 };

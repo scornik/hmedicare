@@ -10,6 +10,7 @@ import {
   AIJobStore,
   AIModelCatalogStore,
   AIProviderRegister,
+  AIUsageStore,
   CURRENT_ACK_TEXT_VERSION,
   TenantAIPolicyStore,
   aiApprovalChainSource,
@@ -582,6 +583,7 @@ export async function buildApi(
             audit: runtime.audit,
             clock: runtime.clock,
           }),
+          usage: new AIUsageStore({ prisma: runtime.prisma, clock: runtime.clock }),
         }
       : null;
   const telemedicine =

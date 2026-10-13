@@ -83,6 +83,7 @@ export interface AIJobRunnerDeps {
   schemaRetries?: number;
   maxOutputBytes?: number;
   rateLimitMaxWaitSeconds?: number;
+  maxFallbacksPerJob?: number;
   draftTtlHours?: number;
   draftGraceHoursAfterComplete?: number;
   promptsDirectory?: string;
@@ -93,6 +94,17 @@ export interface AIJobRunnerDeps {
 const PURPOSE_FROM_DB: Record<string, PromptPurpose> = {
   NOTE_DRAFT: 'note-draft',
   HISTORY_SUMMARY: 'history-summary',
+};
+
+/**
+ * Data-use ranks for fallback (AI-IMPLEMENTATION section 6.3).
+ *
+ * Higher is stricter. A fallback may equal or exceed the original's rank and never fall below it: a
+ * job that began on a contractual no-training key must not finish on one that may be trained on.
+ */
+const POLICY_RANK: Readonly<Record<string, number>> = {
+  NO_TRAINING_CONTRACTUAL: 2,
+  MAY_TRAIN_OR_REVIEW: 1,
 };
 
 /** Error classes that describe the credential rather than this request. */
@@ -737,16 +749,138 @@ export class AIJobRunner {
       // The credential, not the request. Settling it here is what stops every later job trying the
       // same spent or rejected key.
       await this.settleCredential(tenantId, job.credentialId, result.errorClass);
+      const switched = await this.tryFallback(tenantId, aiJobId, result.errorClass);
+      if (switched) return switched;
       return this.fail(tenantId, aiJobId, result.errorClass, result.providerCode ?? 'PROVIDER');
     }
-    if (result.errorClass === 'CONTENT_BLOCKED' || result.errorClass === 'MODEL_UNAVAILABLE') {
-      // Retrying sends the same text to the same model.
+    if (result.errorClass === 'MODEL_UNAVAILABLE') {
+      // The model, not the key - but a different provider may have one that works, so the doctor's
+      // fallback list is worth trying before giving up.
+      const switched = await this.tryFallback(tenantId, aiJobId, result.errorClass);
+      if (switched) return switched;
+      return this.fail(tenantId, aiJobId, result.errorClass, result.providerCode ?? 'PROVIDER');
+    }
+    if (result.errorClass === 'CONTENT_BLOCKED') {
+      // Retrying sends the same text, and a different provider would be asked to accept what this one
+      // refused on policy grounds. Falling back here would be shopping for a provider that says yes.
       return this.fail(tenantId, aiJobId, result.errorClass, result.providerCode ?? 'PROVIDER');
     }
     // PROVIDER_ERROR, PROVIDER_UNAVAILABLE, UNKNOWN_OUTCOME, SCHEMA_INVALID from the provider: back to
     // QUEUED so the platform runner's backoff applies.
     await this.requeue(tenantId, aiJobId, result.errorClass, result.providerCode ?? 'PROVIDER');
     return { outcome: 'RETRY', errorClass: result.errorClass };
+  }
+
+  /**
+   * Switches the job to the doctor's next credential, if one qualifies (section 6.3).
+   *
+   * The rule that matters is the policy rank: a fallback may never be more permissive than the
+   * credential it replaces. `NO_TRAINING_CONTRACTUAL` outranks `MAY_TRAIN_OR_REVIEW`, so a job that
+   * began on a paid key with contractual no-training cannot quietly finish on a free key that may be
+   * trained on. The doctor consented to one arrangement; falling back to a weaker one would change
+   * that without asking.
+   *
+   * Everything else the original credential had to satisfy still applies, so the candidate is checked
+   * the same way: active, served by an adapter, allowed by the tenant's policy, with a live
+   * acknowledgement where its class requires one. It also has to be the doctor's own key rather than
+   * platform-managed, because a doctor's quota running out is not a reason to start spending the
+   * platform's.
+   *
+   * One switch per job by default, and the job records where it came from and why, so a draft
+   * produced on the second key is explainable afterwards.
+   */
+  private async tryFallback(tenantId: string, aiJobId: string, reason: string): Promise<AIJobReport | null> {
+    const limit = this.deps.maxFallbacksPerJob ?? 1;
+    if (limit <= 0) return null;
+    const job = await this.deps.prisma.aiJob.findFirst({ where: { tenantId, id: aiJobId } });
+    if (!job) return null;
+    // A second fallback would mean a third provider seeing the same patient's data because the first
+    // two failed.
+    if (job.fallbackFromCredentialId !== null) return null;
+
+    const [fallbacks, policy] = await Promise.all([
+      this.deps.prisma.aiCredentialFallback.findMany({
+        where: { tenantId, doctorProfileId: job.doctorProfileId },
+        orderBy: { position: 'asc' },
+      }),
+      this.deps.prisma.tenantAiPolicy.findFirst({ where: { tenantId } }),
+    ]);
+    const originalRank = POLICY_RANK[job.effectiveDataUsePolicy] ?? 1;
+
+    for (const entry of fallbacks) {
+      if (entry.credentialId === job.credentialId) continue;
+      const candidate = await this.deps.prisma.aiProviderCredential.findFirst({
+        where: { tenantId, id: entry.credentialId, status: 'ACTIVE' },
+      });
+      if (!candidate || candidate.billingMode === 'PLATFORM_MANAGED') continue;
+      const metadata = this.deps.providers.metadata(
+        candidate.providerCode,
+        candidate.declaredTier as DeclaredTier,
+      );
+      if (!metadata) continue;
+      const decision = await this.evaluate(
+        tenantId,
+        { doctorProfileId: job.doctorProfileId, patientId: job.patientId },
+        candidate,
+        metadata,
+        policy,
+      );
+      if (!decision.allowed) continue;
+      if ((POLICY_RANK[decision.dataUsePolicy] ?? 1) < originalRank) continue;
+      const model = await this.deps.prisma.aiModelCatalogEntry.findFirst({
+        where: { providerCode: candidate.providerCode, deprecatedAt: null },
+        orderBy: { modelId: 'asc' },
+      });
+      if (!model) continue;
+      const tiers = Array.isArray(model.tierAvailability) ? (model.tierAvailability as string[]) : [];
+      if (tiers.length > 0 && !tiers.includes(candidate.declaredTier)) continue;
+
+      const now = this.clock.now();
+      await withTransaction(this.deps.prisma, async (tx) => {
+        await lockRow(tx, 'ai_jobs', aiJobId, tenantId);
+        await tx.aiJob.update({
+          where: { id: aiJobId },
+          data: {
+            status: 'QUEUED',
+            credentialId: candidate.id,
+            fallbackFromCredentialId: job.credentialId,
+            fallbackReason: reason.slice(0, 48),
+            providerCode: candidate.providerCode,
+            modelId: model.modelId,
+            declaredTier: candidate.declaredTier,
+            billingMode: candidate.billingMode,
+            effectiveDataUsePolicy: decision.dataUsePolicy,
+            errorClass: null,
+            errorReason: null,
+            updatedAt: now,
+            rowVersion: { increment: 1 },
+          },
+        });
+        await this.deps.audit.append(tx, {
+          tenantId,
+          actorUserId: null,
+          actorType: 'SYSTEM',
+          action: 'AI_JOB_FELL_BACK',
+          resourceType: 'ai_job',
+          resourceId: aiJobId,
+          outcome: 'SUCCESS',
+          requestId: null,
+          metadata: {
+            fromCredentialId: job.credentialId,
+            toCredentialId: candidate.id,
+            reason,
+            providerCode: candidate.providerCode,
+            effectiveDataUsePolicy: decision.dataUsePolicy,
+          },
+        });
+      });
+      this.deps.logger?.info(
+        { aiJobId, fromCredentialId: job.credentialId, toCredentialId: candidate.id, reason },
+        'AI job fell back to another credential',
+      );
+      return { outcome: 'RETRY', errorClass: reason, reason: 'FELL_BACK' };
+    }
+    return null;
   }
 
   private async settleCredential(tenantId: string, credentialId: string, errorClass: string) {

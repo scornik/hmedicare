@@ -480,6 +480,95 @@
         ],
         "type": "object"
       },
+      "AiCredentialUsage": {
+        "properties": {
+          "callsRecorded": {
+            "type": "integer"
+          },
+          "credentialId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "declaredTier": {
+            "enum": [
+              "FREE",
+              "PAID"
+            ],
+            "type": "string"
+          },
+          "errorsRecorded": {
+            "type": "integer"
+          },
+          "estimatedRemaining": {
+            "description": "Always an estimate, and null unless a quota hint was configured",
+            "nullable": true,
+            "type": "integer"
+          },
+          "inputTokensToday": {
+            "description": "Provider-reported where available, zero where not. An observation, not a bill",
+            "type": "integer"
+          },
+          "lastRateLimitedAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "outputTokensToday": {
+            "type": "integer"
+          },
+          "providerCode": {
+            "type": "string"
+          },
+          "requestsThisMinute": {
+            "type": "integer"
+          },
+          "requestsToday": {
+            "type": "integer"
+          },
+          "retryAfterUntil": {
+            "description": "Set while the provider is still refusing; the runner throttles itself until then",
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "credentialId",
+          "providerCode",
+          "declaredTier",
+          "status",
+          "requestsToday",
+          "inputTokensToday",
+          "outputTokensToday",
+          "requestsThisMinute",
+          "lastRateLimitedAt",
+          "retryAfterUntil",
+          "estimatedRemaining",
+          "callsRecorded",
+          "errorsRecorded"
+        ],
+        "type": "object"
+      },
+      "AiCredentialUsageList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AiCredentialUsage"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
       "AiDraft": {
         "properties": {
           "aiJobId": {
@@ -17185,6 +17274,146 @@
               }
             },
             "description": "Changed"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/doctors/{doctorId}/ai/usage": {
+      "get": {
+        "description": "Usage for a doctor’s own credentials. A doctor reads their own without any extra permission; reading a colleague’s needs `ai.usage.read`, because what they spent on their own key is theirs to know.",
+        "operationId": "getAiUsage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "doctorId",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AiCredentialUsageList"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Usage"
           },
           "400": {
             "content": {
