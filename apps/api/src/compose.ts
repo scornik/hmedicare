@@ -10,6 +10,7 @@ import {
   AIJobStore,
   AIModelCatalogStore,
   AIProviderRegister,
+  AIRawOutputReader,
   AIUsageStore,
   CURRENT_ACK_TEXT_VERSION,
   TenantAIPolicyStore,
@@ -584,6 +585,20 @@ export async function buildApi(
             clock: runtime.clock,
           }),
           usage: new AIUsageStore({ prisma: runtime.prisma, clock: runtime.clock }),
+          /**
+           * Reading what was sent to a provider (`ai.audit.raw_read`).
+           *
+           * The same disk adapter the worker writes with, so a deployment without object storage has
+           * no reader either — which is the honest state, since nothing was ever written.
+           */
+          rawOutputs: new AIRawOutputReader({
+            prisma: runtime.prisma,
+            audit: runtime.audit,
+            ...(config.STORAGE_DISK_ROOT
+              ? { storage: new DiskObjectStorage({ root: config.STORAGE_DISK_ROOT }) }
+              : {}),
+            clock: runtime.clock,
+          }),
         }
       : null;
   const telemedicine =

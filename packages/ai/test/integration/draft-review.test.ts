@@ -1,8 +1,9 @@
+import { Readable } from 'node:stream';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '@hmedic/kernel';
 import type { Database } from '@hmedic/database';
 import { PrismaAuditPort } from '@hmedic/audit';
-import { AIDraftStore } from '../../src/public';
+import { AIDraftStore, AIRawOutputReader } from '../../src/public';
 import { openTestDatabase, truncateAll } from '../../../../tests/support/db';
 import { chamberWithCalledSerial } from '../../../../tests/support/clinical';
 
@@ -519,5 +520,128 @@ describe('expiry', () => {
     expect(
       await db.prisma.auditLog.count({ where: { resourceId: f.draftId, action: 'AI_DRAFT_EXPIRED' } }),
     ).toBe(1);
+  });
+});
+
+describe('reading raw provider output (ai.audit.raw_read)', () => {
+  /** A storage double: the real adapter is composed in the app, and this suite is about the rules. */
+  const stored = new Map<string, string>();
+  const storage = {
+    get: async (key: string) => {
+      const body = stored.get(key);
+      if (body === undefined) throw new Error('OBJECT_NOT_FOUND');
+      return { stream: Readable.from([body]), sizeBytes: Buffer.byteLength(body, 'utf8') };
+    },
+  };
+
+  const reader = (withStorage = true) =>
+    new AIRawOutputReader({
+      prisma: db.prisma,
+      audit: new PrismaAuditPort({ now: () => clockNow }),
+      ...(withStorage ? { storage } : {}),
+      clock: { now: () => clockNow },
+    });
+
+  /** Marks the fixture's draft as having kept its raw object, and stores one. */
+  async function retained(f: Fixture) {
+    const draft = await db.prisma.aiDraft.findFirstOrThrow({ where: { id: f.draftId } });
+    const key = `t/${f.tenantId}/ai-raw/${draft.aiJobId}/1`;
+    stored.set(key, JSON.stringify({ request: 'SYNTHETIC prompt', response: 'SYNTHETIC answer' }));
+    await db.prisma.aiDraft.update({ where: { id: f.draftId }, data: { rawOutputObjectKey: key } });
+    return { aiJobId: draft.aiJobId, key };
+  }
+
+  /** A tenant owner, which is the role the matrix gives `ai.audit.raw_read`. */
+  async function owner(f: Fixture) {
+    const userId = newId();
+    await db.prisma.user.create({
+      data: {
+        id: userId,
+        email: `${userId}@example.invalid`,
+        emailNormalized: `${userId}@example.invalid`,
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await db.prisma.tenantMembership.create({
+      data: {
+        id: newId(),
+        tenantId: f.tenantId,
+        userId,
+        role: 'tenant_owner',
+        permissions: { grants: [] },
+        clinicIds: [],
+        chamberIds: [],
+        status: 'ACTIVE',
+        rolePermissionsVersion: 2,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    return { tenantId: f.tenantId, userId };
+  }
+
+  it('streams what was stored and audits the read first', async () => {
+    const f = await fixture();
+    const r = await retained(f);
+    const actingOwner = await owner(f);
+
+    const object = await reader().open(actingOwner, r.aiJobId);
+    expect(object.objectKey).toBe(r.key);
+    expect(object.sizeBytes).toBeGreaterThan(0);
+
+    const entries = await db.prisma.auditLog.findMany({ where: { action: 'AI_RAW_OUTPUT_READ' } });
+    expect(entries).toHaveLength(1);
+    // The key and the draft, never any content: an audit row holding the prompt would be another copy
+    // of it.
+    expect(JSON.stringify(entries[0]!.metadata)).toContain(r.key);
+    expect(JSON.stringify(entries[0]!.metadata)).not.toContain('SYNTHETIC prompt');
+  });
+
+  it('refuses a doctor, who does not hold the permission', async () => {
+    const f = await fixture();
+    const r = await retained(f);
+    // The matrix gives `ai.audit.raw_read` to the tenant owner. A doctor reviewing drafts has no
+    // reason to read what the provider was sent byte for byte.
+    await expect(reader().open(actor(f), r.aiJobId)).rejects.toThrow(/FORBIDDEN/);
+    expect(await db.prisma.auditLog.count({ where: { action: 'AI_RAW_OUTPUT_READ' } })).toBe(0);
+  });
+
+  it('says nothing was kept when the retention was zero', async () => {
+    const f = await fixture();
+    const draft = await db.prisma.aiDraft.findFirstOrThrow({ where: { id: f.draftId } });
+    const actingOwner = await owner(f);
+
+    // `rawOutputObjectKey` is null, which is what a zero retention leaves behind.
+    await expect(reader().open(actingOwner, draft.aiJobId)).rejects.toThrow(/RESOURCE_NOT_FOUND/);
+  });
+
+  it('refuses when no object storage is configured', async () => {
+    const f = await fixture();
+    const r = await retained(f);
+    const actingOwner = await owner(f);
+
+    // Nothing was ever written, so this is a feature that is absent rather than a missing object.
+    await expect(reader(false).open(actingOwner, r.aiJobId)).rejects.toThrow(/FEATURE_DISABLED/);
+  });
+
+  it('does not reveal another tenant’s object', async () => {
+    const f = await fixture();
+    const r = await retained(f);
+    const other = await fixture();
+    const otherOwner = await owner(other);
+
+    await expect(reader().open(otherOwner, r.aiJobId)).rejects.toThrow(/RESOURCE_NOT_FOUND/);
+  });
+
+  it('reports whether anything was retained', async () => {
+    const f = await fixture();
+    const draft = await db.prisma.aiDraft.findFirstOrThrow({ where: { id: f.draftId } });
+    const actingOwner = await owner(f);
+    expect(await reader().isRetained(actingOwner, draft.aiJobId)).toBe(false);
+    await retained(f);
+    // So a screen can hide the button rather than offering a read that fails.
+    expect(await reader().isRetained(actingOwner, draft.aiJobId)).toBe(true);
   });
 });

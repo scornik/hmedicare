@@ -729,3 +729,22 @@ registry.registerPath({
   request: { headers: tenantHeaders, params: z.object({ doctorId: Uuid }) },
   responses: { 200: ok(AiCredentialUsageList, 'Usage'), ...errorResponses },
 });
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/ai/raw-outputs/{jobId}',
+  operationId: 'readAiRawOutput',
+  tags: ['AI'],
+  security: secured,
+  description:
+    'Streams the post-minimization request and the raw provider response for one job. Needs ' +
+    '`ai.audit.raw_read`, and every read is audited before the bytes are opened. **Not a clinical ' +
+    'record**: the response is the model’s unvalidated output, which may contain suggestions the ' +
+    'validator discarded. Everything a doctor may act on is in the draft. Answers 404 where the ' +
+    'tenant’s retention is zero, since nothing was kept.',
+  request: { headers: tenantHeaders, params: z.object({ jobId: Uuid }) },
+  responses: {
+    200: { description: 'The stored request and response, as JSON bytes' },
+    ...errorResponses,
+  },
+});

@@ -10,8 +10,9 @@ import {
   Put,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { createZodDto } from 'nestjs-zod';
 import { AppError, type ActorContext, type TenantContext } from '@hmedic/kernel';
 import {
@@ -22,7 +23,7 @@ import {
   ReviewAiSuggestionRequest,
   TenantAiPolicyDecision,
 } from '@hmedic/contracts';
-import { Idempotent } from '@hmedic/http-kit';
+import { Idempotent, RawResponse } from '@hmedic/http-kit';
 import { CurrentActor, CurrentTenant, RequirePermission } from '@hmedic/identity-access/nest';
 import {
   type AIAcknowledgementStore,
@@ -30,6 +31,7 @@ import {
   type AIDraftStore,
   type AIJobStore,
   type AIModelCatalogStore,
+  type AIRawOutputReader,
   type AIUsageStore,
   type TenantAIPolicyStore,
   acknowledgementTextSha256,
@@ -53,6 +55,7 @@ export interface AiServices {
   jobs: AIJobStore;
   drafts: AIDraftStore;
   usage: AIUsageStore;
+  rawOutputs: AIRawOutputReader;
 }
 
 /**
@@ -402,6 +405,38 @@ export class AiController {
       ...(dto.editedCandidate !== undefined ? { editedCandidate: dto.editedCandidate } : {}),
       expectedRowVersion: dto.expectedRowVersion,
     });
+  }
+
+  /**
+   * The bytes that were actually sent and received (`ai.audit.raw_read`).
+   *
+   * `@RawResponse()` because the body is the stored object, not an envelope describing it. Audited in
+   * the store before anything is opened, and explicitly not a clinical record: the response is the
+   * model's unvalidated output, and everything a doctor may act on is in the draft.
+   */
+  @Get('ai/raw-outputs/:jobId')
+  @RawResponse()
+  @RequirePermission('ai.audit.raw_read')
+  async readRawOutput(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('jobId', new ParseUUIDPipe()) jobId: string,
+    @Req() req: FastifyRequest,
+    @Res() reply: FastifyReply,
+  ): Promise<void> {
+    const object = await this.svc().rawOutputs.open(this.actor(actor, tenant, req), jobId);
+    reply
+      .header('Content-Type', 'application/json')
+      // `attachment`, so a browser cannot render provider output inside this origin.
+      .header('Content-Disposition', `attachment; filename="ai-raw-${jobId}.json"`)
+      .header('Content-Length', String(object.sizeBytes))
+      .header('X-Content-Type-Options', 'nosniff')
+      .header('Cache-Control', 'private, no-store')
+      .header(
+        'Content-Security-Policy',
+        "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; sandbox",
+      );
+    await reply.send(object.stream);
   }
 
   @Post('doctors/:doctorId/ai/credentials/:id/actions')
