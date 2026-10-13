@@ -1,7 +1,7 @@
 # Stage 7 AI build status
 
-**Branch** `codex/timeline-foundation`. Last verified gate: **20/20 at `775b519`** (718 unit, 51
-architecture, 768 integration on MariaDB 10.6 and 11.8), tagged `stage7-cp14-ai-jobs`.
+**Branch** `codex/timeline-foundation`. Last verified gate: **20/20 at `d21d39d`** (736 unit, 51
+architecture, 824 integration on MariaDB 10.6 and 11.8), tagged `stage7-cp16-ai-approval`.
 
 This file is a working status note, not a specification. The specifications are ADR-017,
 `AI-IMPLEMENTATION.md`, `AI-PROVIDER-REGISTER.md` and `IMPLEMENTATION-BACKLOG.md`.
@@ -18,28 +18,28 @@ This file is a working status note, not a specification. The specifications are 
 | ADAPT-003 | `GeminiApiAdapter` over recorded synthetic fixtures; tier-signal question settled and dated | `stage7-cp13-ai-adapters` |
 | ADAPT-004 | `OpenAICompatibleAdapter` for `openai`, `groq`, `mistral`, `openrouter`, `deepseek` | `stage7-cp13-ai-adapters` |
 | AI-001 (part) | Migration 0025 tables, prompt templates with a lock file, retrieval, `AIJobStore`, `RunAIJob` | `stage7-cp14-ai-jobs` |
+| AI-001 (HTTP) | Job creation, status, cancel, transcription refusing with `FEATURE_DISABLED` | `stage7-cp15-ai-review` |
+| AI-002 | Draft review: read, open, close, suggestion decisions with row-version conflicts, `ExpireAIDrafts` | `stage7-cp15-ai-review` |
+| AI-003 | `ApproveAISuggestion` in the clinical context — one transaction for the clinical write, the hash-chained approval and the suggestion status — plus the §7.5 worker-boundary tests | `stage7-cp16-ai-approval` |
 
 ## Remaining
 
 In dependency order. Each line is work, not a reminder to decide something.
 
-1. **AI job HTTP surface.** `POST /encounters/{id}/ai/note-draft` and `…/history-summary`,
-   `POST …/ai/transcription` returning `FEATURE_DISABLED`, `GET /ai/jobs/{id}`,
-   `POST /ai/jobs/{id}/cancel`. The store behind all of these exists and is tested; the routes and
-   contracts do not.
-2. **AI-002, draft review.** `GET /ai/drafts/{id}`, `open`/`close`, `POST /ai/suggestions/{id}/review`,
-   and `ExpireAIDrafts`. The tables and their state CHECKs exist.
-3. **AI-003, approval.** `POST /ai/suggestions/{id}/approve`. This one needs a change outside the AI
-   context: `AI-IMPLEMENTATION.md` §7.4 requires the clinical command to run **inside the approval
-   transaction**, and `DiagnosisService.add` / `NoteService.saveDraft` currently open their own. They
-   need to accept an outer transaction context before the approval can be atomic. Doing it any other
-   way would leave a window where an approval exists and the diagnosis does not, or vice versa.
-4. **DI enforcement tests** (§7.5): a worker-container test asserting that `AddDiagnosis`,
-   `SaveEncounterNote` and friends cannot be resolved there, plus the repository check that every
-   `diagnoses` row with `source='ai_approved'` has an approval behind it. The database CHECK already
-   enforces the second; the test makes the first a property of the build.
-5. **AICRED-005** usage endpoint, and the remaining register review gates (AIREG-002/003), which are
-   decisions for a reviewer rather than code.
+1. **AICRED-005, the usage endpoint.** `GET /doctors/me/ai/usage` reporting per-credential request
+   and token counts with `estimatedRemaining` only where a `quota_hint` was configured, and always
+   labelled an estimate. `ai_usage_counters` and `ai_usage_ledger` are already written on every
+   provider call, so this is a read surface over data that exists.
+2. **Fallback between credentials** (§6.3). `ai_credential_fallbacks` exists and the runner settles a
+   spent or rejected credential, but it does not yet try the doctor's next one. The rule that matters
+   is the policy-rank comparison: a fallback may never be more permissive than the credential it
+   replaces.
+3. **`GET /ai/raw-outputs/{jobId}`** for `ai.audit.raw_read`, audited, streamed, and explicitly not
+   for clinical use. The objects are already stored post-minimization under `ai-raw`.
+4. **Web and mobile surfaces.** None of the AI work has a UI yet: the model picker, the draft review
+   screen with its data-use label, and the approval flow with its attestation text.
+5. **AIREG-002/003** register reviews, and the free-tier production gate. These are a reviewer's
+   decisions rather than code, and nothing in production can use an AI credential until they happen.
 
 ## Open items that are not code
 
