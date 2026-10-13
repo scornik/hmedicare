@@ -23,3 +23,5 @@ export * from '../infrastructure/retrieval-service';
 export * from '../infrastructure/ai-job-store';
 export * from '../infrastructure/ai-job-runner';
 export * from '../infrastructure/run-ai-job';
+export * from '../domain/draft';
+export * from '../infrastructure/ai-draft-store';

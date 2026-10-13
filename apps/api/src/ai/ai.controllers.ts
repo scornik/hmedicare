@@ -19,6 +19,7 @@ import {
   CreateAiCredentialRequest,
   CreateAiJobRequest,
   RecordAiAcknowledgementRequest,
+  ReviewAiSuggestionRequest,
   TenantAiPolicyDecision,
 } from '@hmedic/contracts';
 import { Idempotent } from '@hmedic/http-kit';
@@ -26,6 +27,7 @@ import { CurrentActor, CurrentTenant, RequirePermission } from '@hmedic/identity
 import {
   type AIAcknowledgementStore,
   type AICredentialStore,
+  type AIDraftStore,
   type AIJobStore,
   type AIModelCatalogStore,
   type TenantAIPolicyStore,
@@ -38,6 +40,7 @@ class RecordAcknowledgementDto extends createZodDto(RecordAiAcknowledgementReque
 class CreateCredentialDto extends createZodDto(CreateAiCredentialRequest) {}
 class ChangeCredentialDto extends createZodDto(ChangeAiCredentialRequest) {}
 class CreateJobDto extends createZodDto(CreateAiJobRequest) {}
+class ReviewSuggestionDto extends createZodDto(ReviewAiSuggestionRequest) {}
 
 export const AI_SERVICES = Symbol('AI_SERVICES');
 
@@ -47,6 +50,7 @@ export interface AiServices {
   credentials: AICredentialStore;
   models: AIModelCatalogStore;
   jobs: AIJobStore;
+  drafts: AIDraftStore;
 }
 
 /**
@@ -315,6 +319,67 @@ export class AiController {
     @Req() req: FastifyRequest,
   ) {
     return this.svc().jobs.cancel(this.actor(actor, tenant, req), id);
+  }
+
+  /**
+   * Draft review (AI-002).
+   *
+   * Reading and deciding, and nothing else: no route here writes a clinical record. The one that does
+   * is the approval, which carries a doctor's attestation and lives with the clinical write it makes.
+   */
+  @Get('ai/drafts/:id')
+  @RequirePermission('ai.review')
+  getDraft(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.svc().drafts.get(this.actor(actor, tenant, req), id);
+  }
+
+  @Post('ai/drafts/:id/open')
+  @HttpCode(200)
+  @RequirePermission('ai.review')
+  @Idempotent('optional')
+  openDraft(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.svc().drafts.open(this.actor(actor, tenant, req), id);
+  }
+
+  @Post('ai/drafts/:id/close')
+  @HttpCode(200)
+  @RequirePermission('ai.review')
+  @Idempotent('optional')
+  closeDraft(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.svc().drafts.close(this.actor(actor, tenant, req), id);
+  }
+
+  @Post('ai/suggestions/:id/review')
+  @HttpCode(200)
+  @RequirePermission('ai.review')
+  @Idempotent('optional')
+  reviewSuggestion(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: ReviewSuggestionDto,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.svc().drafts.review(this.actor(actor, tenant, req), id, {
+      decision: dto.decision,
+      ...(dto.editedCandidate !== undefined ? { editedCandidate: dto.editedCandidate } : {}),
+      expectedRowVersion: dto.expectedRowVersion,
+    });
   }
 
   @Post('doctors/:doctorId/ai/credentials/:id/actions')

@@ -5,6 +5,7 @@ import type { Logger } from '@hmedic/observability';
 import type { DeclaredTier } from '../application/policy/effective-policy';
 import type { AICredentialSecrets } from '../application/credentials/credential-secrets';
 import type { AIProviderRegister } from '../application/providers/provider-register';
+import type { AIDraftStore } from './ai-draft-store';
 import type { AIModelCatalogStore } from './model-catalog-store';
 import { AI_QUEUE } from './validation-jobs';
 
@@ -28,11 +29,17 @@ export const RefreshAIModelCatalogPayload = z.object({ v: z.literal(1), window: 
 
 export type RefreshAIModelCatalogPayload = z.infer<typeof RefreshAIModelCatalogPayload>;
 
+export const EXPIRE_AI_DRAFTS = 'ExpireAIDrafts';
+
+export const ExpireAIDraftsPayload = z.object({ v: z.literal(1), window: z.number().int() }).strict();
+
 export interface CatalogJobDeps {
   prisma: PrismaClient;
   catalog: AIModelCatalogStore;
   providers: AIProviderRegister;
   secrets: AICredentialSecrets;
+  /** Supplied where review is composed, which is every deployment that has AI routes. */
+  drafts?: AIDraftStore;
   logger?: Logger;
 }
 
@@ -107,8 +114,36 @@ export function registerAICatalogJobs(
     }
   });
 
+  /**
+   * `ExpireAIDrafts` (AI-002, §7.1).
+   *
+   * Hourly, because expiry is a clinical boundary rather than a cleanup chore: a draft outliving the
+   * consultation it was written for is a set of suggestions about a patient nobody is currently
+   * treating, and leaving it reviewable invites a decision made out of context. An hour is close
+   * enough to the deadline for that, and frequent enough that a backlog never builds.
+   */
+  if (deps.drafts) {
+    const drafts = deps.drafts;
+    registry.register({
+      type: EXPIRE_AI_DRAFTS,
+      queue: AI_QUEUE,
+      payloadSchema: ExpireAIDraftsPayload,
+      maxAttempts: 3,
+      leaseSeconds: 120,
+      priority: 800,
+    });
+    runner?.handle(EXPIRE_AI_DRAFTS, async (ctx) => {
+      ExpireAIDraftsPayload.parse(ctx.payload);
+      const expired = await drafts.expireDue();
+      if (expired > 0) deps.logger?.info({ expired }, 'AI drafts expired');
+    });
+  }
+
   // Daily. A withdrawn model is caught by the job that tries to use it, which fails with
   // MODEL_UNAVAILABLE without needing the catalog to have noticed first, so asking more often would
   // spend a doctor's quota on a question that is rarely answered differently.
-  return [{ type: REFRESH_AI_MODEL_CATALOG, everyMs: 24 * 60 * 60 * 1000 }];
+  return [
+    { type: REFRESH_AI_MODEL_CATALOG, everyMs: 24 * 60 * 60 * 1000 },
+    ...(deps.drafts ? [{ type: EXPIRE_AI_DRAFTS, everyMs: 60 * 60 * 1000 }] : []),
+  ];
 }

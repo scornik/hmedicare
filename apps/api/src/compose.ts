@@ -6,6 +6,7 @@ import {
   AIAcknowledgementStore,
   AICredentialSecrets,
   AICredentialStore,
+  AIDraftStore,
   AIJobStore,
   AIModelCatalogStore,
   AIProviderRegister,
@@ -571,6 +572,11 @@ export async function buildApi(
             transcriptionEnabled: config.AI_TRANSCRIPTION_ENABLED,
             platformManagedEnabled: config.AI_PLATFORM_MANAGED_ENABLED,
             enqueue: enqueueAIJob(() => runtime.clock.now()),
+            clock: runtime.clock,
+          }),
+          drafts: new AIDraftStore({
+            prisma: runtime.prisma,
+            audit: runtime.audit,
             clock: runtime.clock,
           }),
         }

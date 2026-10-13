@@ -729,3 +729,273 @@ describe('AI jobs over HTTP (AI-001)', () => {
     expect(await api.runtime.prisma.aiJob.count()).toBe(0);
   });
 });
+
+/**
+ * Draft review over HTTP (AI-002).
+ *
+ * The store has its own suite; this proves the wiring and the one thing only HTTP can show — that a
+ * stale `expectedRowVersion` comes back as 409 rather than silently winning, which is what a second
+ * screen open on the same draft would do.
+ */
+describe('AI draft review over HTTP (AI-002)', () => {
+  /** A finished job with a draft and one suggestion, built directly: the runner has its own suite. */
+  async function draftFor(f: Awaited<ReturnType<typeof fixture>>) {
+    const now = new Date();
+    const p = api.runtime.prisma;
+    const patientId = newId();
+    const clinicId = newId();
+    const chamberId = newId();
+    const chamberDayId = newId();
+    const serialId = newId();
+    const encounterId = newId();
+    await p.patient.create({
+      data: {
+        id: patientId,
+        tenantId: f.tenantId,
+        medicalRecordNumber: patientId.slice(-12),
+        legalName: 'SYNTHETIC Patient',
+        displayName: 'SYNTHETIC Patient',
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.clinic.create({
+      data: {
+        id: clinicId,
+        tenantId: f.tenantId,
+        name: 'DEMO clinic',
+        nameNormalizedHash: newId().replace(/-/g, '').padEnd(64, '0').slice(0, 64),
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.chamber.create({
+      data: {
+        id: chamberId,
+        tenantId: f.tenantId,
+        clinicId,
+        doctorProfileId: f.doctorProfileId,
+        name: 'DEMO chamber',
+        supportsPhysical: true,
+        supportsRemote: false,
+        supportsHybrid: false,
+        defaultQueuePolicy: {},
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.chamberDay.create({
+      data: {
+        id: chamberDayId,
+        tenantId: f.tenantId,
+        chamberId,
+        doctorProfileId: f.doctorProfileId,
+        localDate: now,
+        localStartTime: new Date('1970-01-01T00:00:00.000Z'),
+        localEndTime: new Date('1970-01-01T23:59:00.000Z'),
+        timezone: 'Asia/Dhaka',
+        status: 'OPEN',
+        queuePolicy: {},
+        nextSerialNumber: 2,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.serial.create({
+      data: {
+        id: serialId,
+        tenantId: f.tenantId,
+        chamberDayId,
+        patientId,
+        serialNumber: 1,
+        source: 'WALK_IN',
+        careMode: 'PHYSICAL',
+        status: 'CALLED',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await p.encounter.create({
+      data: {
+        id: encounterId,
+        tenantId: f.tenantId,
+        patientId,
+        doctorProfileId: f.doctorProfileId,
+        chamberId,
+        serialId,
+        careMode: 'PHYSICAL',
+        status: 'IN_PROGRESS',
+        startedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const credential = await p.aiProviderCredential.create({
+      data: {
+        id: newId(),
+        tenantId: f.tenantId,
+        doctorProfileId: f.doctorProfileId,
+        providerCode: 'mock',
+        declaredTier: 'FREE',
+        billingMode: 'DOCTOR_BYOK_FREE',
+        encryptedSecret: 'x',
+        wrappedDataKey: 'x',
+        keyId: 'test-ai-1',
+        secretLast4: '6789',
+        secretFingerprint: newId().replace(/-/g, ''),
+        status: 'ACTIVE',
+        allowedModelIds: [],
+        createdByUserId: f.doctor.userId,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const job = await p.aiJob.create({
+      data: {
+        id: newId(),
+        tenantId: f.tenantId,
+        requestedByUserId: f.doctor.userId,
+        doctorProfileId: f.doctorProfileId,
+        patientId,
+        encounterId,
+        purpose: 'HISTORY_SUMMARY',
+        status: 'SUCCEEDED',
+        finishedAt: now,
+        credentialId: credential.id,
+        providerCode: 'mock',
+        modelId: 'mock-text-1',
+        declaredTier: 'FREE',
+        billingMode: 'DOCTOR_BYOK_FREE',
+        effectiveDataUsePolicy: 'MAY_TRAIN_OR_REVIEW',
+        promptTemplateVersion: 'history-summary/v1',
+        outputSchemaVersion: 'history-summary/v1',
+        sourceSelection: {},
+        correlationId: newId(),
+        idempotencyKey: `http-review-${newId()}`,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const draft = await p.aiDraft.create({
+      data: {
+        id: newId(),
+        tenantId: f.tenantId,
+        aiJobId: job.id,
+        encounterId,
+        patientId,
+        draftType: 'HISTORY_SUMMARY',
+        status: 'READY_FOR_REVIEW',
+        outputSchemaVersion: 'history-summary/v1',
+        validatedOutput: { items: [] },
+        expiresAt: new Date(now.getTime() + 72 * 3600_000),
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const suggestion = await p.aiSuggestion.create({
+      data: {
+        id: newId(),
+        tenantId: f.tenantId,
+        aiDraftId: draft.id,
+        suggestionType: 'HISTORY_ITEM',
+        sourceRefs: [{ sourceType: 'diagnosis', sourceId: newId(), occurredAt: now.toISOString() }],
+        candidate: { category: 'condition', text: 'SYNTHETIC item.', confidence: 'MEDIUM' },
+        confidence: 'MEDIUM',
+        status: 'PENDING',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    return { draftId: draft.id, suggestionId: suggestion.id, encounterId };
+  }
+
+  it('serves the draft with its suggestions', async () => {
+    const f = await fixture();
+    const d = await draftFor(f);
+
+    const res = await request(server).get(`/api/v1/ai/drafts/${d.draftId}`).set(f.doctor.headers).expect(200);
+    expect(res.body.data).toMatchObject({ status: 'READY_FOR_REVIEW', draftType: 'HISTORY_SUMMARY' });
+    expect(res.body.data.suggestions).toHaveLength(1);
+    // Resolved to the record, so a doctor can check the claim rather than taking it on trust.
+    expect(res.body.data.suggestions[0].sourceRefs[0]).toMatchObject({ sourceType: 'diagnosis' });
+  });
+
+  it('opens, reviews and closes', async () => {
+    const f = await fixture();
+    const d = await draftFor(f);
+
+    const opened = await request(server)
+      .post(`/api/v1/ai/drafts/${d.draftId}/open`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(200);
+    expect(opened.body.data.status).toBe('IN_REVIEW');
+
+    const reviewed = await request(server)
+      .post(`/api/v1/ai/suggestions/${d.suggestionId}/review`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({ decision: 'ACCEPT', expectedRowVersion: 1 })
+      .expect(200);
+    expect(reviewed.body.data.status).toBe('ACCEPTED');
+
+    const closed = await request(server)
+      .post(`/api/v1/ai/drafts/${d.draftId}/close`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(200);
+    expect(closed.body.data.status).toBe('CLOSED');
+  });
+
+  it('reports a stale row version as a conflict', async () => {
+    const f = await fixture();
+    const d = await draftFor(f);
+    await request(server)
+      .post(`/api/v1/ai/suggestions/${d.suggestionId}/review`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({ decision: 'ACCEPT', expectedRowVersion: 1 })
+      .expect(200);
+
+    const stale = await request(server)
+      .post(`/api/v1/ai/suggestions/${d.suggestionId}/review`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({ decision: 'REJECT', expectedRowVersion: 1 });
+    // A second screen open on the same draft must not silently win.
+    expect(stale.status).toBe(409);
+    expect(stale.body.code).toBe('STALE_VERSION');
+  });
+
+  it('refuses a decision once the draft is closed', async () => {
+    const f = await fixture();
+    const d = await draftFor(f);
+    await request(server)
+      .post(`/api/v1/ai/drafts/${d.draftId}/close`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(200);
+
+    const res = await request(server)
+      .post(`/api/v1/ai/suggestions/${d.suggestionId}/review`)
+      .set(f.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({ decision: 'ACCEPT', expectedRowVersion: 1 });
+    expect(res.body.code).toBe('AI_DRAFT_CLOSED');
+  });
+
+  it('refuses a role that does not carry ai.review', async () => {
+    const f = await fixture();
+    const d = await draftFor(f);
+    const nurse = await member(f.tenantId, 'nurse');
+
+    const res = await request(server).get(`/api/v1/ai/drafts/${d.draftId}`).set(nurse.headers);
+    expect(res.status).toBe(403);
+  });
+});

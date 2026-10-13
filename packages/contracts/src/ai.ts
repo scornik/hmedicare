@@ -477,3 +477,121 @@ registry.registerPath({
   request: { headers: tenantIdemHeaders, params: z.object({ id: Uuid }) },
   responses: { 200: ok(AiJob, 'Cancelled or cancelling'), ...errorResponses },
 });
+
+/**
+ * AI drafts and suggestions (AI-002).
+ *
+ * A draft is a proposal, and this surface is where a doctor reads it and decides. Nothing here writes
+ * a clinical record: the one route that does is the approval, which carries its own attestation.
+ *
+ * Every suggestion reports the sources it rests on, resolved to the records themselves rather than to
+ * the model's own labels, so a doctor can check a claim against the chart rather than taking it on
+ * trust. `editedCandidate` sits beside the model's own proposal instead of replacing it, so what was
+ * proposed stays visible after a doctor revises it.
+ */
+export const AiSuggestion = registry.register(
+  'AiSuggestion',
+  z.object({
+    id: Uuid,
+    suggestionType: z.enum(['NOTE_SECTION', 'DIAGNOSIS', 'HISTORY_ITEM', 'PRESCRIPTION_ITEM', 'FOLLOW_UP']),
+    targetSection: z.string().nullable(),
+    sourceRefs: z
+      .array(
+        z.object({
+          sourceType: z.string(),
+          sourceId: z.string(),
+          occurredAt: Timestamp,
+        }),
+      )
+      .openapi({ description: 'Always at least one; a suggestion citing nothing is never stored' }),
+    candidate: z.unknown().openapi({ description: 'What the model proposed' }),
+    editedCandidate: z.unknown().nullable().openapi({ description: 'What the doctor revised it to' }),
+    confidence: z.enum(['LOW', 'MEDIUM', 'HIGH', 'UNKNOWN']),
+    status: z.enum(['PENDING', 'ACCEPTED', 'EDITED', 'REJECTED', 'IGNORED', 'APPROVED']),
+    reviewedAt: Timestamp.nullable(),
+    rowVersion: z.number().int(),
+  }),
+);
+
+export const AiDraft = registry.register(
+  'AiDraft',
+  z.object({
+    id: Uuid,
+    aiJobId: Uuid,
+    encounterId: Uuid,
+    draftType: z.enum(['NOTE_DRAFT', 'HISTORY_SUMMARY']),
+    status: z.enum(['READY_FOR_REVIEW', 'IN_REVIEW', 'CLOSED', 'EXPIRED']),
+    outputSchemaVersion: z.string(),
+    droppedUnsourcedCount: z.number().int().openapi({
+      description: 'Suggestions discarded for citing nothing, so a thin draft is explainable',
+    }),
+    expiresAt: Timestamp,
+    openedAt: Timestamp.nullable(),
+    closedAt: Timestamp.nullable(),
+    rowVersion: z.number().int(),
+    suggestions: z.array(AiSuggestion),
+  }),
+);
+
+export const ReviewAiSuggestionRequest = registry.register(
+  'ReviewAiSuggestionRequest',
+  z.object({
+    decision: z.enum(['ACCEPT', 'EDIT', 'REJECT', 'IGNORE', 'REOPEN']),
+    editedCandidate: z.unknown().optional().openapi({
+      description: 'Required for EDIT. Stored beside the model’s proposal, never replacing it',
+    }),
+    expectedRowVersion: z.number().int(),
+  }),
+);
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/ai/drafts/{id}',
+  operationId: 'getAiDraft',
+  tags: ['AI'],
+  security: secured,
+  description:
+    'The draft with its suggestions and their source references. Readable by the encounter’s doctor ' +
+    'or one covering for them.',
+  request: { headers: tenantHeaders, params: z.object({ id: Uuid }) },
+  responses: { 200: ok(AiDraft, 'Draft'), ...errorResponses },
+});
+
+for (const [action, operationId, description] of [
+  ['open', 'openAiDraft', 'Marks the draft as being reviewed. Idempotent, and the first open time is kept.'],
+  [
+    'close',
+    'closeAiDraft',
+    'Finishes review. Suggestions still pending stay pending: closing says the doctor is done ' +
+      'looking, not that they rejected what they never read.',
+  ],
+] as const) {
+  registry.registerPath({
+    method: 'post',
+    path: `/api/v1/ai/drafts/{id}/${action}`,
+    operationId,
+    tags: ['AI'],
+    security: secured,
+    description,
+    request: { headers: tenantIdemHeaders, params: z.object({ id: Uuid }) },
+    responses: { 200: ok(AiDraft, 'Draft'), ...errorResponses },
+  });
+}
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/ai/suggestions/{id}/review',
+  operationId: 'reviewAiSuggestion',
+  tags: ['AI'],
+  security: secured,
+  description:
+    'Records one decision. `expectedRowVersion` is required: two doctors covering for each other can ' +
+    'both have the draft open, and a decision computed from a stale screen would overwrite one they ' +
+    'cannot see. A closed or expired draft accepts no decisions.',
+  request: {
+    headers: tenantIdemHeaders,
+    params: z.object({ id: Uuid }),
+    body: { content: json(ReviewAiSuggestionRequest) },
+  },
+  responses: { 200: ok(AiSuggestion, 'Reviewed'), ...errorResponses },
+});

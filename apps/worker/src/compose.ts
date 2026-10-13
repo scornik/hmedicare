@@ -14,6 +14,7 @@ import {
   AICredentialValidator,
   AIModelCatalogStore,
   AIProviderRegister,
+  AIDraftStore,
   AIJobRunner,
   CURRENT_ACK_TEXT_VERSION,
   RetrievalService,
@@ -270,6 +271,13 @@ export async function buildWorker(
           catalog: new AIModelCatalogStore({ prisma: runtime.prisma, clock: runtime.clock }),
           providers: aiProviders,
           secrets: aiSecrets,
+          // `ExpireAIDrafts` runs beside the catalog refresh: a draft outliving its consultation is a
+          // set of suggestions about a patient nobody is currently treating.
+          drafts: new AIDraftStore({
+            prisma: runtime.prisma,
+            audit: runtime.audit,
+            clock: runtime.clock,
+          }),
           logger: runtime.logger,
         });
       }

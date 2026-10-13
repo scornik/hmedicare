@@ -428,6 +428,89 @@
         ],
         "type": "object"
       },
+      "AiDraft": {
+        "properties": {
+          "aiJobId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "closedAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "draftType": {
+            "enum": [
+              "NOTE_DRAFT",
+              "HISTORY_SUMMARY"
+            ],
+            "type": "string"
+          },
+          "droppedUnsourcedCount": {
+            "description": "Suggestions discarded for citing nothing, so a thin draft is explainable",
+            "type": "integer"
+          },
+          "encounterId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "expiresAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "openedAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "outputSchemaVersion": {
+            "type": "string"
+          },
+          "rowVersion": {
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "READY_FOR_REVIEW",
+              "IN_REVIEW",
+              "CLOSED",
+              "EXPIRED"
+            ],
+            "type": "string"
+          },
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/AiSuggestion"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "aiJobId",
+          "encounterId",
+          "draftType",
+          "status",
+          "outputSchemaVersion",
+          "droppedUnsourcedCount",
+          "expiresAt",
+          "openedAt",
+          "closedAt",
+          "rowVersion",
+          "suggestions"
+        ],
+        "type": "object"
+      },
       "AiJob": {
         "properties": {
           "cancelRequestedAt": {
@@ -602,6 +685,102 @@
         },
         "required": [
           "items"
+        ],
+        "type": "object"
+      },
+      "AiSuggestion": {
+        "properties": {
+          "candidate": {
+            "description": "What the model proposed",
+            "nullable": true
+          },
+          "confidence": {
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "UNKNOWN"
+            ],
+            "type": "string"
+          },
+          "editedCandidate": {
+            "description": "What the doctor revised it to",
+            "nullable": true
+          },
+          "id": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "reviewedAt": {
+            "example": "2026-09-18T10:49:42.206Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "rowVersion": {
+            "type": "integer"
+          },
+          "sourceRefs": {
+            "description": "Always at least one; a suggestion citing nothing is never stored",
+            "items": {
+              "properties": {
+                "occurredAt": {
+                  "example": "2026-09-18T10:49:42.206Z",
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "sourceId": {
+                  "type": "string"
+                },
+                "sourceType": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "sourceType",
+                "sourceId",
+                "occurredAt"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "ACCEPTED",
+              "EDITED",
+              "REJECTED",
+              "IGNORED",
+              "APPROVED"
+            ],
+            "type": "string"
+          },
+          "suggestionType": {
+            "enum": [
+              "NOTE_SECTION",
+              "DIAGNOSIS",
+              "HISTORY_ITEM",
+              "PRESCRIPTION_ITEM",
+              "FOLLOW_UP"
+            ],
+            "type": "string"
+          },
+          "targetSection": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "suggestionType",
+          "targetSection",
+          "sourceRefs",
+          "confidence",
+          "status",
+          "reviewedAt",
+          "rowVersion"
         ],
         "type": "object"
       },
@@ -6071,6 +6250,32 @@
         ],
         "type": "object"
       },
+      "ReviewAiSuggestionRequest": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "ACCEPT",
+              "EDIT",
+              "REJECT",
+              "IGNORE",
+              "REOPEN"
+            ],
+            "type": "string"
+          },
+          "editedCandidate": {
+            "description": "Required for EDIT. Stored beside the model’s proposal, never replacing it",
+            "nullable": true
+          },
+          "expectedRowVersion": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "decision",
+          "expectedRowVersion"
+        ],
+        "type": "object"
+      },
       "ReviewMergeCaseRequest": {
         "properties": {
           "expectedRowVersion": {
@@ -8841,6 +9046,446 @@
         ]
       }
     },
+    "/api/v1/ai/drafts/{id}": {
+      "get": {
+        "description": "The draft with its suggestions and their source references. Readable by the encounter’s doctor or one covering for them.",
+        "operationId": "getAiDraft",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AiDraft"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Draft"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/ai/drafts/{id}/close": {
+      "post": {
+        "description": "Finishes review. Suggestions still pending stay pending: closing says the doctor is done looking, not that they rejected what they never read.",
+        "operationId": "closeAiDraft",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AiDraft"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Draft"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/ai/drafts/{id}/open": {
+      "post": {
+        "description": "Marks the draft as being reviewed. Idempotent, and the first open time is kept.",
+        "operationId": "openAiDraft",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AiDraft"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Draft"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "AI"
+        ]
+      }
+    },
     "/api/v1/ai/jobs/{id}": {
       "get": {
         "description": "The job’s current state. Readable by the doctor who asked and by the encounter’s assigned doctor; nobody else learns that a draft was requested.",
@@ -9179,6 +9824,165 @@
               }
             },
             "description": "Models"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/ai/suggestions/{id}/review": {
+      "post": {
+        "description": "Records one decision. `expectedRowVersion` is required: two doctors covering for each other can both have the draft open, and a decision computed from a stale screen would overwrite one they cannot see. A closed or expired draft accepts no decisions.",
+        "operationId": "reviewAiSuggestion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
+              "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewAiSuggestionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AiSuggestion"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Reviewed"
           },
           "400": {
             "content": {
