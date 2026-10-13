@@ -20,3 +20,6 @@ export * from '../infrastructure/model-catalog-store';
 export * from '../infrastructure/catalog-jobs';
 export * from '../application/prompts/template-registry';
 export * from '../infrastructure/retrieval-service';
+export * from '../infrastructure/ai-job-store';
+export * from '../infrastructure/ai-job-runner';
+export * from '../infrastructure/run-ai-job';

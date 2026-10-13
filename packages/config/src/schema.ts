@@ -261,6 +261,39 @@ export const aiSection = {
   AI_FREE_TIER_PRODUCTION_GATE_CLOSED: bool(false),
   AI_PLATFORM_MANAGED_ENABLED: bool(false),
   AI_TRANSCRIPTION_ENABLED: bool(false),
+  /** How long one provider call may take before the attempt is treated as unknown (AI-001 §6.2). */
+  AI_PROVIDER_TIMEOUT_SECONDS: int(60, 5, 300),
+  /**
+   * One retry of the same template when output fails schema validation.
+   *
+   * Models produce malformed JSON occasionally and the same prompt usually succeeds the second time.
+   * More than one retry spends a doctor's quota on a model that is not going to comply.
+   */
+  AI_SCHEMA_RETRY: int(1, 0, 2),
+  /** Fallback credentials tried per job (§6.3). One is enough to cover a spent key. */
+  AI_MAX_FALLBACKS_PER_JOB: int(1, 0, 3),
+  /** How long a draft stays reviewable. After this it expires unreviewed (§7.1). */
+  AI_DRAFT_TTL_HOURS: int(72, 1, 720),
+  /** A draft's life after the encounter completes, whichever comes first with the TTL. */
+  AI_DRAFT_GRACE_HOURS_AFTER_COMPLETE: int(24, 1, 168),
+  /** Cancel a doctor's pending AI jobs when they complete the encounter. */
+  AI_CANCEL_ON_ENCOUNTER_COMPLETE: bool(true),
+  /**
+   * The longest a job may sit in WAITING_RATE_LIMIT before it fails.
+   *
+   * A rate limit the provider says will clear in twenty minutes is not something a doctor waits for
+   * in a consultation; failing with a reason they can act on beats a job that never finishes.
+   */
+  AI_RATE_LIMIT_MAX_WAIT_SECONDS: int(900, 30, 86_400),
+  /** Output larger than this is refused unread: a runaway response is not a draft. */
+  AI_MAX_OUTPUT_BYTES: int(65_536, 1024, 1_048_576),
+  /** How far behind the timeline projection may be before retrieval reads the source tables (§8). */
+  AI_RETRIEVAL_MAX_PROJECTION_LAG_SECONDS: int(60, 5, 3600),
+  AI_RETRIEVAL_MAX_LOOKBACK_DAYS: int(3650, 1, 36_500),
+  AI_RETRIEVAL_MAX_ITEMS: int(50, 1, 200),
+  AI_RETRIEVAL_DEFAULT_LOOKBACK_DAYS: int(730, 1, 3650),
+  AI_RETRIEVAL_DEFAULT_MAX_ITEMS: int(20, 1, 50),
+  AI_RETRIEVAL_MAX_ITEMS_PER_SOURCE_TYPE: int(10, 1, 50),
 };
 
 /**

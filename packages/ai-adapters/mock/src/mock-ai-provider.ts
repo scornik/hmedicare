@@ -73,6 +73,21 @@ export class MockAIProvider implements AIProvider {
   defaultScenario: MockAIScenario = 'success';
   /** Reported by `validate`, so a `TIER_MISMATCH` can be produced deliberately. */
   tierSignal: DeclaredTier | undefined;
+  /**
+   * Returned verbatim instead of the computed text, so a caller's own output schema can be exercised.
+   *
+   * Needed because the deterministic default says nothing a real template's schema would accept, and a
+   * test of the validation path has to be able to produce both a conforming answer and a malformed one.
+   */
+  jsonResponse: string | undefined;
+  /**
+   * Awaited immediately before `generate` returns.
+   *
+   * The hook exists for one class of test that cannot be written any other way: a credential revoked,
+   * or a job cancelled, while the model was answering. Those races are the cases where a result must be
+   * discarded rather than written, and without a seam here they could only be asserted by timing.
+   */
+  beforeReturn: (() => Promise<void>) | undefined;
   private queue: MockAIScenario[] = [];
 
   /** The next calls use these scenarios in order, then the default. */
@@ -146,9 +161,12 @@ export class MockAIProvider implements AIProvider {
 
     // Deterministic and obviously synthetic. A mock whose output read like real clinical prose would
     // eventually be mistaken for it in a screenshot or a bug report.
-    const text = input.jsonSchema
-      ? JSON.stringify({ synthetic: true, promptLength: input.prompt.length })
-      : `SYNTHETIC mock output for ${input.prompt.length} characters of input.`;
+    const text =
+      this.jsonResponse ??
+      (input.jsonSchema
+        ? JSON.stringify({ synthetic: true, promptLength: input.prompt.length })
+        : `SYNTHETIC mock output for ${input.prompt.length} characters of input.`);
+    await this.beforeReturn?.();
     return {
       outcome: 'OK',
       value: { text },

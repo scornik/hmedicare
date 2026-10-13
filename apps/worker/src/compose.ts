@@ -14,8 +14,12 @@ import {
   AICredentialValidator,
   AIModelCatalogStore,
   AIProviderRegister,
+  AIJobRunner,
+  CURRENT_ACK_TEXT_VERSION,
+  RetrievalService,
   registerAICatalogJobs,
   registerAIValidationJobs,
+  registerRunAIJob,
   aiApprovalChainSource,
   aiPolicyChainSource,
 } from '@hmedic/ai';
@@ -218,6 +222,49 @@ export async function buildWorker(
         );
         // RefreshAIModelCatalog (ADAPT-002). Its schedule leaves the callback so the maintenance
         // scheduler can be built from it.
+        /**
+         * `RunAIJob` (AI-001): the one place a patient's data is sent to a model.
+         *
+         * Composed in the worker and only here. The API process cannot resolve a clinical write
+         * command, and this runner cannot either — it writes a draft, and everything that reaches a
+         * chart goes through an approval with a doctor's attestation.
+         */
+        registerRunAIJob(
+          registry,
+          runner,
+          new AIJobRunner({
+            prisma: runtime.prisma,
+            audit: runtime.audit,
+            secrets: aiSecrets,
+            providers: aiProviders,
+            retrieval: new RetrievalService({
+              prisma: runtime.prisma,
+              lookbackDays: config.AI_RETRIEVAL_DEFAULT_LOOKBACK_DAYS,
+              maxItems: config.AI_RETRIEVAL_DEFAULT_MAX_ITEMS,
+              maxItemsPerSourceType: config.AI_RETRIEVAL_MAX_ITEMS_PER_SOURCE_TYPE,
+              maxProjectionLagSeconds: config.AI_RETRIEVAL_MAX_PROJECTION_LAG_SECONDS,
+              now: () => runtime.clock.now(),
+            }),
+            ...(config.STORAGE_DISK_ROOT
+              ? { rawOutput: new DiskObjectStorage({ root: config.STORAGE_DISK_ROOT }) }
+              : {}),
+            environment: config.APP_ENV,
+            enabledProviderCodes: config.AI_ENABLED_PROVIDER_CODES,
+            currentAckTextVersion: CURRENT_ACK_TEXT_VERSION,
+            freeTierProductionGateClosed: config.AI_FREE_TIER_PRODUCTION_GATE_CLOSED,
+            transcriptionEnabled: config.AI_TRANSCRIPTION_ENABLED,
+            platformManagedEnabled: config.AI_PLATFORM_MANAGED_ENABLED,
+            providerTimeoutSeconds: config.AI_PROVIDER_TIMEOUT_SECONDS,
+            schemaRetries: config.AI_SCHEMA_RETRY,
+            maxOutputBytes: config.AI_MAX_OUTPUT_BYTES,
+            rateLimitMaxWaitSeconds: config.AI_RATE_LIMIT_MAX_WAIT_SECONDS,
+            draftTtlHours: config.AI_DRAFT_TTL_HOURS,
+            draftGraceHoursAfterComplete: config.AI_DRAFT_GRACE_HOURS_AFTER_COMPLETE,
+            clock: runtime.clock,
+            logger: runtime.logger,
+          }),
+          { providerTimeoutSeconds: config.AI_PROVIDER_TIMEOUT_SECONDS, logger: runtime.logger },
+        );
         aiPeriodic = registerAICatalogJobs(registry, runner, {
           prisma: runtime.prisma,
           catalog: new AIModelCatalogStore({ prisma: runtime.prisma, clock: runtime.clock }),
