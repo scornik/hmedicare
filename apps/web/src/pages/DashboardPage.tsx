@@ -36,7 +36,7 @@ function TodaysQueues() {
 }
 
 export function DashboardPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const tenant = getTenant();
   const ctx = useTenantContext(tenant);
 
@@ -60,6 +60,11 @@ export function DashboardPage() {
         {ctx.data?.permissions.includes('sms.credentials.manage') && (
           <p>
             <Link to="/settings/sms">{t('sms.settings')}</Link>
+          </p>
+        )}
+        {ctx.data?.permissions.includes('ai.policy.read') && (
+          <p>
+            <Link to="/settings/ai">{locale === 'bn-BD' ? 'এআই সেটিংস' : 'AI settings'}</Link>
           </p>
         )}
         {ctx.data?.permissions.includes('queue.read') && (

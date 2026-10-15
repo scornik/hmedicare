@@ -1,6 +1,7 @@
 import { CommunicationLinkPage } from './pages/CommunicationLinkPage';
 import { shortLinkReturn } from './auth/return-path';
 import { SmsSettingsPage } from './pages/SmsSettingsPage';
+import { AiSettingsPage } from './pages/AiSettingsPage';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Navigate, Outlet, createBrowserRouter, useLocation } from 'react-router';
@@ -61,6 +62,7 @@ const router = createBrowserRouter([
           { path: '/select-tenant', element: <TenantPickerPage /> },
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/settings/sms', element: <SmsSettingsPage /> },
+          { path: '/settings/ai', element: <AiSettingsPage /> },
           { path: '/patients/search', element: <PatientSearchPage /> },
           { path: '/patients/new', element: <PatientCreatePage /> },
           { path: '/patients/merge-cases', element: <MergeCasesPage /> },

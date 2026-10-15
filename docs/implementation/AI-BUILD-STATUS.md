@@ -30,14 +30,33 @@ This file is a working status note, not a specification. The specifications are 
 
 In dependency order. Each line is work, not a reminder to decide something.
 
-1. **Client checkpoint verification and administration screens.** Doctor web/native model pickers,
+1. **Client checkpoint verification and credential administration screens.** Doctor web/native model pickers,
    requests, recent-job recovery, draft review, data-use labels and attested approval are implemented
-   (2026-10-15), awaiting the full checkpoint gate. Policy/credential administration screens remain open.
-2. **AIREG-002/003** register reviews, and the free-tier production gate. These are a reviewer's
-   decisions rather than code, and nothing in production can use an AI credential until they happen —
-   every provider's `productionGate` is `OPEN`, which blocks activation there by design.
+   (2026-10-15). Web tenant policy settings are also implemented, with stored/effective free-tier
+   state, owner-only versioned updates and a required change reason. Credential setup screens remain open.
+2. **Production provider configuration.** The owner waived written review records as a coding
+   prerequisite on 2026-10-15; implementation must continue without requesting that paperwork.
+   AIREG-002/003 are inherited Gemini terms questions, not a new user requirement. This instruction
+   has not changed production configuration: every provider's `productionGate` remains `OPEN`,
+   which blocks activation there by design.
 3. **Transcription** (V1). The route exists and returns `FEATURE_DISABLED`; `ai_transcripts` is
    deliberately not created until the feature that reads it is.
+
+## Doctor client validation in progress (2026-10-15)
+
+Client implementation is in `5942a9e` and `f023489`; test corrections are in `27f89ce`.
+The full run at `f023489` passed 16/20 checks, including 736 unit tests, 51 architecture tests,
+API parity (171 operations), and mobile tests. Both database checks failed before tests could start
+because Docker was unavailable. Docker has since recovered and both database series are being
+rerun. The browser failure was an obsolete expectation that AI was still a placeholder; mobile
+analysis found missing braces in a test conditional. Both were corrected in `27f89ce`; all 18
+consultation browser tests and doctor-app analysis passed on retry. This is not a new full-gate
+verdict; the verified gate at the top of this file remains the previous server checkpoint.
+
+The tenant policy page at `/settings/ai` adds three browser cases covering a versioned owner save,
+read-only access, stale-write refusal and clearing cached settings after access loss. Targeted
+browser tests (3/3), TypeScript and changed-file lint passed. The complete browser suite is being
+rerun after phone-layout review. No database or provider activation behavior changed in this page.
 
 ## Open items that are not code
 

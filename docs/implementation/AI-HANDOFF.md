@@ -12,7 +12,9 @@ Last gate: **20/20** (see `AI-BUILD-STATUS.md` for the verified commit and count
 
 Phase 10 is functionally complete server-side: policy, acknowledgements, credentials, validation,
 minimization, the model catalog, three adapters, job execution, drafts, review, approval, usage,
-fallback and the raw-output read. There is **no UI for any of it**.
+fallback and the raw-output read. Doctor web and native AI request/review/approval screens now exist
+(2026-10-15). Web tenant policy settings also exist; credential administration screens remain open. See the client
+checkpoint entry in `AI-BUILD-STATUS.md` for validation status.
 
 ## Read these first
 
@@ -70,12 +72,13 @@ Each of these cost me a debugging cycle. They are not obvious from the code.
 
 `docs/implementation/AI-BUILD-STATUS.md` carries the list; the short version:
 
-1. **Web and mobile surfaces.** Nothing has a UI: the model picker, the draft review screen with its
-   data-use label, the approval flow with its attestation text. This is the largest remaining piece
-   and the only one a doctor would notice.
-2. **AIREG-002/003 register reviews** and the free-tier production gate. Reviewer decisions, not
-   code. Until they happen no AI credential can activate in production, by design — every provider's
-   `productionGate` is `OPEN`.
+1. **Client validation and administration screens.** The doctor model picker, draft review,
+   data-use labels and attested approval are implemented, as are web tenant policy settings.
+   Doctor credential setup still needs UI.
+2. **Production provider configuration.** On 2026-10-15 the owner waived written review records as
+   a prerequisite to continuing implementation. Do not ask for those records again to continue
+   coding. This does not itself change deployed configuration or establish current provider terms:
+   every provider's `productionGate` remains `OPEN`, which blocks production credential activation.
 3. **Transcription** (V1). The route exists and refuses with `FEATURE_DISABLED`; `ai_transcripts` is
    deliberately not created yet.
 
