@@ -48,36 +48,27 @@ The subfolder/monorepo mechanics are confirmed by HOST-002/HOST-008. If Hostinge
 ```text
 hostinger:build:api     = pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/api... && pnpm db:migrate:guarded
 
-> **pnpm is pinned to 11.8.0 because the deploy image cannot run pnpm 12** (2026-09-26):
->
-> Hostinger's build configuration is fixed — build command (`pnpm run build`), package manager and
-> entry file are dropdowns, and **dependency installation runs before the build command**. So nothing
-> in this repository can bootstrap pnpm: by the time any script of ours could run, the install has
-> already failed. The only lever we hold is the `packageManager` field, and it is now `pnpm@11.8.0`.
->
-> What went wrong: the image's corepack is 0.34.0 (the one bundled with Node 24.6.0), which records
-> pnpm's entry point as `bin/pnpm.cjs`. pnpm 12 ships `bin/pnpm.mjs` instead, so corepack downloaded
-> 12.4.2 and then died with `MODULE_NOT_FOUND` on a path that was never in the tarball. Deploys before
-> that had been passing *by accident*: corepack fell back to `lastKnownGood` 11.8.0, which warned about
-> the 12.4.2 pin (`devEngines.packageManager.onFail: "warn"`) and carried on — 32 warnings per build.
-> Which version corepack picked was not deterministic, so the build was a coin flip.
->
-> 11.8.0 is not a guess. It is the version that has installed this lockfile on every successful
-> production deploy to date. CI is pinned to the same version, so CI and production no longer run
-> different package managers.
->
-> `scripts/host/corepack-repair.mjs` stays as insurance: if a future image resolves a pnpm whose layout
-> its corepack does not understand, `ensure-pnpm.mjs` writes the entry-point stub. It is a no-op on a
-> healthy image.
->
-> **Revisit when Hostinger ships a newer corepack**, which is the real fix; then the pin can go back up.
->
-> **Do not switch the project to npm.** It was suggested as a workaround and does not apply: 209
-> `package.json` entries use the `workspace:*` protocol, which npm cannot resolve, and `pnpm-lock.yaml`
-> (`lockfileVersion: 9.0`) plus its supply-chain verification would be discarded.
 hostinger:build:worker  = pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/worker...
 hostinger:build:web     = pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/web...
 ```
+
+> **Current pin: pnpm 10.34.7 (2026-10-15).** This patched release retains
+> `bin/pnpm.cjs`, which the deploy image's legacy Corepack 0.34.0 expects.
+> Newer pnpm 11 releases use `bin/pnpm.mjs`; simply upgrading within 11 would
+> reproduce the early install failure previously seen with pnpm 12.4.2.
+>
+> Dependency installation runs before repository build hooks, so the project
+> pin must work before `ensure-pnpm.mjs` can help. CI reads the same project pin.
+> The former 11.8.0 pin has high-severity package-manager advisories; 10.34.7
+> includes their fixes. A frozen local install passes; the application dependency
+> identities are unchanged by the lockfile normalization (644 before and after).
+> This version has not yet been deployed or smoke-tested on Hostinger.
+>
+> The workspace explicitly retains the one-day dependency age policy and approved
+> build-script list using pnpm 10 settings. Do not switch to npm: the workspace
+> uses `workspace:*` dependencies. Revisit this compatibility pin when the hosting
+> image upgrades Corepack.
+>
 
 - **Migrations run only in the api build** (one place). The worker build never migrates.
 - The build duration must stay under Hostinger's 15 min + 15 min limits. `turbo` builds only the dependency graph of the app.

@@ -1,11 +1,11 @@
 {
   "name": "hmedic",
   "private": true,
-  "packageManager": "pnpm@11.8.0",
+  "packageManager": "pnpm@10.34.7",
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
-      "version": "11.8.0",
+      "version": "10.34.7",
       "onFail": "warn"
     }
   },

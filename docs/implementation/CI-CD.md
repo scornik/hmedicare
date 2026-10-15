@@ -16,7 +16,7 @@
 
 ## 2. Node and tool versions
 
-`actions/setup-node` (SHA-pinned) with `node-version-file: .nvmrc` (**24.21.0**, the same major as Hostinger's selected "24.x"). Corepack enables pnpm 11.8.0 — the same version the deploy image can run, so CI and production are not on different package managers. Flutter comes from `mobile/.fvmrc`. Dart generation uses the same FVM Flutter.
+`actions/setup-node` (SHA-pinned) with `node-version-file: .nvmrc` (**24.21.0**, the same major as Hostinger's selected "24.x"). Corepack reads the project pin (pnpm 10.34.7), so CI follows the same configured version as hosting builds. The CJS entry point supports legacy Corepack; production deployment validation of this pin is still pending (DEPLOYMENT §3). Flutter comes from `mobile/.fvmrc`. Dart generation uses the same FVM Flutter.
 
 ## 3. Pull request workflow (`ci.yml`): blocking jobs
 

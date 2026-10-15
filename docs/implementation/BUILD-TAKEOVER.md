@@ -188,3 +188,26 @@ English: I reviewed the content and sources, verified clinical accuracy, and tak
 Bangla: আমি বিষয়বস্তু ও উৎস পর্যালোচনা করেছি, চিকিৎসাগত নির্ভুলতা যাচাই করেছি এবং রোগীর রেকর্ডে এটি যোগ করার দায়িত্ব নিচ্ছি।
 
 The complete Dart client has been regenerated for 171 operations. Approval note/diagnosis payloads have distinct schema names so generation cannot replace the existing clinical Diagnosis model. No provider review gate, production flag, migration or external provider call changed. Web tenant policy settings now support owner-only versioned changes, stored/effective free-tier visibility and read-only access. Doctor account setup is now implemented on web/native, with write-only keys and recovery through reads after an uncertain response. Client verification passed 18/18 non-database checkpoint checks at b5d5fe0; the separate database retry passed 842 integration/security tests on each supported MariaDB series. The account increment at c902bc3 passed its checkpoint checks across the initial run and an unchanged 736/736 unit retry, plus 30 AI HTTP tests on each database version. See AI-BUILD-STATUS.md for exact validation scope. No release tag or deployment is claimed.
+
+## Private S3 foundation and toolchain repair — 2026-10-15
+
+Added the generated-object S3 adapter with bounded streaming, SHA-256 integrity,
+conditional revision writes and private range reads. It is not selected in
+production. Multipart sessions, scanning, upload routes and lab reports remain
+next; transcription remains V1 and disabled.
+
+Replaced vulnerable pnpm 11.8.0 with patched 10.34.7, whose CJS entry point is
+compatible with legacy hosting Corepack. CI now reads the project pin. Retained
+explicit dependency-age and build-script policies; normalizing the lockfile did
+not change any of its 644 application package identities. Production deployment
+of this pin has not been performed.
+
+Validation: 740 unit tests, 51 architecture tests, full workspace TypeScript
+(including 67 package tasks), storage lint, dependency boundaries, formatting,
+secret scan, frozen install and license scan (238 production / 570 total) passed.
+Production dependency audit has no high findings (three moderate remain).
+The S3 suite passed all 10 cases on each MariaDB harness (10.6 and 11.8), using
+local MinIO. This is targeted combined validation, not a new full release gate.
+
+AI HTTP regression verification also passed 30/30 on each supported MariaDB series.
+

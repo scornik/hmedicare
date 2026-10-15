@@ -6,17 +6,20 @@ packages:
 # mobile/ (Dart/Melos) and tools/ (standalone Stage M tool) are intentionally not members.
 
 # Supply-chain hardening: dependency install scripts are blocked unless allow-listed here.
-allowBuilds:
-  argon2: true
-  prisma: true
-  '@prisma/engines': true
+minimumReleaseAge: 1440
+
+onlyBuiltDependencies:
+  - argon2
+  - prisma
+  - '@prisma/engines'
   # Prisma 6 runs `prisma generate` from the client's own postinstall; v7 did not.
-  '@prisma/client': true
-  esbuild: true
+  - '@prisma/client'
+  - esbuild
   # Optional native builds pulled in by testcontainers (docker-modem/ssh2); not needed, explicitly denied.
-  cpu-features: false
-  ssh2: false
-  protobufjs: false
+ignoredBuiltDependencies:
+  - cpu-features
+  - ssh2
+  - protobufjs
 
 # Security overrides (OSV, Stage 5 CI-000). Each entry pins a patched release of a transitive dependency whose
 # parent still declares the vulnerable version. Remove an override when the parent range moves past it.

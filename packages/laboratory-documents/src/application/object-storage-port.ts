@@ -3,8 +3,8 @@ import type { Readable } from 'node:stream';
 /**
  * `ObjectStoragePort` (ADR-016, FILE-STORAGE-IMPLEMENTATION.md §1).
  *
- * The seam between this system and wherever bytes live. Two adapters are planned: `disk`, which is what
- * the current hosting can run, and `s3`, which waits for a provider decision.
+ * The seam between this system and wherever bytes live. Disk serves the current hosting; the S3
+ * adapter is verified against local MinIO and awaits a production provider decision.
  *
  * **Scope.** This is the generated-document half of the port: put an object the server produced, read
  * it back, delete it. The multipart upload session — `createUploadSession`, part targets, `finalize` —
@@ -34,6 +34,7 @@ export class ObjectStorageError extends Error {
       | 'OBJECT_ALREADY_EXISTS'
       | 'STORAGE_KEY_INVALID'
       | 'STORAGE_ROOT_INVALID'
+      | 'STORAGE_CONFIG_INVALID'
       | 'STORAGE_IO_FAILED',
     message: string,
   ) {

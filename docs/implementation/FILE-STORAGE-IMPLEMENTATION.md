@@ -96,3 +96,17 @@ Tenant, patient/encounter relationship (assignment, scope or patient context), c
   - baseline scanner rejects encrypted PDFs, PDFs with `/JavaScript`, and non-allowed types;
   - image re-encode strips EXIF GPS;
   - the mock scanner verdict matrix.
+
+## Implemented foundation (2026-10-15)
+
+The generated-document portion of the storage port now has disk and S3-compatible
+adapters. S3 uses bounded temporary-file spooling, SHA-256 metadata/checksums,
+conditional immutable writes, private reads/ranges and idempotent deletion. The
+shared generated-object contract runs against the pinned local MinIO image,
+including concurrent revision writes and unsigned-access denial. Vendor error
+messages are sanitized and objects missing integrity metadata fail closed.
+
+This is a foundation for DOC-002, not completion of the upload plan above.
+Multipart/resumable sessions, scanning, upload authorization/routes and lab-report
+work remain. Production composition still selects the existing disk adapter;
+no bucket, provider credentials or deployment settings were changed.

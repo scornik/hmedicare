@@ -1,0 +1,23 @@
+{
+  "name": "@hmedic/storage-adapters-s3",
+  "version": "0.0.0",
+  "private": true,
+  "description": "S3-compatible private object storage adapter (ADR-016)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1146.0",
+    "@hmedic/laboratory-documents": "workspace:*"
+  }
+}

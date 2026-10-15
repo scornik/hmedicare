@@ -8,7 +8,7 @@
 
 ## 1. Prerequisites
 
-- Node **24.21.0** (`.nvmrc`), Corepack enabled (`corepack enable`; pnpm 11.8.0 via `packageManager`).
+- Node **24.21.0** (`.nvmrc`), Corepack enabled (`corepack enable`; pnpm 10.34.7 via `packageManager`).
   `node scripts/host/ensure-pnpm.mjs` activates the pinned version if `corepack enable` is refused (no admin rights).
 - Docker with Compose v2.
 - Optional for mobile: FVM plus the Flutter version pinned in `mobile/.fvmrc`, and the Android SDK.

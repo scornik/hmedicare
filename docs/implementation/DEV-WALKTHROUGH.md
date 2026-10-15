@@ -14,7 +14,7 @@ Every command here was run against this repository. Where something is a trap, i
 | Need | Version | Where it is pinned |
 |---|---|---|
 | Node | **24.21.0** | `.nvmrc` |
-| pnpm | **11.8.0** | `package.json` → `packageManager` |
+| pnpm | **10.34.7** | `package.json` → `packageManager` |
 | Docker | Compose v2 | — |
 | Flutter (mobile only) | **3.44.8** | `mobile/.fvmrc` |
 
