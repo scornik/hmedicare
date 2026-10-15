@@ -251,3 +251,41 @@ a[role='button'] {
   width: auto;
   margin: 0;
 }
+
+.ai-panel {
+  overflow-wrap: anywhere;
+}
+.ai-panel > label {
+  display: grid;
+  gap: 0.4rem;
+  margin-block: 0.75rem;
+}
+.ai-panel select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem;
+  font: inherit;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.4rem;
+  background: #fff;
+  color: inherit;
+}
+.ai-panel .ai-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-block: 0.65rem;
+}
+.ai-panel .ai-check input[type='checkbox'] {
+  width: auto;
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+}
+.ai-panel button {
+  min-height: 44px;
+  margin: 0.25rem 0.4rem 0.25rem 0;
+}
+.ai-panel summary {
+  padding-block: 0.6rem;
+  cursor: pointer;
+}

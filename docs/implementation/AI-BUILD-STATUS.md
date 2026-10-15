@@ -30,9 +30,9 @@ This file is a working status note, not a specification. The specifications are 
 
 In dependency order. Each line is work, not a reminder to decide something.
 
-1. **Web and mobile surfaces.** None of the AI work has a UI: the model picker, the draft review
-   screen with its data-use label, and the approval flow with its attestation text. This is the
-   largest remaining piece and the only one a doctor would notice.
+1. **Client checkpoint verification and administration screens.** Doctor web/native model pickers,
+   requests, recent-job recovery, draft review, data-use labels and attested approval are implemented
+   (2026-10-15), awaiting the full checkpoint gate. Policy/credential administration screens remain open.
 2. **AIREG-002/003** register reviews, and the free-tier production gate. These are a reviewer's
    decisions rather than code, and nothing in production can use an AI credential until they happen —
    every provider's `productionGate` is `OPEN`, which blocks activation there by design.

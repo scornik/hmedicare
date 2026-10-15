@@ -536,3 +536,19 @@ AICredentialStore now creates PENDING_VALIDATION credentials, lists safe metadat
 Validation: 569 unit/architecture tests and 40 distinct targeted integration cases on each MariaDB series (10.6 and 11.8): 11 new credential cases plus 29 remote-session, provider-vault and worker regressions. Final audit-action/privacy checks also passed on both. AI/API/worker builds and AI/identity test compilation, full lint, dependency boundaries (498 modules/2,124 dependencies), 23 migration checks, unchanged 146-operation contract parity, applied migration immutability and secret scanning passed. The migration linter now recognizes provider model identifiers as opaque external keys. Only existing workspace dependencies were linked, with no downloads.
 
 AICRED/AIPOL remain partial. The store is not composed into HTTP or production. Policy/acknowledgement creation and hash-chain handlers, API/client screens, provider validation jobs and event-to-job mapping still need implementation; no credential becomes ACTIVE through this store. When AI jobs are added, revocation must also cancel queued jobs and runners must recheck status. No real credential, provider request, patient data transmission, deployment, merge or release tag was performed.
+
+## Doctor AI clients (2026-10-15)
+
+The web consultation workspace and native doctor encounter screen now provide catalog model selection, note/history requests, status/cancellation, recent-request recovery, data-use labels, individual suggestion review/edit/reject/ignore/reopen, and explicit clinical approval. Suggestions remain outside the chart until approval. Both clients use the authenticated doctor's own credential metadata; covering doctors never borrow the encounter owner's key. AI remains hidden when tenant policy or active credentials are unavailable. Catalog capability/tier filters do not replace server policy checks.
+
+Read-only discovery adds GET /me/ai/credentials and GET /encounters/{id}/ai/jobs (latest 20 visible requester/doctor-profile jobs). Job status now carries nullable draftId, only for SUCCEEDED jobs, so a client never pairs a pre-fallback provider snapshot with a newly persisted draft. Recent requests reopen persisted work without enqueueing another job. No client persists drafts or keys. Citations show source types/times with a patient-history navigation path. Transcription stays disabled.
+
+Unsaved/conflicted notes block requests and approvals. During approval the chart editor is locked. A committed approval followed by refresh failure remains distinguished from refusal: editing stays locked until chart reload succeeds. An uncertain transport outcome triggers read-only reconciliation and never an automatic approval retry. Unknown data-use classes display the conservative may-train warning. Source sections are explicit opt-ins on web; native requests currently send no draft-note sections and use authorized history only.
+
+Approval attestation version 1, displayed before each individual approval:
+
+English: I reviewed the content and sources, verified clinical accuracy, and take responsibility for adding this to the chart.
+
+Bangla: আমি বিষয়বস্তু ও উৎস পর্যালোচনা করেছি, চিকিৎসাগত নির্ভুলতা যাচাই করেছি এবং রোগীর রেকর্ডে এটি যোগ করার দায়িত্ব নিচ্ছি।
+
+The complete Dart client has been regenerated for 171 operations. Approval note/diagnosis payloads have distinct schema names so generation cannot replace the existing clinical Diagnosis model. No provider review gate, production flag, migration or external provider call changed. Credential/policy administration screens are a separate remaining client surface. This implementation is awaiting the full checkpoint gate; this note does not claim a verified release.

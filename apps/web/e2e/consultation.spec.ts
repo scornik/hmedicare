@@ -377,6 +377,225 @@ async function open(page: Page) {
   await expect(page.getByTestId('workspace-patient')).toHaveText('Demo Patient One');
 }
 
+async function mockAi(page: Page, state: State, stale: boolean | 'unknown' = false) {
+  const jobId = '00000000-0000-4000-8000-000000000a01';
+  const draftId = '00000000-0000-4000-8000-000000000a02';
+  const suggestion = {
+    id: '00000000-0000-4000-8000-000000000a03',
+    aiDraftId: draftId,
+    suggestionType: 'NOTE_SECTION',
+    targetSection: 'history',
+    candidate: { text: 'SYNTHETIC proposal' },
+    editedCandidate: null,
+    confidence: 'LOW',
+    status: 'PENDING',
+    rowVersion: 1,
+    reviewedAt: null,
+    sourceRefs: [{ sourceType: 'diagnosis', sourceId: NOTE, occurredAt: new Date().toISOString() }],
+  };
+  const seen = {
+    approvals: [] as Array<Record<string, unknown>>,
+    requests: [] as Array<Record<string, unknown>>,
+  };
+  await page.route(`${API}/**`, async (route) => {
+    const req = route.request();
+    const path = new URL(req.url()).pathname.replace('/api/v1', '');
+    if (req.method() === 'OPTIONS') return route.fallback();
+    if (path === '/tenant/ai-policy') return json(route, 200, { data: { aiEnabled: true } });
+    if (path === `/encounters/${ENCOUNTER}/ai/jobs`) return json(route, 200, { data: { items: [] } });
+    if (path === '/me/ai/credentials')
+      return json(route, 200, {
+        data: {
+          items: [
+            { id: NOTE, providerCode: 'mock', declaredTier: 'FREE', status: 'ACTIVE', secretLast4: '6789' },
+          ],
+        },
+      });
+    if (path === '/ai/models')
+      return json(route, 200, {
+        data: {
+          items: [
+            {
+              providerCode: 'mock',
+              modelId: 'synthetic-catalog-choice',
+              displayName: 'Synthetic catalog model',
+              capabilities: ['text', 'json_schema'],
+              tierAvailability: ['FREE'],
+            },
+          ],
+        },
+      });
+    if (path === `/encounters/${ENCOUNTER}/ai/note-draft`) {
+      seen.requests.push(req.postDataJSON());
+      return json(route, 202, { data: { id: jobId, encounterId: ENCOUNTER, status: 'QUEUED' } });
+    }
+    if (path === `/ai/jobs/${jobId}`)
+      return json(route, 200, {
+        data: {
+          id: jobId,
+          encounterId: ENCOUNTER,
+          status: 'SUCCEEDED',
+          draftId,
+          effectiveDataUsePolicy: 'MAY_TRAIN_OR_REVIEW',
+          providerCode: 'mock',
+          modelId: 'synthetic-catalog-choice',
+        },
+      });
+    if (path === `/ai/drafts/${draftId}` || path === `/ai/drafts/${draftId}/open`)
+      return json(route, 200, {
+        data: {
+          id: draftId,
+          aiJobId: jobId,
+          encounterId: ENCOUNTER,
+          status: 'IN_REVIEW',
+          expiresAt: new Date(Date.now() + 3600000).toISOString(),
+          suggestions: [suggestion],
+          rowVersion: 1,
+          droppedUnsourcedCount: 0,
+        },
+      });
+    if (path === `/ai/suggestions/${suggestion.id}/review`) {
+      const body = req.postDataJSON();
+      suggestion.status = body.decision === 'ACCEPT' ? 'ACCEPTED' : 'REJECTED';
+      suggestion.rowVersion++;
+      return json(route, 200, { data: suggestion });
+    }
+    if (path === `/ai/suggestions/${suggestion.id}/approve`) {
+      seen.approvals.push(req.postDataJSON());
+      if (stale === true) return json(route, 409, { code: 'STALE_VERSION' });
+      state.draft.history = 'SYNTHETIC proposal';
+      state.draft.rowVersion++;
+      suggestion.status = 'APPROVED';
+      suggestion.rowVersion++;
+      if (stale === 'unknown') return json(route, 503, { code: 'INTERNAL_ERROR' });
+      return json(route, 200, { data: { id: NOTE } });
+    }
+    return route.fallback();
+  });
+  return seen;
+}
+
+test('AI catalog choice, source warning and explicit attestation gate one chart write', async ({ page }) => {
+  const state = await mockApi(page),
+    seen = await mockAi(page, state);
+  await open(page);
+  const panel = page.getByTestId('ai-panel');
+  await expect(panel.getByRole('button', { name: 'Request suggestions', exact: true })).toBeDisabled();
+  await panel.getByTestId('ai-model').selectOption('synthetic-catalog-choice');
+  await panel.getByRole('button', { name: 'Request suggestions', exact: true }).click();
+  await expect(panel.getByTestId('ai-data-use')).toContainText('may train');
+  await expect(panel).toContainText('Low or unknown confidence');
+  await panel.getByRole('button', { name: 'Accept for review', exact: true }).click();
+  const approve = panel.getByRole('button', { name: 'Approve this suggestion into the chart', exact: true });
+  await expect(approve).toBeDisabled();
+  await panel.getByRole('checkbox', { name: /I reviewed the content/ }).check();
+  await approve.click();
+  await expect(page.getByTestId('note-history')).toHaveValue('SYNTHETIC proposal');
+  expect(seen.approvals).toHaveLength(1);
+  expect(seen.approvals[0]).toMatchObject({
+    attestationVersion: 1,
+    expectedRowVersion: 2,
+    noteSection: { expectedNoteRowVersion: 1, mode: 'APPEND' },
+  });
+  await panel.screenshot({ path: 'test-results/ai-desktop.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await panel.screenshot({ path: 'test-results/ai-phone.png' });
+});
+
+test('AI stale approval preserves manual note and shows a refresh refusal', async ({ page }) => {
+  const state = await mockApi(page),
+    seen = await mockAi(page, state, true);
+  state.draft.history = 'SYNTHETIC manual note';
+  await open(page);
+  const panel = page.getByTestId('ai-panel');
+  await panel.getByTestId('ai-model').selectOption('synthetic-catalog-choice');
+  await panel.getByRole('button', { name: 'Request suggestions', exact: true }).click();
+  await panel.getByRole('button', { name: 'Accept for review', exact: true }).click();
+  await panel.getByRole('checkbox', { name: /I reviewed the content/ }).check();
+  await panel.getByRole('button', { name: 'Approve this suggestion into the chart', exact: true }).click();
+  await expect(panel.getByRole('alert')).toContainText('record changed');
+  await expect(page.getByTestId('note-history')).toHaveValue('SYNTHETIC manual note');
+  expect(seen.approvals).toHaveLength(1);
+});
+
+test('AI requests cannot send unsaved consultation sections', async ({ page }) => {
+  const state = await mockApi(page),
+    seen = await mockAi(page, state);
+  await open(page);
+  const panel = page.getByTestId('ai-panel');
+  await panel.getByTestId('ai-model').selectOption('synthetic-catalog-choice');
+  await page.getByTestId('note-history').fill('SYNTHETIC unsaved typing');
+  await expect(panel.getByRole('button', { name: 'Request suggestions', exact: true })).toBeDisabled();
+  expect(seen.requests).toHaveLength(0);
+});
+
+test('AI committed approval locks the editor until a failed chart refresh recovers', async ({ page }) => {
+  const state = await mockApi(page),
+    seen = await mockAi(page, state);
+  let refreshFails = true;
+  await page.route(`${API}/encounters/${ENCOUNTER}/note`, (route) => {
+    if (route.request().method() === 'GET' && seen.approvals.length > 0 && refreshFails)
+      return json(route, 503, { code: 'ERROR' });
+    return route.fallback();
+  });
+  await open(page);
+  const panel = page.getByTestId('ai-panel');
+  await panel.getByTestId('ai-model').selectOption('synthetic-catalog-choice');
+  await panel.getByRole('button', { name: 'Request suggestions', exact: true }).click();
+  await panel.getByRole('button', { name: 'Accept for review', exact: true }).click();
+  await panel.getByRole('checkbox', { name: /I reviewed the content/ }).check();
+  await panel.getByRole('button', { name: 'Approve this suggestion into the chart', exact: true }).click();
+  await expect(panel.getByRole('alert')).toContainText('Approval was saved');
+  await expect(page.getByTestId('note-history')).toBeDisabled();
+  refreshFails = false;
+  await panel.getByRole('button', { name: 'Reload chart', exact: true }).click();
+  await expect(page.getByTestId('note-history')).toBeEnabled();
+  await expect(page.getByTestId('note-history')).toHaveValue('SYNTHETIC proposal');
+  expect(seen.approvals).toHaveLength(1);
+});
+
+test('AI recent requests reopen a persisted draft without another provider request', async ({ page }) => {
+  const state = await mockApi(page),
+    seen = await mockAi(page, state);
+  await page.route(`${API}/encounters/${ENCOUNTER}/ai/jobs`, (route) => {
+    if (route.request().method() === 'OPTIONS') return route.fallback();
+    return json(route, 200, {
+      data: {
+        items: [
+          {
+            id: '00000000-0000-4000-8000-000000000a01',
+            purpose: 'NOTE_DRAFT',
+            status: 'SUCCEEDED',
+            providerCode: 'mock',
+            finishedAt: new Date().toISOString(),
+          },
+        ],
+      },
+    });
+  });
+  await open(page);
+  const panel = page.getByTestId('ai-panel');
+  await panel.getByText('Recent AI requests', { exact: true }).click();
+  await panel.getByRole('button', { name: /NOTE DRAFT · SUCCEEDED/ }).click();
+  await expect(panel.getByLabel('Suggestion content', { exact: true })).toHaveValue('SYNTHETIC proposal');
+  expect(seen.requests).toHaveLength(0);
+});
+
+test('AI unknown approval outcome refreshes the chart and never retries the write', async ({ page }) => {
+  const state = await mockApi(page),
+    seen = await mockAi(page, state, 'unknown');
+  await open(page);
+  const panel = page.getByTestId('ai-panel');
+  await panel.getByTestId('ai-model').selectOption('synthetic-catalog-choice');
+  await panel.getByRole('button', { name: 'Request suggestions', exact: true }).click();
+  await panel.getByRole('button', { name: 'Accept for review', exact: true }).click();
+  await panel.getByRole('checkbox', { name: /I reviewed the content/ }).check();
+  await panel.getByRole('button', { name: 'Approve this suggestion into the chart', exact: true }).click();
+  await expect(panel.getByRole('alert')).toContainText('could not be confirmed');
+  await expect(page.getByTestId('note-history')).toHaveValue('SYNTHETIC proposal');
+  expect(seen.approvals).toHaveLength(1);
+});
+
 test('a full consultation: write, sign, complete', async ({ page }) => {
   const state = await mockApi(page);
   await open(page);

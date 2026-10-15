@@ -1,4 +1,5 @@
 import { FollowUpPanel } from '../follow-up/FollowUpPanel';
+import { AIPanel } from '../ai/AIPanel';
 import { TimelinePanel } from '../timeline/TimelinePanel';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
@@ -81,6 +82,8 @@ export function ConsultationWorkspacePage() {
   const history = usePatientEncounters(encounter.data?.patientId ?? null, encounterId);
 
   const [sections, setSections] = useState<Sections | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiChartRefreshRequired, setAiChartRefreshRequired] = useState(false);
   const [state, setState] = useState<SaveState>({ kind: 'idle' });
   const [showHistory, setShowHistory] = useState(false);
   const revisions = useNoteRevisions(encounterId, showHistory);
@@ -169,7 +172,7 @@ export function ConsultationWorkspacePage() {
   }, [saveNow]);
 
   const signed = (draft.data?.lastSignedRevision ?? 0) > 0;
-  const locked = draft.data?.status === 'SIGNED_LOCKED';
+  const locked = draft.data?.status === 'SIGNED_LOCKED' || aiBusy || aiChartRefreshRequired;
   const patientName = useMemo(() => {
     const p = patient.data;
     if (!p) return '';
@@ -264,7 +267,9 @@ export function ConsultationWorkspacePage() {
             />
             <button
               data-testid="complete-encounter"
-              disabled={!encounter.data || encounter.data.status === 'COMPLETED'}
+              disabled={
+                aiBusy || aiChartRefreshRequired || !encounter.data || encounter.data.status === 'COMPLETED'
+              }
               onClick={() => {
                 if (!encounter.data) return;
                 complete.mutate({ expectedRowVersion: encounter.data.rowVersion });
@@ -298,7 +303,9 @@ export function ConsultationWorkspacePage() {
         />
 
         {encounter.data && (
-          <TimelinePanel key={encounter.data.patientId} patientId={encounter.data.patientId} />
+          <div id="ai-patient-history">
+            <TimelinePanel key={encounter.data.patientId} patientId={encounter.data.patientId} />
+          </div>
         )}
         <section className="card" aria-labelledby="history-heading">
           <h2 id="history-heading">{t('encounter.history')}</h2>
@@ -325,6 +332,33 @@ export function ConsultationWorkspacePage() {
 
         <PrescriptionPanel encounterId={encounterId} />
         {encounter.data && (
+          <AIPanel
+            key={[tenant, currentUser()?.id, encounterId].join(':')}
+            encounterId={encounterId}
+            doctorProfileId={encounter.data.doctorProfileId}
+            canWrite={
+              !locked &&
+              encounter.data.status === 'IN_PROGRESS' &&
+              (state.kind === 'idle' || state.kind === 'saved')
+            }
+            noteRowVersion={draft.data?.rowVersion ?? null}
+            needsChartRefresh={aiChartRefreshRequired}
+            onBusy={setAiBusy}
+            onApproved={async () => {
+              setAiChartRefreshRequired(true);
+              const refreshed = await draft.refetch();
+              if (refreshed.isError) throw refreshed.error;
+              if (refreshed.data) {
+                setSections(sectionsOf(refreshed.data));
+                version.current = refreshed.data.rowVersion;
+              }
+              const refreshedDiagnoses = await diagnoses.refetch();
+              if (refreshedDiagnoses.isError) throw refreshedDiagnoses.error;
+              setAiChartRefreshRequired(false);
+            }}
+          />
+        )}
+        {encounter.data && (
           <FollowUpPanel
             key={[tenant, currentUser()?.id, encounterId].join(':')}
             encounterId={encounterId}
@@ -335,7 +369,7 @@ export function ConsultationWorkspacePage() {
 
         {/* Stages 10 and 11. Labelled and empty on purpose: a mocked panel here would teach a doctor
             to expect something that does not exist yet. */}
-        {(['labs', 'timeline', 'ai'] as const).map((key) => (
+        {(['labs', 'timeline'] as const).map((key) => (
           <section className="card muted" key={key} data-testid={`panel-${key}`}>
             <h2>{t(`workspace.panel.${key}` as MessageKey)}</h2>
             <p>{t('workspace.panel.later')}</p>

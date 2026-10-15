@@ -23,6 +23,7 @@ import 'package:hm_core/hm_core.dart';
 import 'package:hm_localization/hm_localization.dart';
 
 import 'active_tenant.dart';
+import 'ai_panel.dart';
 import 'prescription_panel.dart';
 
 /// How long after the last keystroke the draft is sent. Longer than the web's, because a phone keyboard
@@ -95,6 +96,22 @@ class _DoctorEncounterScreenState extends ConsumerState<DoctorEncounterScreen> {
   int? _lastSignedRevision;
   bool _loaded = false;
   bool _locked = false;
+  bool _aiBusy = false, _aiNeedsRefresh = false;
+  String? _aiJobId, _aiJobScope;
+  bool get _editingLocked => _locked || _aiBusy || _aiNeedsRefresh;
+
+  Future<void> _refreshAfterAiApproval() async {
+    if (!mounted) return;
+    setState(() => _aiNeedsRefresh = true);
+    ref.invalidate(noteDraftProvider(widget.encounterId));
+    final refreshed = await ref.read(noteDraftProvider(widget.encounterId).future);
+    if (!mounted) return;
+    _adopt(refreshed);
+    ref.invalidate(diagnosesProvider(widget.encounterId));
+    await ref.read(diagnosesProvider(widget.encounterId).future);
+    if (mounted) setState(() => _aiNeedsRefresh = false);
+  }
+
   _SaveState _state = _SaveState.ready;
   EncounterNoteDraft? _theirs;
 
@@ -137,7 +154,7 @@ class _DoctorEncounterScreenState extends ConsumerState<DoctorEncounterScreen> {
   Future<void> _save() async {
     final tenantId = ref.read(activeTenantProvider);
     final version = _rowVersion;
-    if (tenantId == null || version == null || _locked) return;
+    if (tenantId == null || version == null || _editingLocked) return;
     _debounce?.cancel();
     setState(() => _state = _SaveState.saving);
     final api = ref.read(apiClientProvider);
@@ -309,7 +326,25 @@ class _DoctorEncounterScreenState extends ConsumerState<DoctorEncounterScreen> {
       ),
       body: draft.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text(s.t('loadFailed'), key: const Key('noteError'))),
+        error: (e, _) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(s.t('loadFailed'), key: const Key('noteError')),
+              if (_aiNeedsRefresh)
+                TextButton(
+                  onPressed: () async {
+                    try {
+                      await _refreshAfterAiApproval();
+                    } catch (_) {
+                      /* Keep the editor locked until a successful read. */
+                    }
+                  },
+                  child: const Text('Reload chart / রেকর্ড আবার লোড করুন'),
+                ),
+            ],
+          ),
+        ),
         data: (d) {
           if (!_loaded) {
             _adopt(d);
@@ -344,7 +379,7 @@ class _DoctorEncounterScreenState extends ConsumerState<DoctorEncounterScreen> {
                   child: TextField(
                     key: Key('note_$section'),
                     controller: _controllers[section],
-                    enabled: !_locked,
+                    enabled: !_editingLocked,
                     maxLines: section == 'chiefComplaint' ? 2 : 4,
                     decoration: InputDecoration(labelText: s.t(section), border: const OutlineInputBorder()),
                     onChanged: (_) => _onChanged(),
@@ -357,13 +392,13 @@ class _DoctorEncounterScreenState extends ConsumerState<DoctorEncounterScreen> {
                   if (!signed)
                     FilledButton(
                       key: const Key('signNote'),
-                      onPressed: _locked || _state == _SaveState.conflict ? null : () => _sign(),
+                      onPressed: _editingLocked || _state == _SaveState.conflict ? null : () => _sign(),
                       child: Text(s.t('signNote')),
                     )
                   else
                     OutlinedButton(
                       key: const Key('amendNote'),
-                      onPressed: _locked || _state == _SaveState.conflict
+                      onPressed: _editingLocked || _state == _SaveState.conflict
                           ? null
                           : () => _askReason(s, s.t('amendReason'), (r) => _sign(reason: r)),
                       child: Text(s.t('amendNote')),
@@ -392,7 +427,7 @@ class _DoctorEncounterScreenState extends ConsumerState<DoctorEncounterScreen> {
                               : null,
                         ),
                         subtitle: d.voidReason == null ? null : Text(d.voidReason!),
-                        trailing: d.clinicalStatus == DiagnosisClinicalStatus.enteredInError || _locked
+                        trailing: d.clinicalStatus == DiagnosisClinicalStatus.enteredInError || _editingLocked
                             ? null
                             : IconButton(
                                 key: Key('void_${d.id}'),
@@ -405,7 +440,26 @@ class _DoctorEncounterScreenState extends ConsumerState<DoctorEncounterScreen> {
                 ),
               ),
               PrescriptionPanel(encounterId: widget.encounterId),
-              if (!_locked)
+              DoctorAiPanel(
+                key: ValueKey('${ref.watch(activeTenantProvider)}:${widget.encounterId}'),
+                encounterId: widget.encounterId,
+                canWrite: !_editingLocked && [_SaveState.ready, _SaveState.saved].contains(_state),
+                noteRowVersion: _rowVersion,
+                needsChartRefresh: _aiNeedsRefresh,
+                onHistory: () => unawaited(_timeline(s)),
+                initialJobId: _aiJobScope == '${ref.read(activeTenantProvider)}:${widget.encounterId}'
+                    ? _aiJobId
+                    : null,
+                onJobCreated: (id) {
+                  _aiJobId = id;
+                  _aiJobScope = '${ref.read(activeTenantProvider)}:${widget.encounterId}';
+                },
+                onBusy: (v) {
+                  if (mounted) setState(() => _aiBusy = v);
+                },
+                onApproved: _refreshAfterAiApproval,
+              ),
+              if (!_editingLocked)
                 Row(
                   children: [
                     Expanded(
