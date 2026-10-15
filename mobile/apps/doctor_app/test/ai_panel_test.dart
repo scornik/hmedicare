@@ -102,7 +102,7 @@ class AiAdapter implements HttpClientAdapter {
         approval = Map<String, dynamic>.from(jsonDecode(jsonEncode(o.data)) as Map);
         status = 'APPROVED';
         version++;
-        if (unknownApproval)
+        if (unknownApproval) {
           return ResponseBody.fromString(
             '{"code":"INTERNAL_ERROR"}',
             503,
@@ -110,6 +110,7 @@ class AiAdapter implements HttpClientAdapter {
               Headers.contentTypeHeader: [Headers.jsonContentType],
             },
           );
+        }
         data = {
           'id': tenant,
           'aiSuggestionId': suggestion,

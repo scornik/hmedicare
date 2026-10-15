@@ -703,8 +703,8 @@ test('an interrupted consultation is still editable and says so', async ({ page 
 test('later-stage panels are labelled and empty, not mocked', async ({ page }) => {
   await mockApi(page);
   await open(page);
-  // `prescriptions` left the list in Stage 7 CP10: it is a real editor now, covered below.
-  for (const panel of ['labs', 'timeline', 'ai']) {
+  // Prescriptions and AI now have real editors, covered by their workflow tests.
+  for (const panel of ['labs', 'timeline']) {
     await expect(page.getByTestId(`panel-${panel}`)).toContainText('Arrives in a later stage.');
   }
 });
