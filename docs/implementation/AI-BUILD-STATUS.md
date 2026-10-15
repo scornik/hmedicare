@@ -3,6 +3,11 @@
 **Branch** `codex/timeline-foundation`. Last verified gate: **20/20 at `2a2e9dc`** (736 unit, 51
 architecture, 842 integration on MariaDB 10.6 and 11.8), tagged `stage7-cp17-ai-complete`.
 
+Latest client verification (2026-10-15): **18/18 non-database checkpoint checks at `b5d5fe0`**,
+plus **842/842 integration/security tests on each of MariaDB 10.6 and 11.8** in a separate retry.
+The database retry started at `27f89ce`; later changes were web settings and documentation only.
+This is combined validation, not a new single-run 20/20 verdict or release tag.
+
 `AI-HANDOFF.md` beside this file is written for whoever takes the work over: what is load-bearing,
 and the half-dozen things that will bite you.
 
@@ -30,7 +35,7 @@ This file is a working status note, not a specification. The specifications are 
 
 In dependency order. Each line is work, not a reminder to decide something.
 
-1. **Client checkpoint verification and credential administration screens.** Doctor web/native model pickers,
+1. **Credential administration screens.** Doctor web/native model pickers,
    requests, recent-job recovery, draft review, data-use labels and attested approval are implemented
    (2026-10-15). Web tenant policy settings are also implemented, with stored/effective free-tier
    state, owner-only versioned updates and a required change reason. Credential setup screens remain open.
@@ -42,21 +47,23 @@ In dependency order. Each line is work, not a reminder to decide something.
 3. **Transcription** (V1). The route exists and returns `FEATURE_DISABLED`; `ai_transcripts` is
    deliberately not created until the feature that reads it is.
 
-## Doctor client validation in progress (2026-10-15)
+## Doctor client validation (2026-10-15)
 
 Client implementation is in `5942a9e` and `f023489`; test corrections are in `27f89ce`.
 The full run at `f023489` passed 16/20 checks, including 736 unit tests, 51 architecture tests,
 API parity (171 operations), and mobile tests. Both database checks failed before tests could start
-because Docker was unavailable. Docker has since recovered and both database series are being
-rerun. The browser failure was an obsolete expectation that AI was still a placeholder; mobile
+because Docker was unavailable. Docker recovered and both database series passed all 842 tests
+on retry. The browser failure was an obsolete expectation that AI was still a placeholder; mobile
 analysis found missing braces in a test conditional. Both were corrected in `27f89ce`; all 18
 consultation browser tests and doctor-app analysis passed on retry. This is not a new full-gate
 verdict; the verified gate at the top of this file remains the previous server checkpoint.
 
 The tenant policy page at `/settings/ai` adds three browser cases covering a versioned owner save,
 read-only access, stale-write refusal and clearing cached settings after access loss. Targeted
-browser tests (3/3), TypeScript and changed-file lint passed. The complete browser suite is being
-rerun after phone-layout review. No database or provider activation behavior changed in this page.
+browser tests (3/3), TypeScript and changed-file lint passed. The complete browser suite passed
+41/41 after phone-layout review. The latest clean commit passed all 18 non-database checkpoint
+checks, including mobile format, analysis, tests and licenses. No database or provider activation
+behavior changed in this page.
 
 ## Open items that are not code
 
