@@ -8,6 +8,12 @@ plus **842/842 integration/security tests on each of MariaDB 10.6 and 11.8** in 
 The database retry started at `27f89ce`; later changes were web settings and documentation only.
 This is combined validation, not a new single-run 20/20 verdict or release tag.
 
+Doctor account setup at **`c902bc3`**: the non-database checkpoint passed **17/18**; two existing
+unit cases hit timing limits under load. An unchanged retry passed **736/736 unit tests**. The
+remaining checkpoint checks passed, including **44 browser tests**, native analysis/tests and
+171-operation API parity. The changed AI HTTP suite separately passed **30/30 on both database
+series**. No assertion or timeout was weakened. This is also combined validation, with no new tag.
+
 `AI-HANDOFF.md` beside this file is written for whoever takes the work over: what is load-bearing,
 and the half-dozen things that will bite you.
 
@@ -35,17 +41,12 @@ This file is a working status note, not a specification. The specifications are 
 
 In dependency order. Each line is work, not a reminder to decide something.
 
-1. **Account setup checkpoint verification.** Doctor web/native model pickers,
-   requests, recent-job recovery, draft review, data-use labels and attested approval are implemented
-   (2026-10-15). Web tenant policy settings are also implemented, with stored/effective free-tier
-   state, owner-only versioned updates and a required change reason. Doctor web/native account setup
-   is now implemented; its final checkpoint verification is in progress.
-2. **Production provider configuration.** The owner waived written review records as a coding
+1. **Production provider configuration.** The owner waived written review records as a coding
    prerequisite on 2026-10-15; implementation must continue without requesting that paperwork.
    AIREG-002/003 are inherited Gemini terms questions, not a new user requirement. This instruction
    has not changed production configuration: every provider's `productionGate` remains `OPEN`,
    which blocks activation there by design.
-3. **Transcription** (V1). The route exists and returns `FEATURE_DISABLED`; `ai_transcripts` is
+2. **Transcription** (V1). The route exists and returns `FEATURE_DISABLED`; `ai_transcripts` is
    deliberately not created until the feature that reads it is.
 
 ## Doctor client validation (2026-10-15)
@@ -74,8 +75,11 @@ The self-service response adds only the authenticated active doctor's profile ID
 an empty account list. Targeted verification passed 30 AI HTTP tests on each supported MariaDB
 series, 3 account browser tests, and 8 native account/review tests. Lost-create-response recovery
 uses reads without resending the key; leaving during acknowledgement prevents the later save.
-TypeScript compilation, doctor-app analysis and 171-operation contract parity passed. A clean-tree
-checkpoint run for this increment is still pending; the previous checkpoint above is unchanged.
+TypeScript compilation, doctor-app analysis and 171-operation contract parity passed. The clean-tree
+checkpoint at c902bc3 passed 17/18; an unchanged unit-suite retry resolved the two timing failures
+(SMS smoke guard at 5 seconds and first PDF render at 30 seconds) and passed all 736 tests. All other
+checkpoint checks passed, including 44 browser flows and the full native workspace checks. The
+previous single-run 20/20 verdict remains unchanged; this increment has combined validation.
 
 ## Open items that are not code
 

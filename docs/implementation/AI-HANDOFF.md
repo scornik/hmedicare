@@ -72,9 +72,10 @@ Each of these cost me a debugging cycle. They are not obvious from the code.
 
 `docs/implementation/AI-BUILD-STATUS.md` carries the list; the short version:
 
-1. **Client validation and administration screens.** The doctor model picker, draft review,
-   data-use labels and attested approval are implemented, as are web tenant policy settings.
-   Doctor credential setup is implemented and awaiting its final checkpoint validation.
+1. **Client surfaces are implemented and validated.** The doctor model picker, draft review,
+   data-use labels, attested approval and account setup exist on web/native, plus web tenant policy
+   settings. See the combined validation at c902bc3 in AI-BUILD-STATUS.md; do not treat this as a new
+   single-run release gate or tag.
 2. **Production provider configuration.** On 2026-10-15 the owner waived written review records as
    a prerequisite to continuing implementation. Do not ask for those records again to continue
    coding. This does not itself change deployed configuration or establish current provider terms:

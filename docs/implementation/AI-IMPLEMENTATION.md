@@ -567,4 +567,7 @@ The self-service credential response now includes the authenticated active `doct
 including when the credential list is empty; it does not expose another doctor's profile or keys.
 The API operation count remains 171 and the mobile client has been regenerated. Keys are cleared
 after submission, context changes or failed reads, and never enter browser/native read caches.
-These screens do not change production gates. Checkpoint validation for this increment is ongoing.
+These screens do not change production gates. At c902bc3 all non-database checkpoint checks passed
+across the initial run and an unchanged 736/736 unit-suite retry; the initial run had two timing-only
+unit failures. The complete browser suite passed 44/44, native workspace checks passed, and the AI
+HTTP suite passed 30/30 on both MariaDB series. See AI-BUILD-STATUS.md for exact validation scope.
