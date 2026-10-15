@@ -110,3 +110,20 @@ This is a foundation for DOC-002, not completion of the upload plan above.
 Multipart/resumable sessions, scanning, upload authorization/routes and lab-report
 work remain. Production composition still selects the existing disk adapter;
 no bucket, provider credentials or deployment settings were changed.
+
+## Resumable private-disk storage (2026-10-15)
+
+The separate proxied-upload port and disk implementation now persist immutable
+session definitions and content-addressed part receipts under the private storage
+root. Session recreation and identical-part retries are idempotent. A replacement
+part preserves earlier receipt bytes, so an accepted database receipt cannot be
+changed by a competing retry. Part sizes, checksums, exact ordered coverage, full
+file integrity and expiry are checked before the immutable object is published.
+A matching existing object recovers a lost finalize response without overwriting.
+Aborting removes session parts only; published objects remain intact.
+
+Storage metadata is server-owned and does not authorize a patient or tenant.
+The application must serialize finalize/abort using durable session transitions.
+HTTP routes, upload tables, scan jobs and retention cleanup are not enabled yet.
+S3 multipart/direct targets remain separate work. This is partial DOC-003/005
+foundation, not completion of their acceptance criteria.
