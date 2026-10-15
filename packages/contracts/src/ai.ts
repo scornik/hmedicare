@@ -157,6 +157,18 @@ export const AiCredentialList = registry.register(
   z.object({ items: z.array(AiCredential) }),
 );
 
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/me/ai/credentials',
+  operationId: 'listMyAiCredentials',
+  tags: ['AI'],
+  security: secured,
+  description:
+    'Safe credential metadata belonging to the authenticated active doctor in the selected tenant.',
+  request: { headers: tenantHeaders },
+  responses: { 200: ok(AiCredentialList, 'Credentials'), ...errorResponses },
+});
+
 export const CreateAiCredentialRequest = registry.register(
   'CreateAiCredentialRequest',
   z.object({
@@ -365,6 +377,9 @@ registry.registerPath({
 export const AiJob = registry.register(
   'AiJob',
   z.object({
+    draftId: Uuid.nullable().openapi({
+      description: 'Authorized draft reference when available; null until a draft is persisted',
+    }),
     id: Uuid,
     purpose: z.enum(['NOTE_DRAFT', 'HISTORY_SUMMARY', 'TRANSCRIPTION']),
     status: z.enum(['QUEUED', 'RUNNING', 'WAITING_RATE_LIMIT', 'SUCCEEDED', 'FAILED', 'CANCELLED']),
@@ -408,6 +423,19 @@ export const CreateAiJobRequest = registry.register(
     templateVersion: z.string().min(1).max(32).optional(),
   }),
 );
+
+const AiJobList = registry.register('AiJobList', z.object({ items: z.array(AiJob) }));
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/encounters/{id}/ai/jobs',
+  operationId: 'listEncounterAiJobs',
+  tags: ['AI'],
+  security: secured,
+  description:
+    'The latest 20 jobs for this encounter visible to the requester or their active doctor profile. Reading never queues work.',
+  request: { headers: tenantHeaders, params: z.object({ id: Uuid }) },
+  responses: { 200: ok(AiJobList, 'Jobs'), ...errorResponses },
+});
 
 for (const [path, operationId, description] of [
   [
@@ -625,6 +653,7 @@ export const ApproveAiSuggestionRequest = registry.register(
           expectedNoteRowVersion: z.number().int(),
         })
         .strict()
+        .openapi('AiApprovedNoteSection')
         .optional(),
       diagnosis: z
         .object({
@@ -637,6 +666,7 @@ export const ApproveAiSuggestionRequest = registry.register(
           notes: z.string().max(1000).nullable().optional(),
         })
         .strict()
+        .openapi('AiApprovedDiagnosis')
         .optional(),
     })
     .strict(),

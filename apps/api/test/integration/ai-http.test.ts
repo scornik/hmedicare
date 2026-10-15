@@ -330,6 +330,26 @@ describe('AI credentials over HTTP', () => {
       .get(`/api/v1/doctors/${f.doctorProfileId}/ai/credentials`)
       .set(other.headers)
       .expect(403);
+    const own = await request(server).get('/api/v1/me/ai/credentials').set(f.doctor.headers).expect(200);
+    expect(Array.isArray(own.body.data.items)).toBe(true);
+    expect(JSON.stringify(own.body)).not.toContain('encryptedSecret');
+    // This member has the doctor role but no active doctor profile; self lookup must refuse it.
+    await request(server).get('/api/v1/me/ai/credentials').set(other.headers).expect(403);
+    const now = new Date();
+    await api.runtime.prisma.doctorProfile.create({
+      data: {
+        id: newId(),
+        tenantId: f.tenantId,
+        userId: other.userId,
+        displayName: 'SYNTHETIC other doctor',
+        specialties: [],
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const otherOwn = await request(server).get('/api/v1/me/ai/credentials').set(other.headers).expect(200);
+    expect(otherOwn.body.data.items).toEqual([]);
   });
 });
 

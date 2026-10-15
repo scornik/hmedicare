@@ -9,6 +9,7 @@ import {
   AICredentialSecrets,
   AICredentialStore,
   AIJobRunner,
+  AIJobStore,
   AIModelCatalogStore,
   AIProviderRegister,
   AIUsageStore,
@@ -277,6 +278,26 @@ describe('RunAIJob: the happy path', () => {
     expect(report.droppedUnsourced).toBe(0);
 
     const draft = await db.prisma.aiDraft.findFirstOrThrow({ where: { aiJobId: job.id } });
+    const jobStore = new AIJobStore({
+      prisma: db.prisma,
+      audit,
+      providers: new AIProviderRegister([provider]),
+      environment: 'test',
+      enabledProviderCodes: ['mock'],
+      currentAckTextVersion: CURRENT_ACK_TEXT_VERSION,
+      clock,
+    });
+    expect((await jobStore.get({ tenantId: f.tenantId, userId: f.userId }, job.id)).draftId).toBe(draft.id);
+    expect(
+      await jobStore.listForEncounter({ tenantId: f.tenantId, userId: f.userId }, f.encounterId),
+    ).toEqual([expect.objectContaining({ id: job.id, draftId: draft.id })]);
+    expect(await jobStore.listForEncounter({ tenantId: f.tenantId, userId: f.userId }, newId())).toEqual([]);
+    await expect(
+      jobStore.listForEncounter({ tenantId: f.tenantId, userId: newId() }, f.encounterId),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(jobStore.get({ tenantId: f.tenantId, userId: newId() }, job.id)).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
     expect(draft.status).toBe('READY_FOR_REVIEW');
     expect(draft.outputSchemaVersion).toBe('history-summary/v1');
     const suggestions = await db.prisma.aiSuggestion.findMany({ where: { aiDraftId: draft.id } });

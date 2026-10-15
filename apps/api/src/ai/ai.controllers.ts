@@ -207,6 +207,18 @@ export class AiController {
       .then((items) => ({ items }));
   }
 
+  @Get('me/ai/credentials')
+  @RequirePermission('ai.use')
+  listOwnCredentials(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.svc()
+      .credentials.listMine(this.actor(actor, tenant, req))
+      .then((items) => ({ items }));
+  }
+
   @Post('doctors/:id/ai/credentials')
   @HttpCode(201)
   @RequirePermission('ai.use')
@@ -246,6 +258,19 @@ export class AiController {
     @Req() req: FastifyRequest,
   ) {
     return this.createJob(actor, tenant, encounterId, 'note-draft', dto, req);
+  }
+
+  @Get('encounters/:id/ai/jobs')
+  @RequirePermission('ai.use')
+  listEncounterJobs(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.svc()
+      .jobs.listForEncounter(this.actor(actor, tenant, req), id)
+      .then((items) => ({ items }));
   }
 
   @Post('encounters/:id/ai/history-summary')

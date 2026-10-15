@@ -5,6 +5,7 @@
 import 'package:dio/dio.dart';
 
 import 'clients/platform_client.dart';
+import 'clients/ai_client.dart';
 import 'clients/appointments_client.dart';
 import 'clients/auth_client.dart';
 import 'clients/care_team_client.dart';
@@ -44,6 +45,7 @@ class HmApiClient {
   static String get version => '1.0.0';
 
   PlatformClient? _platform;
+  AiClient? _ai;
   AppointmentsClient? _appointments;
   AuthClient? _auth;
   CareTeamClient? _careTeam;
@@ -68,6 +70,8 @@ class HmApiClient {
   HealthClient? _health;
 
   PlatformClient get platform => _platform ??= PlatformClient(_dio, baseUrl: _baseUrl);
+
+  AiClient get ai => _ai ??= AiClient(_dio, baseUrl: _baseUrl);
 
   AppointmentsClient get appointments => _appointments ??= AppointmentsClient(_dio, baseUrl: _baseUrl);
 

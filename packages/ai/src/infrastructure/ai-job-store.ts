@@ -56,7 +56,8 @@ const PURPOSE_TO_DB: Record<CreateAIJobInput['purpose'], 'NOTE_DRAFT' | 'HISTORY
 
 type Row = Awaited<ReturnType<PrismaClient['aiJob']['findFirstOrThrow']>>;
 
-export const aiJobView = (row: Row) => ({
+export const aiJobView = (row: Row, draftId: string | null = null) => ({
+  draftId,
   id: row.id,
   purpose: row.purpose,
   status: row.status,
@@ -379,7 +380,44 @@ export class AIJobStore {
       if (row.requestedByUserId !== actor.userId && doctor?.id !== row.doctorProfileId) {
         throw new AppError('FORBIDDEN');
       }
-      return aiJobView(row);
+      const draft = await tx.aiDraft.findFirst({
+        where: { tenantId: actor.tenantId, aiJobId: row.id, encounterId: row.encounterId },
+        select: { id: true },
+      });
+      return aiJobView(row, row.status === 'SUCCEEDED' ? (draft?.id ?? null) : null);
+    });
+  }
+
+  /** Recent jobs the requester/own doctor profile may already read; supports resuming a client. */
+  async listForEncounter(actor: AIJobActor, encounterId: string) {
+    return withTransaction(this.deps.prisma, async (tx) => {
+      const context = await new TenantContextResolver(tx).resolve(actor.userId, actor.tenantId);
+      if (
+        !context?.effectivePermissions.has('ai.use') ||
+        !(await tx.user.count({ where: { id: actor.userId, status: 'ACTIVE' } }))
+      )
+        throw new AppError('FORBIDDEN');
+      const doctor = await tx.doctorProfile.findFirst({
+        where: { tenantId: actor.tenantId, userId: actor.userId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      const rows = await tx.aiJob.findMany({
+        where: {
+          tenantId: actor.tenantId,
+          encounterId,
+          OR: [{ requestedByUserId: actor.userId }, ...(doctor ? [{ doctorProfileId: doctor.id }] : [])],
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 20,
+      });
+      const drafts = await tx.aiDraft.findMany({
+        where: { tenantId: actor.tenantId, encounterId, aiJobId: { in: rows.map((row) => row.id) } },
+        select: { id: true, aiJobId: true },
+      });
+      const byJob = new Map(drafts.map((draft) => [draft.aiJobId, draft.id]));
+      return rows.map((row) =>
+        aiJobView(row, row.status === 'SUCCEEDED' ? (byJob.get(row.id) ?? null) : null),
+      );
     });
   }
 

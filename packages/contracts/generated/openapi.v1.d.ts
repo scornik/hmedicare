@@ -1020,6 +1020,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/encounters/{id}/ai/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The latest 20 jobs for this encounter visible to the requester or their active doctor profile. Reading never queues work. */
+        get: operations["listEncounterAiJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/encounters/{id}/ai/note-draft": {
         parameters: {
             query?: never;
@@ -1368,6 +1385,23 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/ai/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Safe credential metadata belonging to the authenticated active doctor in the selected tenant. */
+        get: operations["listMyAiCredentials"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2516,6 +2550,28 @@ export interface components {
              */
             id: string;
         };
+        AiApprovedDiagnosis: {
+            /** @enum {string} */
+            certainty: "CONFIRMED" | "PROVISIONAL" | "DIFFERENTIAL";
+            /** @enum {string} */
+            clinicalStatus?: "ACTIVE" | "RESOLVED" | "RULED_OUT";
+            code?: string | null;
+            codeSystem?: string | null;
+            display: string;
+            displayBn?: string | null;
+            notes?: string | null;
+        };
+        AiApprovedNoteSection: {
+            expectedNoteRowVersion: number;
+            /**
+             * @description APPEND joins what the doctor wrote; REPLACE substitutes the section
+             * @enum {string}
+             */
+            mode: "APPEND" | "REPLACE";
+            /** @enum {string} */
+            section: "chief_complaint" | "history" | "examination" | "assessment" | "plan";
+            text: string;
+        };
         AiCredential: {
             /** @enum {string} */
             billingMode: "DOCTOR_BYOK_FREE" | "DOCTOR_BYOK_PAID" | "PLATFORM_MANAGED";
@@ -2631,6 +2687,12 @@ export interface components {
             /** @enum {string} */
             declaredTier: "FREE" | "PAID";
             /**
+             * Format: uuid
+             * @description Authorized draft reference when available; null until a draft is persisted
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            draftId: string | null;
+            /**
              * @description Shown beside every suggestion this job produced
              * @enum {string}
              */
@@ -2666,6 +2728,9 @@ export interface components {
             startedAt: string | null;
             /** @enum {string} */
             status: "QUEUED" | "RUNNING" | "WAITING_RATE_LIMIT" | "SUCCEEDED" | "FAILED" | "CANCELLED";
+        };
+        AiJobList: {
+            items: components["schemas"]["AiJob"][];
         };
         AiModel: {
             capabilities: string[];
@@ -2839,29 +2904,9 @@ export interface components {
             /** @enum {string} */
             approvedTarget: "ENCOUNTER_NOTE_SECTION" | "DIAGNOSIS";
             attestationVersion: number;
-            diagnosis?: {
-                /** @enum {string} */
-                certainty: "CONFIRMED" | "PROVISIONAL" | "DIFFERENTIAL";
-                /** @enum {string} */
-                clinicalStatus?: "ACTIVE" | "RESOLVED" | "RULED_OUT";
-                code?: string | null;
-                codeSystem?: string | null;
-                display: string;
-                displayBn?: string | null;
-                notes?: string | null;
-            };
+            diagnosis?: components["schemas"]["AiApprovedDiagnosis"];
             expectedRowVersion: number;
-            noteSection?: {
-                expectedNoteRowVersion: number;
-                /**
-                 * @description APPEND joins what the doctor wrote; REPLACE substitutes the section
-                 * @enum {string}
-                 */
-                mode: "APPEND" | "REPLACE";
-                /** @enum {string} */
-                section: "chief_complaint" | "history" | "examination" | "assessment" | "plan";
-                text: string;
-            };
+            noteSection?: components["schemas"]["AiApprovedNoteSection"];
         };
         ApprovePrescriptionRequest: {
             /** @description The attestation text the doctor read; a mismatch means reload and read it again */
@@ -12560,6 +12605,105 @@ export interface operations {
             };
         };
     };
+    listEncounterAiJobs: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Jobs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AiJobList"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     createAiNoteDraftJob: {
         parameters: {
             query?: never;
@@ -15259,6 +15403,103 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["MeResponse"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listMyAiCredentials: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Credentials */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AiCredentialList"];
                         meta: components["schemas"]["ResponseMeta"];
                     };
                 };

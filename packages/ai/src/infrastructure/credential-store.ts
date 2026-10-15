@@ -199,6 +199,15 @@ export class AICredentialStore {
     });
   }
 
+  async listMine(actor: AICredentialActor) {
+    const doctor = await this.deps.prisma.doctorProfile.findFirst({
+      where: { tenantId: actor.tenantId, userId: actor.userId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!doctor) throw new AppError('FORBIDDEN');
+    return this.list(actor, doctor.id);
+  }
+
   async change(
     actor: AICredentialActor,
     doctorProfileId: string,

@@ -392,6 +392,95 @@
         ],
         "type": "object"
       },
+      "AiApprovedDiagnosis": {
+        "additionalProperties": false,
+        "properties": {
+          "certainty": {
+            "enum": [
+              "CONFIRMED",
+              "PROVISIONAL",
+              "DIFFERENTIAL"
+            ],
+            "type": "string"
+          },
+          "clinicalStatus": {
+            "enum": [
+              "ACTIVE",
+              "RESOLVED",
+              "RULED_OUT"
+            ],
+            "type": "string"
+          },
+          "code": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "codeSystem": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "display": {
+            "maxLength": 300,
+            "minLength": 1,
+            "type": "string"
+          },
+          "displayBn": {
+            "maxLength": 300,
+            "nullable": true,
+            "type": "string"
+          },
+          "notes": {
+            "maxLength": 1000,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "display",
+          "certainty"
+        ],
+        "type": "object"
+      },
+      "AiApprovedNoteSection": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedNoteRowVersion": {
+            "type": "integer"
+          },
+          "mode": {
+            "description": "APPEND joins what the doctor wrote; REPLACE substitutes the section",
+            "enum": [
+              "APPEND",
+              "REPLACE"
+            ],
+            "type": "string"
+          },
+          "section": {
+            "enum": [
+              "chief_complaint",
+              "history",
+              "examination",
+              "assessment",
+              "plan"
+            ],
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "section",
+          "mode",
+          "text",
+          "expectedNoteRowVersion"
+        ],
+        "type": "object"
+      },
       "AiCredential": {
         "properties": {
           "billingMode": {
@@ -667,6 +756,13 @@
             ],
             "type": "string"
           },
+          "draftId": {
+            "description": "Authorized draft reference when available; null until a draft is persisted",
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
           "effectiveDataUsePolicy": {
             "description": "Shown beside every suggestion this job produced",
             "enum": [
@@ -739,6 +835,7 @@
           }
         },
         "required": [
+          "draftId",
           "id",
           "purpose",
           "status",
@@ -754,6 +851,20 @@
           "startedAt",
           "finishedAt",
           "rowVersion"
+        ],
+        "type": "object"
+      },
+      "AiJobList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AiJob"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
         ],
         "type": "object"
       },
@@ -1208,96 +1319,13 @@
             "type": "integer"
           },
           "diagnosis": {
-            "additionalProperties": false,
-            "properties": {
-              "certainty": {
-                "enum": [
-                  "CONFIRMED",
-                  "PROVISIONAL",
-                  "DIFFERENTIAL"
-                ],
-                "type": "string"
-              },
-              "clinicalStatus": {
-                "enum": [
-                  "ACTIVE",
-                  "RESOLVED",
-                  "RULED_OUT"
-                ],
-                "type": "string"
-              },
-              "code": {
-                "maxLength": 32,
-                "nullable": true,
-                "type": "string"
-              },
-              "codeSystem": {
-                "maxLength": 32,
-                "nullable": true,
-                "type": "string"
-              },
-              "display": {
-                "maxLength": 300,
-                "minLength": 1,
-                "type": "string"
-              },
-              "displayBn": {
-                "maxLength": 300,
-                "nullable": true,
-                "type": "string"
-              },
-              "notes": {
-                "maxLength": 1000,
-                "nullable": true,
-                "type": "string"
-              }
-            },
-            "required": [
-              "display",
-              "certainty"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/AiApprovedDiagnosis"
           },
           "expectedRowVersion": {
             "type": "integer"
           },
           "noteSection": {
-            "additionalProperties": false,
-            "properties": {
-              "expectedNoteRowVersion": {
-                "type": "integer"
-              },
-              "mode": {
-                "description": "APPEND joins what the doctor wrote; REPLACE substitutes the section",
-                "enum": [
-                  "APPEND",
-                  "REPLACE"
-                ],
-                "type": "string"
-              },
-              "section": {
-                "enum": [
-                  "chief_complaint",
-                  "history",
-                  "examination",
-                  "assessment",
-                  "plan"
-                ],
-                "type": "string"
-              },
-              "text": {
-                "maxLength": 20000,
-                "minLength": 1,
-                "type": "string"
-              }
-            },
-            "required": [
-              "section",
-              "mode",
-              "text",
-              "expectedNoteRowVersion"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/AiApprovedNoteSection"
           }
         },
         "required": [
@@ -18650,6 +18678,146 @@
         ]
       }
     },
+    "/api/v1/encounters/{id}/ai/jobs": {
+      "get": {
+        "description": "The latest 20 jobs for this encounter visible to the requester or their active doctor profile. Reading never queues work.",
+        "operationId": "listEncounterAiJobs",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AiJobList"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Jobs"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "AI"
+        ]
+      }
+    },
     "/api/v1/encounters/{id}/ai/note-draft": {
       "post": {
         "description": "Queues a note-draft job for this encounter. The response is the job, not the draft: the work happens in the worker, so a request never waits on a vendor.",
@@ -22873,6 +23041,136 @@
         ],
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/api/v1/me/ai/credentials": {
+      "get": {
+        "description": "Safe credential metadata belonging to the authenticated active doctor in the selected tenant.",
+        "operationId": "listMyAiCredentials",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Tenant-ID",
+            "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AiCredentialList"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ResponseMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Credentials"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Validation failed"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not authenticated"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable (e.g. Idempotency-Key reused with another body)"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After)"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "AI"
         ]
       }
     },
