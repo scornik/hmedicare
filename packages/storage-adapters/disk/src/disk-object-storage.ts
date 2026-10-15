@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { link, lstat, mkdir, rm, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
@@ -72,7 +72,7 @@ export function assertStorageRoot(config: DiskObjectStorageConfig): string {
 
 export class DiskObjectStorage implements ObjectStoragePort {
   readonly adapter = 'disk' as const;
-  private readonly root: string;
+  protected readonly root: string;
 
   constructor(config: DiskObjectStorageConfig) {
     this.root = assertStorageRoot(config);
@@ -102,7 +102,7 @@ export class DiskObjectStorage implements ObjectStoragePort {
    * inside the root. `lstat` is the only call that sees the link itself. Missing segments are fine: a
    * write creates them, and a read of a missing path fails as not-found further on.
    */
-  private async assertNoSymlinks(full: string): Promise<void> {
+  protected async assertNoSymlinks(full: string): Promise<void> {
     const relative = path.relative(this.root, full);
     let current = this.root;
     const rootInfo = await lstat(current).catch(() => null);
@@ -134,10 +134,11 @@ export class DiskObjectStorage implements ObjectStoragePort {
     await mkdir(path.dirname(full), { recursive: true, mode: DIR_MODE });
 
     const tmpDir = path.join(this.root, '.tmp');
+    await this.assertNoSymlinks(tmpDir);
     await mkdir(tmpDir, { recursive: true, mode: DIR_MODE });
     // Named from the key's own shape, so a crashed write leaves something traceable rather than an
     // anonymous temp file nobody dares delete.
-    const tmp = path.join(tmpDir, `${key.replace(/[\\/]/g, '_')}.${process.pid}.part`);
+    const tmp = path.join(tmpDir, `${key.replace(/[\\/]/g, '_')}.${randomUUID()}.part`);
 
     const hash = createHash('sha256');
     let sizeBytes = 0;
@@ -156,7 +157,7 @@ export class DiskObjectStorage implements ObjectStoragePort {
             yield buffer;
           }
         },
-        createWriteStream(tmp, { mode: FILE_MODE, flush: true }),
+        createWriteStream(tmp, { flags: 'wx', mode: FILE_MODE, flush: true }),
       );
       // `link` rather than `rename`, because rename replaces an existing target silently. This fails
       // with EEXIST if the key was taken between the check above and now, which closes that race

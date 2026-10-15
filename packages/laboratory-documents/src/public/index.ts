@@ -1,5 +1,15 @@
 // Public surface of the laboratory-documents context (REPOSITORY-STRUCTURE.md §2.2).
 export {
+  type UploadStorageSession,
+  type UploadPartReceipt,
+  type ProxiedUploadStoragePort,
+  UploadStorageError,
+  UPLOAD_SHA256,
+  assertUploadSession,
+  assertUploadParts,
+  uploadPartSize,
+} from '../application/upload-storage-port';
+export {
   type ObjectReadOptions,
   ObjectStorageError,
   type ObjectStoragePort,

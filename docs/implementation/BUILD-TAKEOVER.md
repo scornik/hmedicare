@@ -219,3 +219,27 @@ scripts or styles. HTTP 200 and the presence of a root element were insufficient
 smoke checks. Static HTML now receives a same-origin web policy; API responses
 retain their deny-all policy. The regression covers root/deep-link/index HTML,
 asset caching and API/missing-asset isolation with the actual HTTP hooks.
+
+## Resumable disk upload foundation — 2026-10-15
+
+Added a server-owned proxied-upload port and private-disk implementation with
+immutable session manifests, exact part sizes, streamed SHA-256 checks, resumable
+receipts, full-file verification before publication, expiry and idempotent abort.
+Content-addressed part receipts preserve bytes across competing replacements.
+The generated-object writer now uses unique exclusive temporary files, closing
+a same-process concurrent-finalize collision. Eleven new upload tests include
+restart recovery, tampering, competing finalize calls, expiry during a stream,
+path traversal/symlinks, a streamed 12 MiB file and exhaustive small part geometry.
+
+No upload HTTP route, schema migration, patient data or deployed configuration
+changes in this increment. The application still needs durable session state,
+owner/patient authorization, quotas, finalize/abort serialization, scan jobs and
+cleanup before enabling uploads. S3 multipart and direct targets also remain.
+
+Validation: all 803 unit/architecture tests passed with two test workers (752
+unit plus 51 architecture); full workspace TypeScript checks passed (67 package
+tasks plus root test types), as did the affected package type/lint checks,
+dependency boundaries, formatting and secret scan. Initial parallel runs hit
+existing/new filesystem test timing limits under compilation load; the final
+rerun kept all assertions and timeouts unchanged. No new full release tag or
+production deployment is claimed for this storage-only increment.

@@ -4,3 +4,4 @@ export {
   type DiskObjectStorageConfig,
   assertStorageRoot,
 } from './disk-object-storage';
+export { DiskUploadStorage } from './disk-upload-storage';
