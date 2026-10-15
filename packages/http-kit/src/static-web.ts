@@ -24,6 +24,11 @@ const API_PREFIXES = ['/api/', '/health/', '/internal/'] as const;
 /** Exact paths too, so `/health` without a trailing slash is not swallowed by the fallback. */
 const API_EXACT = ['/api', '/health', '/internal'] as const;
 
+// The JSON API's deny-all default would prevent this HTML shell from booting.
+// Only same-origin scripts/connections are allowed; styles also support React style attributes.
+const WEB_CSP =
+  "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'";
+
 export function isApiPath(pathname: string): boolean {
   return API_PREFIXES.some((p) => pathname.startsWith(p)) || API_EXACT.some((p) => pathname === p);
 }
@@ -70,6 +75,16 @@ export function registerStaticWeb(fastify: FastifyInstance, options: StaticWebOp
     const pathname = request.url.split('?')[0] ?? '/';
     const isRead = request.method === 'GET' || request.method === 'HEAD';
 
+    // Covers a direct /index.html response as well as the SPA fallback below.
+    if (
+      isRead &&
+      !isApiPath(pathname) &&
+      reply.statusCode < 400 &&
+      String(reply.getHeader('content-type') ?? '').startsWith('text/html')
+    ) {
+      void reply.header('content-security-policy', WEB_CSP);
+    }
+
     // Vite fingerprints everything under `assets/`, so those may be cached hard. Everything else — above
     // all the shell — must not be, or a deploy strands browsers on asset names that no longer exist. The
     // shared hook defaults to `no-store`, so only the fingerprinted case needs overriding.
@@ -86,6 +101,7 @@ export function registerStaticWeb(fastify: FastifyInstance, options: StaticWebOp
     if (reply.statusCode === 404 && isRead && !isApiPath(pathname) && wantsHtml(request.headers.accept)) {
       void reply.status(200);
       void reply.header('content-type', 'text/html; charset=utf-8');
+      void reply.header('content-security-policy', WEB_CSP);
       void reply.header('cache-control', 'no-store');
       void reply.removeHeader('content-length');
       done(null, shell);

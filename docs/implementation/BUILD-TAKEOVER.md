@@ -211,3 +211,11 @@ local MinIO. This is targeted combined validation, not a new full release gate.
 
 AI HTTP regression verification also passed 30/30 on each supported MariaDB series.
 
+## Production blank page correction — 2026-10-15
+
+Production was promoted to a16785e2 and API health passed, but the browser shell
+inherited the JSON API's deny-all Content-Security-Policy and could not load its
+scripts or styles. HTTP 200 and the presence of a root element were insufficient
+smoke checks. Static HTML now receives a same-origin web policy; API responses
+retain their deny-all policy. The regression covers root/deep-link/index HTML,
+asset caching and API/missing-asset isolation with the actual HTTP hooks.
