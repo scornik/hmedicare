@@ -551,4 +551,20 @@ English: I reviewed the content and sources, verified clinical accuracy, and tak
 
 Bangla: আমি বিষয়বস্তু ও উৎস পর্যালোচনা করেছি, চিকিৎসাগত নির্ভুলতা যাচাই করেছি এবং রোগীর রেকর্ডে এটি যোগ করার দায়িত্ব নিচ্ছি।
 
-The complete Dart client has been regenerated for 171 operations. Approval note/diagnosis payloads have distinct schema names so generation cannot replace the existing clinical Diagnosis model. No provider review gate, production flag, migration or external provider call changed. Web tenant policy settings now support owner-only versioned changes, stored/effective free-tier visibility and read-only access. Doctor credential setup remains open. Client verification passed 18/18 non-database checkpoint checks at b5d5fe0; the separate database retry passed 842 integration/security tests on each supported MariaDB series. See AI-BUILD-STATUS.md for exact validation scope. No release tag or deployment is claimed.
+The complete Dart client has been regenerated for 171 operations. Approval note/diagnosis payloads have distinct schema names so generation cannot replace the existing clinical Diagnosis model. No provider review gate, production flag, migration or external provider call changed. Web tenant policy settings now support owner-only versioned changes, stored/effective free-tier visibility and read-only access. Client verification passed 18/18 non-database checkpoint checks at b5d5fe0; the separate database retry passed 842 integration/security tests on each supported MariaDB series. See AI-BUILD-STATUS.md for exact validation scope. No release tag or deployment is claimed.
+
+## Doctor AI account setup (2026-10-15)
+
+Web `/settings/ai/accounts` and the doctor app's queue-screen settings action let an active doctor
+add a provider key, read the current tier/locale data-use statement, explicitly acknowledge it,
+and manage masked credentials. Save, validation, enable/disable and revoke use typed API requests;
+each credential action carries its displayed row version. An uncertain acknowledgement/create
+response blocks further writes until an explicit refresh. A lost create response is recovered by
+reading the existing account, never by automatically resending its key. Leaving the screen or
+changing clinic while acknowledgement is pending prevents the later key save.
+
+The self-service credential response now includes the authenticated active `doctorProfileId`,
+including when the credential list is empty; it does not expose another doctor's profile or keys.
+The API operation count remains 171 and the mobile client has been regenerated. Keys are cleared
+after submission, context changes or failed reads, and never enter browser/native read caches.
+These screens do not change production gates. Checkpoint validation for this increment is ongoing.

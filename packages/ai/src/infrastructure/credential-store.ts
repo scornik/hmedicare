@@ -205,7 +205,7 @@ export class AICredentialStore {
       select: { id: true },
     });
     if (!doctor) throw new AppError('FORBIDDEN');
-    return this.list(actor, doctor.id);
+    return { doctorProfileId: doctor.id, items: await this.list(actor, doctor.id) };
   }
 
   async change(

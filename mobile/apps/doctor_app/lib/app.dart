@@ -8,6 +8,7 @@ import 'package:hm_design/hm_design.dart';
 import 'package:hm_localization/hm_localization.dart';
 
 import 'days_screen.dart';
+import 'ai_accounts_screen.dart';
 import 'encounter_screen.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
@@ -46,6 +47,7 @@ class _DoctorAppState extends ConsumerState<DoctorApp> {
         builder: (_, state) => DoctorTimelineScreen(patientId: state.pathParameters['patientId']!),
       ),
       GoRoute(path: '/days', builder: (_, _) => const DoctorDaysScreen()),
+      GoRoute(path: '/ai/accounts', builder: (_, _) => const DoctorAiAccountsScreen()),
       GoRoute(
         path: '/queue/:chamberDayId',
         builder: (_, state) => DoctorQueueScreen(chamberDayId: state.pathParameters['chamberDayId']!),

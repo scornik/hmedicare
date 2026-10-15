@@ -62,6 +62,13 @@ export function DashboardPage() {
             <Link to="/settings/sms">{t('sms.settings')}</Link>
           </p>
         )}
+        {ctx.data?.permissions.includes('ai.use') && (
+          <p>
+            <Link to="/settings/ai/accounts">
+              {locale === 'bn-BD' ? 'আমার এআই অ্যাকাউন্ট' : 'My AI accounts'}
+            </Link>
+          </p>
+        )}
         {ctx.data?.permissions.includes('ai.policy.read') && (
           <p>
             <Link to="/settings/ai">{locale === 'bn-BD' ? 'এআই সেটিংস' : 'AI settings'}</Link>

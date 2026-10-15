@@ -4144,6 +4144,14 @@ export interface components {
             phoneMasked: string | null;
             phoneVerified: boolean;
         };
+        MyAiCredentialList: {
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            doctorProfileId: string;
+            items: components["schemas"]["AiCredential"][];
+        };
         NoteSectionSource: {
             /**
              * Format: uuid
@@ -15492,14 +15500,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Credentials */
+            /** @description Own doctor profile and credentials */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        data: components["schemas"]["AiCredentialList"];
+                        data: components["schemas"]["MyAiCredentialList"];
                         meta: components["schemas"]["ResponseMeta"];
                     };
                 };

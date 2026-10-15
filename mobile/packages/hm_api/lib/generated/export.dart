@@ -130,6 +130,7 @@ export 'models/membership_permission_overrides.dart';
 export 'models/membership_summary.dart';
 export 'models/merge_case.dart';
 export 'models/merge_case_list_response.dart';
+export 'models/my_ai_credential_list.dart';
 export 'models/note_section_source.dart';
 export 'models/otp_request_request.dart';
 export 'models/otp_request_response.dart';

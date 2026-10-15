@@ -157,6 +157,11 @@ export const AiCredentialList = registry.register(
   z.object({ items: z.array(AiCredential) }),
 );
 
+export const MyAiCredentialList = registry.register(
+  'MyAiCredentialList',
+  z.object({ doctorProfileId: Uuid, items: z.array(AiCredential) }),
+);
+
 registry.registerPath({
   method: 'get',
   path: '/api/v1/me/ai/credentials',
@@ -166,7 +171,7 @@ registry.registerPath({
   description:
     'Safe credential metadata belonging to the authenticated active doctor in the selected tenant.',
   request: { headers: tenantHeaders },
-  responses: { 200: ok(AiCredentialList, 'Credentials'), ...errorResponses },
+  responses: { 200: ok(MyAiCredentialList, 'Own doctor profile and credentials'), ...errorResponses },
 });
 
 export const CreateAiCredentialRequest = registry.register(

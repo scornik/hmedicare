@@ -35,10 +35,11 @@ This file is a working status note, not a specification. The specifications are 
 
 In dependency order. Each line is work, not a reminder to decide something.
 
-1. **Credential administration screens.** Doctor web/native model pickers,
+1. **Account setup checkpoint verification.** Doctor web/native model pickers,
    requests, recent-job recovery, draft review, data-use labels and attested approval are implemented
    (2026-10-15). Web tenant policy settings are also implemented, with stored/effective free-tier
-   state, owner-only versioned updates and a required change reason. Credential setup screens remain open.
+   state, owner-only versioned updates and a required change reason. Doctor web/native account setup
+   is now implemented; its final checkpoint verification is in progress.
 2. **Production provider configuration.** The owner waived written review records as a coding
    prerequisite on 2026-10-15; implementation must continue without requesting that paperwork.
    AIREG-002/003 are inherited Gemini terms questions, not a new user requirement. This instruction
@@ -64,6 +65,17 @@ browser tests (3/3), TypeScript and changed-file lint passed. The complete brows
 41/41 after phone-layout review. The latest clean commit passed all 18 non-database checkpoint
 checks, including mobile format, analysis, tests and licenses. No database or provider activation
 behavior changed in this page.
+
+## Doctor account setup increment (2026-10-15)
+
+Web and native account setup now includes current data-use statements, explicit acknowledgement,
+write-only key submission, masked status, validation requests, enable/disable and revocation.
+The self-service response adds only the authenticated active doctor's profile ID, including for
+an empty account list. Targeted verification passed 30 AI HTTP tests on each supported MariaDB
+series, 3 account browser tests, and 8 native account/review tests. Lost-create-response recovery
+uses reads without resending the key; leaving during acknowledgement prevents the later save.
+TypeScript compilation, doctor-app analysis and 171-operation contract parity passed. A clean-tree
+checkpoint run for this increment is still pending; the previous checkpoint above is unchanged.
 
 ## Open items that are not code
 

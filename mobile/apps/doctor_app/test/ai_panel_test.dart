@@ -53,6 +53,7 @@ class AiAdapter implements HttpClientAdapter {
         };
       case '/api/v1/me/ai/credentials':
         data = {
+          'doctorProfileId': tenant,
           'items': [
             {
               'id': credential,

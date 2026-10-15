@@ -4,7 +4,7 @@
 
 import 'package:json_annotation/json_annotation.dart';
 
-import 'ai_credential_list.dart';
+import 'my_ai_credential_list.dart';
 import 'response_meta.dart';
 
 part 'get_api_v1_me_ai_credentials_response.g.dart';
@@ -18,7 +18,7 @@ class GetApiV1MeAiCredentialsResponse {
   
   factory GetApiV1MeAiCredentialsResponse.fromJson(Map<String, Object?> json) => _$GetApiV1MeAiCredentialsResponseFromJson(json);
   
-  final AiCredentialList data;
+  final MyAiCredentialList data;
   final ResponseMeta meta;
 
   Map<String, Object?> toJson() => _$GetApiV1MeAiCredentialsResponseToJson(this);

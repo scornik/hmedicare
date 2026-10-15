@@ -9,7 +9,7 @@ part of 'get_api_v1_me_ai_credentials_response.dart';
 GetApiV1MeAiCredentialsResponse _$GetApiV1MeAiCredentialsResponseFromJson(
   Map<String, dynamic> json,
 ) => GetApiV1MeAiCredentialsResponse(
-  data: AiCredentialList.fromJson(json['data'] as Map<String, dynamic>),
+  data: MyAiCredentialList.fromJson(json['data'] as Map<String, dynamic>),
   meta: ResponseMeta.fromJson(json['meta'] as Map<String, dynamic>),
 );
 

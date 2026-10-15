@@ -18,6 +18,28 @@ export const aiApi = {
     unwrap(await api.GET('/api/v1/encounters/{id}/ai/jobs', { params: { header: header(), path: { id } } })),
   myCredentials: async () =>
     unwrap(await api.GET('/api/v1/me/ai/credentials', { params: { header: header() } })),
+  acknowledgementTexts: async () =>
+    unwrap(await api.GET('/api/v1/ai/acknowledgement-texts', { params: { header: header() } })),
+  acknowledge: async (body: ApiSchemas['schemas']['RecordAiAcknowledgementRequest']) =>
+    unwrap(await api.POST('/api/v1/ai/acknowledgements', { params: { header: writeHeader() }, body })),
+  createCredential: async (id: string, body: ApiSchemas['schemas']['CreateAiCredentialRequest']) =>
+    unwrap(
+      await api.POST('/api/v1/doctors/{id}/ai/credentials', {
+        params: { header: writeHeader(), path: { id } },
+        body,
+      }),
+    ),
+  changeCredential: async (
+    doctorId: string,
+    id: string,
+    body: ApiSchemas['schemas']['ChangeAiCredentialRequest'],
+  ) =>
+    unwrap(
+      await api.POST('/api/v1/doctors/{doctorId}/ai/credentials/{id}/actions', {
+        params: { header: writeHeader(), path: { doctorId, id } },
+        body,
+      }),
+    ),
   policy: async () => unwrap(await api.GET('/api/v1/tenant/ai-policy', { params: { header: header() } })),
   credentials: async (id: string) =>
     unwrap(

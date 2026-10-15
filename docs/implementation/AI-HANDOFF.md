@@ -13,7 +13,7 @@ Last gate: **20/20** (see `AI-BUILD-STATUS.md` for the verified commit and count
 Phase 10 is functionally complete server-side: policy, acknowledgements, credentials, validation,
 minimization, the model catalog, three adapters, job execution, drafts, review, approval, usage,
 fallback and the raw-output read. Doctor web and native AI request/review/approval screens now exist
-(2026-10-15). Web tenant policy settings also exist; credential administration screens remain open. See the client
+(2026-10-15). Web tenant policy settings and web/native doctor account setup also exist. See the client
 checkpoint entry in `AI-BUILD-STATUS.md` for validation status.
 
 ## Read these first
@@ -74,7 +74,7 @@ Each of these cost me a debugging cycle. They are not obvious from the code.
 
 1. **Client validation and administration screens.** The doctor model picker, draft review,
    data-use labels and attested approval are implemented, as are web tenant policy settings.
-   Doctor credential setup still needs UI.
+   Doctor credential setup is implemented and awaiting its final checkpoint validation.
 2. **Production provider configuration.** On 2026-10-15 the owner waived written review records as
    a prerequisite to continuing implementation. Do not ask for those records again to continue
    coding. This does not itself change deployed configuration or establish current provider terms:

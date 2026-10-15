@@ -45,6 +45,15 @@ class DoctorDaysScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(s.t('todaysQueue')),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: Localizations.localeOf(context).languageCode == 'bn'
+                ? 'আমার এআই অ্যাকাউন্ট'
+                : 'My AI accounts',
+            onPressed: () => context.push('/ai/accounts'),
+          ),
+        ],
         leading: IconButton(
           key: const Key('backToHome'),
           icon: const Icon(Icons.arrow_back),

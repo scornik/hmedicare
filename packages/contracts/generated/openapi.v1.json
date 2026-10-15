@@ -4792,6 +4792,26 @@
         ],
         "type": "object"
       },
+      "MyAiCredentialList": {
+        "properties": {
+          "doctorProfileId": {
+            "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+            "format": "uuid",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AiCredential"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "doctorProfileId",
+          "items"
+        ],
+        "type": "object"
+      },
       "NoteSectionSource": {
         "properties": {
           "aiApprovalId": {
@@ -23537,7 +23557,7 @@
                 "schema": {
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/AiCredentialList"
+                      "$ref": "#/components/schemas/MyAiCredentialList"
                     },
                     "meta": {
                       "$ref": "#/components/schemas/ResponseMeta"
@@ -23551,7 +23571,7 @@
                 }
               }
             },
-            "description": "Credentials"
+            "description": "Own doctor profile and credentials"
           },
           "400": {
             "content": {

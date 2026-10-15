@@ -214,9 +214,7 @@ export class AiController {
     @CurrentTenant() tenant: TenantContext,
     @Req() req: FastifyRequest,
   ) {
-    return this.svc()
-      .credentials.listMine(this.actor(actor, tenant, req))
-      .then((items) => ({ items }));
+    return this.svc().credentials.listMine(this.actor(actor, tenant, req));
   }
 
   @Post('doctors/:id/ai/credentials')
