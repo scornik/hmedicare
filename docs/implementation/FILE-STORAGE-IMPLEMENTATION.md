@@ -127,3 +127,24 @@ The application must serialize finalize/abort using durable session transitions.
 HTTP routes, upload tables, scan jobs and retention cleanup are not enabled yet.
 S3 multipart/direct targets remain separate work. This is partial DOC-003/005
 foundation, not completion of their acceptance criteria.
+
+## Baseline scanner foundation (2026-10-17)
+
+The scan port, deterministic mock and baseline content-policy adapter are now
+implemented. Input bytes are streamed into a private temporary file with size
+and SHA-256 verification. A separate parser process has a deadline, a V8 heap
+limit, bounded output and no inherited application credentials. This is a
+resource boundary, not an operating-system security sandbox.
+
+The baseline sniffs the actual type, checks configured category limits, parses
+PDF structure (including compressed objects and escaped names), refuses encrypted
+PDFs, active content/attachments and excess pages, and preserves accepted PDF
+bytes. JPEG/PNG/WebP images are decoded and re-encoded without EXIF/XMP/ICC
+metadata into the next revision of the same document. Animated images are
+rejected; the original remains until a future durable scan job commits the new
+revision. Retry recovery accepts only an identical existing sanitized object.
+
+The adapter reports that it does not detect known malware or exploits in valid
+files. No raw audio, Office, reduced-assurance mode, upload endpoint or scan job
+is enabled. HOST-002 still needs the image-library probe on the production host.
+See IMAGE-SCANNER-DEPENDENCIES.md for pinned versions and retained notices.

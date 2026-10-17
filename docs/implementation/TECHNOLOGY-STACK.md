@@ -29,7 +29,7 @@
 | Jobs | **Database job queue** (ADR-015) | in-repo `packages/jobs` | Redis, BullMQ **removed** |
 | Rate limits, OTP, idempotency | **Database tables** (ADR-015) | — | |
 | Object storage | `ObjectStoragePort` + `S3CompatibleAdapter` (`@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` `3.1134.0`) + `PrivateDiskAdapter` | — | ADR-016. **MinIO local/CI only** (`minio/minio` image digest pinned at FOUND-005) |
-| Malware scanning | `MalwareScanPort`: `MockMalwareScanner`, `BaselineContentPolicyScanner` (`file-type@22.1.1`, `sharp@0.35.4`, `pdf-lib@1.17.1`) | — | ADR-016 |
+| Malware scanning | `MalwareScanPort`: `MockMalwareScanner`, `BaselineContentPolicyScanner` (`file-type@22.1.1`, `sharp@0.35.5`, `pdf-lib@1.17.1`) | — | ADR-016 |
 | Password hashing | **Argon2id** via `argon2@0.41.1` (prebuilt binaries) | — | **Pinned to 0.41.x by the host's glibc, not by preference.** 0.43.0 onward ships a linux-x64 prebuild linked against GLIBC_2.34; the Hostinger plan is CloudLinux EL8 with glibc 2.28, so that binary cannot load, and the source fallback cannot run either because the plan has no `make` and no `gcc`. 0.41.1's prebuild needs only GLIBC_2.25 and loads there (verified on the plan, 2026-09-21). The PHC output is byte-identical, so stored hashes are unaffected. Do not bump this without checking the prebuild's glibc floor against the deployment target. Fallback `@node-rs/argon2@2.2.1` behind `PasswordHasherPort` |
 | JWT | `jose@6.2.12` (EdDSA Ed25519 access tokens, `kid` rotation) | — | |
 | UUID | **UUIDv7**, application-generated | `uuidv7@1.2.1` in `packages/kernel` | ADR-014 |
@@ -86,7 +86,7 @@
 | TS tests | **Vitest** | `vitest@5.0.1` |
 | HTTP tests | **Supertest** against Nest Fastify app (`app.getHttpAdapter().getInstance()` after `ready()`) | `supertest@7.2.2` (MIT), `@types/supertest@7.2.1` (MIT) |
 | DB tests | **Testcontainers** Node with `@testcontainers/mariadb@12.1.0` (Stage 4: the MariaDB module replaces `@testcontainers/mysql`; images `mariadb:10.6`/`mariadb:11.4` pinned by digest in CI) plus `mariadb@3.5.4` for raw test connections | `@testcontainers/mariadb@12.1.0`, `testcontainers@12.1.0` (MIT) |
-| License scan (Stage 4) | `pnpm license:scan` (`scripts/license-scan.mjs` over `pnpm licenses list`): production permissive only, LGPL only for the unmodified `mariadb` connector, MPL/EPL only in dev tooling, OFL-1.1 only for the named web font package | in-repo | Stage 4 rule: every new dependency passes a license scan |
+| License scan (Stage 4) | `pnpm license:scan` (`scripts/license-scan.mjs` over `pnpm licenses list`): production permissive only, LGPL only for the unmodified `mariadb` connector and exact Sharp/libvips prebuilt versions in IMAGE-SCANNER-DEPENDENCIES, MPL/EPL only in dev tooling, OFL-1.1 only for the named web font package | in-repo | Stage 4 rule: every new dependency passes a license scan |
 | Lint | **ESLint 10** (flat config only) + `typescript-eslint` + in-repo `eslint-plugin-hmedic` (rules: `no-raw-sql`, `no-append-only-mutation`, `lock-order`, `no-secret-logging`) | `eslint@10.10.0`, `typescript-eslint@8.70.0` |
 | Format | **Prettier** | `prettier@3.9.7` |
 | Biome | **Not used** | — |

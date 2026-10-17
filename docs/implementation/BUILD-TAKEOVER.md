@@ -243,3 +243,37 @@ dependency boundaries, formatting and secret scan. Initial parallel runs hit
 existing/new filesystem test timing limits under compilation load; the final
 rerun kept all assertions and timeouts unchanged. No new full release tag or
 production deployment is claimed for this storage-only increment.
+
+## Isolated baseline scanning foundation — 2026-10-17
+
+Added MalwareScanPort, a fail-closed fixture mock, and the ADR-016 baseline
+scanner. Stored input is bounded and SHA-256 checked before a private child
+process parses it. The child has a deadline, bounded output and V8 heap limit;
+it inherits no application secrets. This is not an OS security sandbox.
+
+PDF fixtures cover MIME spoofing, invalid/encrypted files, page caps, escaped
+names, compressed action objects and attachments without an EmbeddedFile type.
+Images are fully decoded/re-encoded into the same document's next revision with
+metadata removed; animated/corrupt/oversized images are rejected. Source objects
+remain until the future scan job commits a sanitized revision. Identical image
+retries recover without overwriting an existing revision. Mock fixtures return
+ERROR for unknown keys. The adapter does not claim antivirus/signature coverage.
+
+Dependencies: file-type 22.1.1, sharp 0.35.5, pdf-lib 1.17.1. The license gate's
+Sharp/libvips exceptions are restricted to exact package/version/license tuples
+on Windows x64 and Linux x64, with notices retained. See
+IMAGE-SCANNER-DEPENDENCIES.md. Host native-library compatibility still needs
+HOST-002 before enabling uploads. No upload route, scan job, schema migration,
+production deployment or external patient/provider call is included here.
+
+Validation: 835/835 unit and architecture checks passed (784 unit, 51
+architecture), including 32 new scanner/mock/license checks. Full workspace
+TypeScript passed (69 package tasks plus root test types). The compiled scanner
+also accepted synthetic PDF and PNG files in a separate release-path smoke
+check. Affected lint, dependency boundaries (586 modules / 2,523 dependencies),
+license scan (245 production / 576 total) and secret scan passed. This is
+combined local validation, not a full release checkpoint or production tag.
+
+Next: durable upload-session records and owner/patient authorization, part
+receipts, finalize/abort coordination, scan-result commits/retries and cleanup.
+These remain prerequisites to an enabled patient upload flow.
