@@ -1989,11 +1989,8 @@ model PrescriptionItem {
 // and the section number says where this belongs in the documented schema rather than where the file
 // happens to read best.
 //
-// **Scope note.** §3.10 also defines `upload_sessions`, `upload_session_parts`, `lab_reports` and
-// `lab_results`. Those belong to the *upload* and lab-ingestion paths, which have no code yet; tables
-// without a caller are schema that nobody tests. This section creates only what the generated-document
-// path needs, and the upload tables arrive with the routes that write them, under the same section
-// number.
+// **Scope note.** §3.10 also defines upload sessions and lab tables. Upload sessions are added in
+// section 0026; lab tables arrive with their callers.
 //
 // A document row is the record that a file exists and who may read it. The bytes live in object storage
 // under a key the server generates; nothing here ever holds a path a client supplied.
@@ -2081,6 +2078,77 @@ model DocumentVersion {
   @@unique([tenantId, documentId, revision], map: "uq_document_versions_revision")
   @@index([tenantId, documentId], map: "ix_document_versions_document")
   @@map("document_versions")
+}
+
+// ---------------------------------------------------------------- 0026 upload_sessions
+// DATABASE-IMPLEMENTATION.md §3.10 and FILE-STORAGE-IMPLEMENTATION.md. Kept separate from the
+// already-applied 0010 migration: an applied migration must never be edited.
+model UploadSession {
+  /// @ascii
+  id                 String    @id @db.VarChar(36)
+  /// @ascii
+  tenantId           String    @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  documentId         String    @map("document_id") @db.VarChar(36)
+  /// @ascii
+  ownerUserId        String    @map("owner_user_id") @db.VarChar(36)
+  targetRevision     Int       @map("target_revision") @db.UnsignedInt
+  /// @ascii
+  storageAdapter     String    @map("storage_adapter") @db.VarChar(8)
+  /// @ascii
+  storageKey         String    @map("storage_key") @db.VarChar(255)
+  /// @ascii
+  /// Opaque provider handle, not a platform UUID.
+  /// @ascii
+  adapterUploadHandle String?  @map("adapter_upload_handle") @db.VarChar(255)
+  /// @ascii
+  contentType        String    @map("content_type") @db.VarChar(100)
+  expectedSizeBytes  BigInt    @map("expected_size_bytes") @db.UnsignedBigInt
+  /// @ascii
+  expectedSha256     String    @map("expected_sha256") @db.VarChar(64)
+  partSizeBytes      Int       @map("part_size_bytes") @db.UnsignedInt
+  /// `OPEN|FINALIZING|FINALIZED|ABORTED|EXPIRED`.
+  /// @ascii
+  status             String    @db.VarChar(16)
+  /// FINALIZING claims have a bounded lease. A retry may reclaim after this time.
+  finalizeLeaseUntil DateTime? @map("finalize_lease_until") @db.DateTime(3)
+  /// Hash of the exact ordered receipt set. A retry cannot substitute parts after a finalize claim.
+  /// @ascii
+  finalizePartsSha256 String?  @map("finalize_parts_sha256") @db.VarChar(64)
+  expiresAt          DateTime  @map("expires_at") @db.DateTime(3)
+  finalizedAt        DateTime? @map("finalized_at") @db.DateTime(3)
+  createdAt          DateTime  @map("created_at") @db.DateTime(3)
+  updatedAt          DateTime  @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId    String?   @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId    String?   @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion         Int       @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId, id], map: "uq_upload_sessions_tenant_id")
+  @@unique([tenantId, documentId, targetRevision], map: "uq_upload_sessions_revision")
+  @@unique([storageKey], map: "uq_upload_sessions_key")
+  @@index([status, expiresAt], map: "ix_upload_sessions_expiry")
+  @@index([tenantId, ownerUserId, status], map: "ix_upload_sessions_owner")
+  @@map("upload_sessions")
+}
+
+model UploadSessionPart {
+  /// @ascii
+  uploadSessionId String   @map("upload_session_id") @db.VarChar(36)
+  partNumber      Int      @map("part_number") @db.UnsignedSmallInt
+  /// @ascii
+  tenantId        String   @map("tenant_id") @db.VarChar(36)
+  sizeBytes       Int      @map("size_bytes") @db.UnsignedInt
+  /// @ascii
+  sha256          String   @db.VarChar(64)
+  /// @ascii
+  etag            String?  @db.VarChar(128)
+  receivedAt      DateTime @map("received_at") @db.DateTime(3)
+
+  @@id([uploadSessionId, partNumber])
+  @@index([tenantId, uploadSessionId], map: "ix_upload_session_parts_tenant_session")
+  @@map("upload_session_parts")
 }
 
 // ---------------------------------------------------------------- 0011 timeline

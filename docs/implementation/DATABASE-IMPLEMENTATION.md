@@ -85,7 +85,8 @@
 | 0007 | `encounters` | `encounters`, `encounter_participants`, `encounter_notes`, `encounter_note_versions` |
 | 0008 | `clinical_observations` | `symptom_observations`, `diagnoses`. Created in Stage 6 (`202609230524_0008_clinical_observations`). **Split from the catalog in Stage 6 (C-52):** `patient_medications` cannot carry its FK before `medications` exists, and the catalog belongs to the stage that fills it |
 | 0009 | `prescriptions` | `prescriptions`, `prescription_items` |
-| 0010 | `documents_labs` | `documents`, `document_versions`, `upload_sessions`, `upload_session_parts`, `lab_reports`, `lab_results` |
+| 0010 | `documents_labs` | `documents`, `document_versions` (applied subset of §3.10; lab tables pending) |
+| 0026 | `upload_sessions` | `upload_sessions`, `upload_session_parts` (incremental §3.10 migration; 0010 was already applied) |
 | 0011 | `timeline` | `timeline_events`, `projection_checkpoints`. Created during takeover (2026-10-07). Follow-up tables are reserved for a separate 0020 migration (C-57). |
 | 0012 | `communication` | `communications`, `communication_attempts` (+ SMS columns), `communication_preferences`, `provider_webhook_events`, `communication_short_links` (implemented 2026-10-10) |
 | 0022 | `telemedicine` | `telemedicine_sessions`, `telemedicine_participants`, `telemedicine_participant_events` (C-59/C-61) |
@@ -516,7 +517,7 @@ Notation: `FK→t(tenant_id,id)` means a composite tenant FK `(tenant_id, <col>)
 - `derived_from_revision INT NULL` (image re-encode), `uploaded_by_user_id id36 NULL`
 - UNIQUE `(tenant_id, document_id, revision)`
 
-**`upload_sessions`** (std): `document_id FK→documents(tenant_id,id)`, `target_revision INT`, `storage_adapter code(8)`, `adapter_upload_id key(255) NULL`, `expected_size_bytes BIGINT`, `expected_sha256 hash64`, `part_size_bytes INT`, `status code(16)` CHECK `OPEN|FINALIZING|FINALIZED|ABORTED|EXPIRED`, `expires_at ts`. Index `(status, expires_at)`.
+**`upload_sessions`** (std, incremental migration 0026): `document_id FK→documents(tenant_id,id)`, `owner_user_id FK→users(id)`, `target_revision INT`, `storage_adapter code(8)`, `storage_key key(255)`, opaque provider `adapter_upload_handle key(255) NULL`, `content_type key(100)`, `expected_size_bytes BIGINT`, `expected_sha256 hash64`, `part_size_bytes INT`, `status code(16)` CHECK `OPEN|FINALIZING|FINALIZED|ABORTED|EXPIRED`, `expires_at ts`, `finalize_lease_until ts NULL`, `finalize_parts_sha256 hash64 NULL`, `finalized_at ts NULL`. Unique `(tenant_id,document_id,target_revision)` and `(storage_key)`; indexes `(status,expires_at)` and `(tenant_id,owner_user_id,status)`. The receipt-set hash binds a recovered finalize claim to the same parts. `adapter_upload_handle` is intentionally not named `_id`: provider upload handles are not platform UUIDs.
 
 **`upload_session_parts`**: `upload_session_id id36`, `part_number SMALLINT`, PK `(upload_session_id, part_number)`; `tenant_id id36`, `size_bytes INT`, `sha256 hash64`, `etag key(128) NULL`, `received_at ts`. Composite FK `(tenant_id, upload_session_id)` → upload_sessions.
 

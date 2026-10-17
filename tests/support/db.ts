@@ -76,6 +76,8 @@ const TABLES = [
   'prescriptions',
   // 0010 documents, *after* prescriptions: `prescriptions.rendered_document_id` points here, so a
   // document deleted first would fail that foreign key. Versions before the documents they belong to.
+  'upload_session_parts',
+  'upload_sessions',
   'document_versions',
   'documents',
   // 0008 clinical_observations: children of encounters, so they go before them.
