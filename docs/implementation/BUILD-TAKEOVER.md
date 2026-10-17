@@ -277,3 +277,22 @@ combined local validation, not a full release checkpoint or production tag.
 Next: durable upload-session records and owner/patient authorization, part
 receipts, finalize/abort coordination, scan-result commits/retries and cleanup.
 These remain prerequisites to an enabled patient upload flow.
+
+## Durable upload state — 2026-10-17
+
+Added incremental migration 0026 for upload sessions and selected part receipts,
+with tenant/document/owner links, unique document revision and storage key,
+bounded sizes, status checks, a finalize lease and a receipt-set hash. Part
+receipt selection and finalize claims use short conditional transactions on the
+session row. A retry reclaims an expired lease only if the selected receipts
+still match. The shared database test cleanup now removes upload parts and
+sessions before documents. Focused schema tests passed on MariaDB 10.6 and
+schema/claim tests passed on 11.8; package typechecks and migration lint passed.
+The broad unit/architecture run reached 832/835. One schema-section assertion
+was updated for migration 0026; two unchanged tests timed out under load and
+passed in isolation. The changed assertion and both timeout tests passed on
+the focused rerun (29/29). No full-suite pass is claimed for this increment.
+
+The claim code is internal and no route is enabled. Next are authorized session
+creation/part/finalize/abort APIs, atomic document-version and scan-job commits,
+expiry cleanup and quota enforcement. This is not a production deployment.

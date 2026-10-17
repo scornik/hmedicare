@@ -148,3 +148,18 @@ The adapter reports that it does not detect known malware or exploits in valid
 files. No raw audio, Office, reduced-assurance mode, upload endpoint or scan job
 is enabled. HOST-002 still needs the image-library probe on the production host.
 See IMAGE-SCANNER-DEPENDENCIES.md for pinned versions and retained notices.
+
+## Durable upload records and finalize claims (2026-10-17)
+
+Incremental migration 0026 adds tenant-bound upload sessions and selected part
+receipts without changing the applied 0010 document migration. Sessions record
+the owner, generated key, expected size/hash, expiry, target revision and a
+bounded finalize lease. A short transaction locks the session before selecting
+a content-addressed part receipt. Finalize claims lock the same row, check exact
+ordered coverage, and bind lease recovery to the receipt-set hash. No database
+transaction spans file I/O. MariaDB 10.6 and 11.8 schema/claim checks cover
+constraints, tenant links, single-claim behavior and lease recovery.
+
+There is still no upload HTTP route or scan-result commit. The durable claim
+functions are internal groundwork; completion, abort, cleanup, authorization,
+quota and scan-job transitions remain before uploads can be enabled.
