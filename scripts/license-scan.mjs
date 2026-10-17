@@ -7,6 +7,7 @@ import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { allowedImageScannerLicense } from './lib/image-scanner-license.mjs';
 
 const PERMISSIVE = new Set([
   'MIT',
@@ -100,6 +101,7 @@ for (const [license, pkgs] of Object.entries(prod)) {
   for (const p of pkgs) {
     if (allowed(license, PERMISSIVE) || fontOk(license, p.name)) continue;
     if (license.startsWith('LGPL') && LGPL_EXCEPTIONS.has(p.name)) continue;
+    if (allowedImageScannerLicense(license, p.name, p.versions)) continue;
     problems.push(`prod ${p.name}@${p.versions.join(',')}: ${license}`);
   }
 }
@@ -108,6 +110,7 @@ for (const [license, pkgs] of Object.entries(all)) {
   for (const p of pkgs) {
     if (allowed(license, PERMISSIVE) || allowed(license, DEV_ONLY) || fontOk(license, p.name)) continue;
     if (license.startsWith('LGPL') && LGPL_EXCEPTIONS.has(p.name)) continue;
+    if (allowedImageScannerLicense(license, p.name, p.versions)) continue;
     const isProd = (prod[license] ?? []).some((q) => q.name === p.name);
     if (!isProd) problems.push(`dev ${p.name}@${p.versions.join(',')}: ${license}`);
   }

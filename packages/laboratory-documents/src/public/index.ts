@@ -1,5 +1,13 @@
 // Public surface of the laboratory-documents context (REPOSITORY-STRUCTURE.md §2.2).
 export {
+  UPLOAD_SCAN_CATEGORIES,
+  type UploadScanCategory,
+  type ScanReason,
+  type ScanVerdict,
+  type ScanInput,
+  type MalwareScanPort,
+} from '../application/malware-scan-port';
+export {
   type UploadStorageSession,
   type UploadPartReceipt,
   type ProxiedUploadStoragePort,

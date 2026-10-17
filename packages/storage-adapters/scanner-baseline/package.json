@@ -1,0 +1,28 @@
+{
+  "name": "@hmedic/storage-adapters-scanner-baseline",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Bounded baseline content policy scanner (ADR-016)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {
+    "@hmedic/laboratory-documents": "workspace:*",
+    "file-type": "22.1.1",
+    "pdf-lib": "1.17.1",
+    "sharp": "0.35.5"
+  },
+  "devDependencies": {
+    "@hmedic/storage-adapters-disk": "workspace:*"
+  }
+}
