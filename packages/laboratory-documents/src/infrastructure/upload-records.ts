@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { type PrismaClient, withTransaction } from '@hmedic/database';
 import {
   assertUploadParts,
+  type ProxiedUploadStoragePort,
   type UploadPartReceipt,
   type UploadStorageSession,
   UploadStorageError,
@@ -85,6 +86,63 @@ export interface FinalizeClaim {
   session: UploadStorageSession;
   parts: UploadPartReceipt[];
   partsSha256: string;
+}
+
+/**
+ * Abort only an OPEN session. The status and document transition commit before storage cleanup, so a
+ * failed cleanup can be retried safely; FINALIZING and FINALIZED can never be removed by this path.
+ */
+export async function abortUploadRecord(
+  prisma: PrismaClient,
+  storage: ProxiedUploadStoragePort,
+  identity: SessionIdentity,
+  now: Date,
+): Promise<void> {
+  const session = await withTransaction(
+    prisma,
+    async (tx) => {
+      const row = await tx.uploadSession.findFirst({
+        where: { id: identity.sessionId, tenantId: identity.tenantId, ownerUserId: identity.ownerUserId },
+      });
+      if (!row) throw new UploadStorageError('UPLOAD_NOT_FOUND', 'Upload session not found');
+      if (row.storageAdapter !== 'disk')
+        throw new UploadStorageError('UPLOAD_CONFLICT', 'Upload adapter mismatch');
+      if (row.status !== 'OPEN' && row.status !== 'ABORTED')
+        throw new UploadStorageError('UPLOAD_CONFLICT', 'Upload session cannot be aborted');
+      if (row.status === 'OPEN') {
+        const updated = await tx.uploadSession.updateMany({
+          where: { id: row.id, tenantId: row.tenantId, status: 'OPEN', rowVersion: row.rowVersion },
+          data: {
+            status: 'ABORTED',
+            updatedAt: now,
+            updatedByUserId: identity.ownerUserId,
+            rowVersion: { increment: 1 },
+          },
+        });
+        if (updated.count !== 1) throw new UploadStorageError('UPLOAD_CONFLICT', 'Upload session changed');
+        await tx.document.updateMany({
+          where: { id: row.documentId, tenantId: row.tenantId, status: { in: ['CREATED', 'UPLOADING'] } },
+          data: {
+            status: 'EXPIRED',
+            updatedAt: now,
+            updatedByUserId: identity.ownerUserId,
+            rowVersion: { increment: 1 },
+          },
+        });
+      }
+      return {
+        sessionId: row.id,
+        key: row.storageKey,
+        contentType: row.contentType,
+        sizeBytes: Number(row.expectedSizeBytes),
+        sha256: row.expectedSha256,
+        partSizeBytes: row.partSizeBytes,
+        expiresAt: row.expiresAt,
+      } satisfies UploadStorageSession;
+    },
+    { context: 'abort-upload-session' },
+  );
+  await storage.abortUpload(session);
 }
 
 /**

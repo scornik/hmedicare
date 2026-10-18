@@ -18,6 +18,25 @@ export {
   uploadPartSize,
 } from '../application/upload-storage-port';
 export {
+  UPLOAD_CATEGORY_POLICY,
+  UPLOAD_PART_SIZE_BYTES,
+  UPLOAD_SESSION_TTL_MS,
+  type UploadRequestDetails,
+  type ValidatedUploadRequest,
+  validateUploadRequest,
+} from '../application/upload-policy';
+export {
+  type CreateUploadInput,
+  type CreatedUploadSession,
+  UploadSessionService,
+} from '../infrastructure/upload-sessions';
+export {
+  abortUploadRecord,
+  claimUploadFinalize,
+  recordUploadPart,
+  type FinalizeClaim,
+} from '../infrastructure/upload-records';
+export {
   type ObjectReadOptions,
   ObjectStorageError,
   type ObjectStoragePort,
