@@ -185,3 +185,16 @@ EXPIRED in the same short transaction. Storage cleanup happens afterward and
 can be retried; FINALIZING and FINALIZED sessions cannot be aborted. These
 functions are internal and still need an HTTP authorization policy, quotas,
 rate limits, part/finalize routes and scan-job completion before exposure.
+
+## Proxied part service (2026-10-18)
+
+The internal part path now loads the owner-bound OPEN session and document from
+the database, checks patient scope through its caller's live authorization
+callback, and rebuilds the private storage descriptor from persisted values.
+It validates part number and checksum, recreates an interrupted manifest
+idempotently, and streams through the bounded disk adapter. The callback is
+checked again after I/O. Only then does a short transaction select the
+content-addressed receipt and move CREATED→UPLOADING. An access revocation or
+abort during transfer leaves unselected private bytes for expiry cleanup; it
+cannot create a downloadable document. The HTTP route and cleanup job are not
+yet enabled.

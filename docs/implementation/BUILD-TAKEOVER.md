@@ -312,3 +312,16 @@ Six upload-policy unit checks passed. The nine focused session/claim checks
 passed on MariaDB 10.6 and 11.8; the affected package typecheck, lint,
 formatting and dependency-boundary checks also passed. This is targeted
 validation, not a full release checkpoint or production deployment.
+
+## Proxied upload part service — 2026-10-18
+
+The internal part path now uses the DB-owned session descriptor, checks the
+owner and live patient scope before and after streaming, and records a selected
+receipt only while the session remains OPEN. The first selected part moves its
+document from CREATED to UPLOADING in the same short transaction. It can
+recreate a missing private manifest after an interrupted session creation.
+Unselected bytes after revocation or abort still need expiry cleanup. No
+upload HTTP route, scan handoff or production enablement is included.
+The focused 11-case upload lifecycle suite passed on MariaDB 10.6 and 11.8;
+the affected package typecheck, lint, formatting and dependency-boundary
+checks passed. A full release checkpoint was not run for this increment.
