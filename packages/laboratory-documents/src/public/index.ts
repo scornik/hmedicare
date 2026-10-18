@@ -28,6 +28,8 @@ export {
 export {
   type CreateUploadInput,
   type CreatedUploadSession,
+  type OwnedUploadIdentity,
+  type UploadPatientScope,
   UploadSessionService,
 } from '../infrastructure/upload-sessions';
 export {

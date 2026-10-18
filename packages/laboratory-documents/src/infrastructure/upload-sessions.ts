@@ -1,3 +1,4 @@
+import type { Readable } from 'node:stream';
 import { type PrismaClient, withTransaction } from '@hmedic/database';
 import { newId } from '@hmedic/kernel';
 import { buildStorageKey } from '../domain/storage-keys';
@@ -5,12 +6,15 @@ import {
   type ProxiedUploadStoragePort,
   type UploadStorageSession,
   UploadStorageError,
+  UPLOAD_SHA256,
+  uploadPartSize,
 } from '../application/upload-storage-port';
 import {
   UPLOAD_SESSION_TTL_MS,
   type UploadRequestDetails,
   validateUploadRequest,
 } from '../application/upload-policy';
+import { recordUploadPart } from './upload-records';
 
 export interface CreateUploadInput extends UploadRequestDetails {
   tenantId: string;
@@ -26,6 +30,19 @@ export interface CreatedUploadSession {
   partSizeBytes: number;
   partCount: number;
   expiresAt: Date;
+}
+
+export interface OwnedUploadIdentity {
+  tenantId: string;
+  sessionId: string;
+  ownerUserId: string;
+}
+
+export interface UploadPatientScope {
+  tenantId: string;
+  patientId: string;
+  encounterId: string | null;
+  category: string;
 }
 
 /**
@@ -147,5 +164,62 @@ export class UploadSessionService {
       partCount: policy.partCount,
       expiresAt: session.expiresAt,
     };
+  }
+
+  /**
+   * Streams one part through the proxied storage adapter. An unselected immutable part may remain if
+   * authorization or session state changes during I/O; expiry cleanup removes those session bytes.
+   * The HTTP caller must derive identity from authenticated context, never from the request body.
+   */
+  async uploadPart(
+    identity: OwnedUploadIdentity,
+    partNumber: number,
+    body: Buffer | Readable,
+    sha256: string,
+    authorize: (scope: UploadPatientScope) => Promise<void>,
+  ): Promise<{ partNumber: number; sizeBytes: number; sha256: string }> {
+    if (!UPLOAD_SHA256.test(sha256))
+      throw new UploadStorageError('UPLOAD_PARTS_INVALID', 'Invalid part checksum');
+    const now = this.clock();
+    const row = await this.prisma.uploadSession.findFirst({
+      where: {
+        id: identity.sessionId,
+        tenantId: identity.tenantId,
+        ownerUserId: identity.ownerUserId,
+        status: 'OPEN',
+        expiresAt: { gt: now },
+      },
+    });
+    if (!row) throw new UploadStorageError('UPLOAD_NOT_FOUND', 'Open upload session not found');
+    if (row.storageAdapter !== 'disk')
+      throw new UploadStorageError('UPLOAD_CONFLICT', 'Upload adapter mismatch');
+    const document = await this.prisma.document.findFirst({
+      where: { id: row.documentId, tenantId: row.tenantId, status: { in: ['CREATED', 'UPLOADING'] } },
+      select: { patientId: true, encounterId: true, category: true },
+    });
+    if (!document) throw new UploadStorageError('UPLOAD_CONFLICT', 'Upload document changed');
+    const scope: UploadPatientScope = {
+      tenantId: row.tenantId,
+      patientId: document.patientId,
+      encounterId: document.encounterId,
+      category: document.category,
+    };
+    await authorize(scope);
+    const session: UploadStorageSession = {
+      sessionId: row.id,
+      key: row.storageKey,
+      contentType: row.contentType,
+      sizeBytes: Number(row.expectedSizeBytes),
+      sha256: row.expectedSha256,
+      partSizeBytes: row.partSizeBytes,
+      expiresAt: row.expiresAt,
+    };
+    uploadPartSize(session, partNumber);
+    // Rebuild an interrupted create from the DB descriptor; the adapter refuses a mismatched manifest.
+    await this.storage.createUploadSession(session);
+    const receipt = await this.storage.uploadPart(session, partNumber, body, sha256);
+    await authorize(scope);
+    await recordUploadPart(this.prisma, identity, receipt, this.clock());
+    return receipt;
   }
 }

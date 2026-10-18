@@ -77,6 +77,15 @@ export async function recordUploadPart(
         },
         update: { sizeBytes: receipt.sizeBytes, sha256: receipt.sha256, receivedAt: now, etag: null },
       });
+      await tx.document.updateMany({
+        where: { id: session.documentId, tenantId: identity.tenantId, status: 'CREATED' },
+        data: {
+          status: 'UPLOADING',
+          updatedAt: now,
+          updatedByUserId: identity.ownerUserId,
+          rowVersion: { increment: 1 },
+        },
+      });
     },
     { context: 'upload-part-receipt' },
   );

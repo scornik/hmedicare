@@ -190,6 +190,85 @@ describe('upload session creation', () => {
   });
 });
 
+describe('proxied part admission', () => {
+  it('checks ownership and patient scope around storage I/O, then selects the receipt', async () => {
+    const session = await db.prisma.uploadSession.findUniqueOrThrow({ where: { id: sessionId } });
+    await db.prisma.document.update({ where: { id: session.documentId }, data: { status: 'CREATED' } });
+    let storageCalls = 0;
+    const storage: ProxiedUploadStoragePort = {
+      async createUploadSession(descriptor) {
+        expect(descriptor.key).toBe(session.storageKey);
+        storageCalls++;
+      },
+      async uploadPart(descriptor, number, body, checksum) {
+        expect(descriptor.sessionId).toBe(sessionId);
+        expect(number).toBe(1);
+        expect(body).toBeInstanceOf(Buffer);
+        expect(checksum).toBe(hash);
+        storageCalls++;
+        return receipt;
+      },
+      async completeUpload() {
+        throw new Error('unused');
+      },
+      async abortUpload() {
+        throw new Error('unused');
+      },
+    };
+    const service = new UploadSessionService(
+      db.prisma,
+      storage,
+      async () => 'CLINICAL_TEAM',
+      () => now,
+    );
+    let authChecks = 0;
+    const authorize = async (scope: { patientId: string; tenantId: string }) => {
+      expect(scope.patientId).toBe(patientId);
+      expect(scope.tenantId).toBe(tenantId);
+      authChecks++;
+    };
+    await expect(
+      service.uploadPart({ ...identity(), ownerUserId: newId() }, 1, Buffer.alloc(1024), hash, authorize),
+    ).rejects.toMatchObject({ code: 'UPLOAD_NOT_FOUND' });
+    expect(storageCalls).toBe(0);
+    expect(await service.uploadPart(identity(), 1, Buffer.alloc(1024), hash, authorize)).toEqual(receipt);
+    expect(storageCalls).toBe(2);
+    expect(authChecks).toBe(2);
+    expect(await db.prisma.uploadSessionPart.count({ where: { uploadSessionId: sessionId } })).toBe(1);
+    expect((await db.prisma.document.findUniqueOrThrow({ where: { id: session.documentId } })).status).toBe(
+      'UPLOADING',
+    );
+  });
+
+  it('does not select a stored part if patient access lapses during transfer', async () => {
+    const storage: ProxiedUploadStoragePort = {
+      async createUploadSession() {},
+      async uploadPart() {
+        return receipt;
+      },
+      async completeUpload() {
+        throw new Error('unused');
+      },
+      async abortUpload() {
+        throw new Error('unused');
+      },
+    };
+    const service = new UploadSessionService(
+      db.prisma,
+      storage,
+      async () => 'CLINICAL_TEAM',
+      () => now,
+    );
+    let checks = 0;
+    await expect(
+      service.uploadPart(identity(), 1, Buffer.alloc(1024), hash, async () => {
+        if (++checks === 2) throw new Error('access revoked');
+      }),
+    ).rejects.toThrow('access revoked');
+    expect(await db.prisma.uploadSessionPart.count({ where: { uploadSessionId: sessionId } })).toBe(0);
+  });
+});
+
 const identity = () => ({ tenantId, sessionId, ownerUserId });
 
 describe('durable upload receipt and finalize claims', () => {
