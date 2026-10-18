@@ -325,3 +325,17 @@ upload HTTP route, scan handoff or production enablement is included.
 The focused 11-case upload lifecycle suite passed on MariaDB 10.6 and 11.8;
 the affected package typecheck, lint, formatting and dependency-boundary
 checks passed. A full release checkpoint was not run for this increment.
+
+## Upload finalize commit foundation — 2026-10-18
+
+The internal finalize service now assembles the exact claimed part set and
+checks the resulting private object's key, size and checksum. A conditional
+database transaction marks the session FINALIZED, creates a PENDING document
+version, moves its document to SCANNING and enqueues a minimal-ID scan job. A
+failed enqueue rolls back the entire state transition; an already-finalized
+session returns its existing version on retry. The job type is registered by
+the internal service, but no scan worker or upload HTTP route is composed yet.
+The 13-case focused lifecycle suite passed on MariaDB 10.6 and 11.8; package
+typecheck, lint, formatting and dependency-boundary checks passed. Uploads remain disabled and are
+not deployed to production. Next: scan-result commits/retries, expiry cleanup,
+quota enforcement and authorized routes.
