@@ -198,3 +198,14 @@ content-addressed receipt and move CREATED→UPLOADING. An access revocation or
 abort during transfer leaves unselected private bytes for expiry cleanup; it
 cannot create a downloadable document. The HTTP route and cleanup job are not
 yet enabled.
+
+## Finalize commit foundation (2026-10-18)
+
+The internal finalize path claims an exact receipt set, assembles and verifies
+the immutable private object outside a transaction, then conditionally marks
+the owner-bound session FINALIZED. A short transaction creates revision 1 as
+PENDING, marks the document SCANNING, and enqueues a version-ID-only scan job.
+If enqueue fails, all database changes roll back; a retry after lease expiry
+can reuse the matching immutable object. A lost successful response can read
+the committed version. The scan job handler, cleanup, quotas, live HTTP
+authorization and routes are still required before uploads are exposed.

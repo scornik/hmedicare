@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type {} from '../../../../tests/support/mariadb-global-setup';
 import { type Database } from '@hmedic/database';
 import { newId } from '@hmedic/kernel';
+import { JobPort, JobRegistry } from '@hmedic/jobs';
 import { chamberWithCalledSerial } from '../../../../tests/support/clinical';
 import { openTestDatabase, truncateAll } from '../../../../tests/support/db';
 import {
@@ -10,6 +11,7 @@ import {
   recordUploadPart,
 } from '../../src/infrastructure/upload-records';
 import { UploadSessionService } from '../../src/infrastructure/upload-sessions';
+import { commitUploadFinalize, registerUploadScanJobType } from '../../src/infrastructure/upload-finalize';
 import type {
   ProxiedUploadStoragePort,
   UploadStorageSession,
@@ -272,6 +274,75 @@ describe('proxied part admission', () => {
 const identity = () => ({ tenantId, sessionId, ownerUserId });
 
 describe('durable upload receipt and finalize claims', () => {
+  const jobPort = () => {
+    const registry = new JobRegistry();
+    registerUploadScanJobType(registry);
+    return new JobPort(db.prisma, registry);
+  };
+
+  it('commits a verified version and scan job together, then refuses a duplicate commit', async () => {
+    await recordUploadPart(db.prisma, identity(), receipt, now);
+    const claim = await claimUploadFinalize(db.prisma, identity(), now);
+    const result = await commitUploadFinalize(
+      db.prisma,
+      jobPort(),
+      identity(),
+      claim.partsSha256,
+      { key: claim.session.key, sizeBytes: 1024, sha256: hash },
+      now,
+    );
+    expect((await db.prisma.document.findUniqueOrThrow({ where: { id: result.documentId } })).status).toBe(
+      'SCANNING',
+    );
+    expect(
+      (await db.prisma.documentVersion.findUniqueOrThrow({ where: { id: result.versionId } })).scanStatus,
+    ).toBe('PENDING');
+    expect((await db.prisma.uploadSession.findUniqueOrThrow({ where: { id: sessionId } })).status).toBe(
+      'FINALIZED',
+    );
+    expect(await db.prisma.job.count({ where: { type: 'ScanUploadedDocument' } })).toBe(1);
+    await expect(
+      commitUploadFinalize(
+        db.prisma,
+        jobPort(),
+        identity(),
+        claim.partsSha256,
+        { key: claim.session.key, sizeBytes: 1024, sha256: hash },
+        now,
+      ),
+    ).rejects.toMatchObject({ code: 'UPLOAD_CONFLICT' });
+  });
+
+  it('rolls back the version and status when enqueue fails or the object differs', async () => {
+    await recordUploadPart(db.prisma, identity(), receipt, now);
+    const claim = await claimUploadFinalize(db.prisma, identity(), now);
+    await expect(
+      commitUploadFinalize(
+        db.prisma,
+        jobPort(),
+        identity(),
+        claim.partsSha256,
+        { key: claim.session.key, sizeBytes: 1024, sha256: 'b'.repeat(64) },
+        now,
+      ),
+    ).rejects.toMatchObject({ code: 'UPLOAD_CHECKSUM_MISMATCH' });
+    await expect(
+      commitUploadFinalize(
+        db.prisma,
+        new JobPort(db.prisma, new JobRegistry()),
+        identity(),
+        claim.partsSha256,
+        { key: claim.session.key, sizeBytes: 1024, sha256: hash },
+        now,
+      ),
+    ).rejects.toThrow('unknown job type');
+    const row = await db.prisma.uploadSession.findUniqueOrThrow({ where: { id: sessionId } });
+    expect(row.status).toBe('FINALIZING');
+    expect((await db.prisma.document.findUniqueOrThrow({ where: { id: row.documentId } })).status).toBe(
+      'UPLOADING',
+    );
+    expect(await db.prisma.documentVersion.count({ where: { documentId: row.documentId } })).toBe(0);
+  });
   it('aborts an open session and retries cleanup without deleting another actor’s session', async () => {
     let cleanupAttempts = 0;
     const storage: ProxiedUploadStoragePort = {

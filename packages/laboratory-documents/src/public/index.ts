@@ -39,6 +39,12 @@ export {
   type FinalizeClaim,
 } from '../infrastructure/upload-records';
 export {
+  SCAN_UPLOADED_DOCUMENT,
+  registerUploadScanJobType,
+  commitUploadFinalize,
+  finalizeUpload,
+} from '../infrastructure/upload-finalize';
+export {
   type ObjectReadOptions,
   ObjectStorageError,
   type ObjectStoragePort,
