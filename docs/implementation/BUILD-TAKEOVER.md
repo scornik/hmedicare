@@ -296,3 +296,19 @@ the focused rerun (29/29). No full-suite pass is claimed for this increment.
 The claim code is internal and no route is enabled. Next are authorized session
 creation/part/finalize/abort APIs, atomic document-version and scan-job commits,
 expiry cleanup and quota enforcement. This is not a production deployment.
+
+## Upload admission and abort groundwork — 2026-10-18
+
+Added the category/type/size/checksum admission policy and an internal session
+service that records the document and session atomically after a caller's
+authorization check. The caller selects CLINICAL_TEAM or PATIENT_SHARED; the
+service checks the live patient and encounter relationship in the transaction.
+A failed private-storage manifest marks the records unusable. Abort now wins
+only from OPEN, marks the document EXPIRED, and retries storage cleanup safely;
+it cannot delete a finalize claim. Unit policy checks and MariaDB integration
+checks cover admission limits, patient/encounter links, storage failure and
+abort/finalize exclusion. Upload routes and scan jobs remain disabled.
+Six upload-policy unit checks passed. The nine focused session/claim checks
+passed on MariaDB 10.6 and 11.8; the affected package typecheck, lint,
+formatting and dependency-boundary checks also passed. This is targeted
+validation, not a full release checkpoint or production deployment.

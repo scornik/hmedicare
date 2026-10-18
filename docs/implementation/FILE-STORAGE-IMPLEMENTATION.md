@@ -161,5 +161,27 @@ transaction spans file I/O. MariaDB 10.6 and 11.8 schema/claim checks cover
 constraints, tenant links, single-claim behavior and lease recovery.
 
 There is still no upload HTTP route or scan-result commit. The durable claim
-functions are internal groundwork; completion, abort, cleanup, authorization,
+functions are internal groundwork; completion, cleanup, authorization,
 quota and scan-job transitions remain before uploads can be enabled.
+
+## Upload admission and abort groundwork (2026-10-18)
+
+The document context now validates upload category, declared content type,
+category size limit, SHA-256 and display name before creating a session. The
+four uploadable categories use the policy defaults above; generated PDF and
+AI raw categories are refused. Its session service requires an authorization
+callback that returns the server-selected sharing policy, then rechecks the
+active patient and optional encounter relationship while inserting the
+document and session together. Storage manifest creation happens after the
+database transaction. If it fails, the records become ABORTED/EXPIRED and
+private manifest cleanup is attempted. The server-owned session descriptor
+contains what a future resume path needs to recover an interrupted creation.
+The create result exposes
+only the session/document IDs, proxied mode, part size/count and expiry; the
+private object key and expected checksum stay inside the service.
+
+Abort is now a conditional OPEN→ABORTED transition with the document marked
+EXPIRED in the same short transaction. Storage cleanup happens afterward and
+can be retried; FINALIZING and FINALIZED sessions cannot be aborted. These
+functions are internal and still need an HTTP authorization policy, quotas,
+rate limits, part/finalize routes and scan-job completion before exposure.
