@@ -63,7 +63,7 @@ function sectionsOf(draft: NoteDraft): Sections {
  * security documents allow browser storage for preferences, not for a patient's record, and a note left
  * in a shared consulting room's browser is a disclosure nobody chose.
  *
- * **Panels for later stages are labelled and empty.** Prescriptions, labs, the timeline and AI arrive in
+ * **Panels for later stages are labelled and empty.** Labs arrive in
  * Stages 7, 10 and 11. An empty panel that says so is honest; a mocked one teaches a doctor to expect
  * something that does not exist.
  */
@@ -367,14 +367,10 @@ export function ConsultationWorkspacePage() {
           />
         )}
 
-        {/* Stages 10 and 11. Labelled and empty on purpose: a mocked panel here would teach a doctor
-            to expect something that does not exist yet. */}
-        {(['labs', 'timeline'] as const).map((key) => (
-          <section className="card muted" key={key} data-testid={`panel-${key}`}>
-            <h2>{t(`workspace.panel.${key}` as MessageKey)}</h2>
-            <p>{t('workspace.panel.later')}</p>
-          </section>
-        ))}
+        <section className="card muted" data-testid="panel-labs">
+          <h2>{t('workspace.panel.labs')}</h2>
+          <p>{t('workspace.panel.later')}</p>
+        </section>
       </main>
     </>
   );

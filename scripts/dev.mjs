@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const children = [];
+const apiPort = process.env.HM_DEV_API_PORT ?? '3000';
 // Only the Windows .cmd shims need a shell; node itself is spawned directly (its path may contain spaces).
 const useShell = (cmd) => process.platform === 'win32' && cmd.endsWith('.cmd');
 
@@ -66,7 +67,7 @@ step('seed (idempotent; demo logins are printed only when created)', pnpm, ['db:
 
 start('tsc', pnpm, ['exec', 'tsc', '-b', '-w', '--preserveWatchOutput', 'apps/api', 'apps/worker']);
 start('api', process.execPath, ['--watch', 'apps/api/dist/main.js'], {
-  PORT: '3000',
+  PORT: apiPort,
   JOB_RUNNER_MODE: 'off',
 });
 start('worker', process.execPath, ['--watch', 'apps/worker/dist/main.js'], {
@@ -74,12 +75,14 @@ start('worker', process.execPath, ['--watch', 'apps/worker/dist/main.js'], {
   JOB_RUNNER_MODE: 'worker',
 });
 if (existsSync(path.join(root, 'apps/web/package.json')))
-  start('web', pnpm, ['--filter', '@hmedic/web', 'dev']);
+  start('web', pnpm, ['--filter', '@hmedic/web', 'dev'], {
+    VITE_API_BASE_URL: `http://localhost:${apiPort}`,
+  });
 
 console.log(
-  '\nHMedic dev stack: api http://localhost:3000  worker http://localhost:3001  web http://localhost:5173',
+  `\nHMedic dev stack: api http://localhost:${apiPort}  worker http://localhost:3001  web http://localhost:5173`,
 );
-console.log('Mock OTP inbox: GET http://localhost:3000/internal/test/otp/<challengeId>\n');
+console.log(`Mock OTP inbox: GET http://localhost:${apiPort}/internal/test/otp/<challengeId>\n`);
 
 const stop = () => {
   // On Windows, shell-spawned children (pnpm.cmd → vite) need the whole tree killed.
