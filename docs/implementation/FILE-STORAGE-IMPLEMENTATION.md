@@ -231,3 +231,12 @@ EXPIRED, marks its unscanned document EXPIRED in the same short transaction,
 then removes private part bytes. A storage failure leaves the EXPIRED record
 for an idempotent cleanup retry. FINALIZING and FINALIZED sessions are refused;
 an expiry sweep and scheduling remain to be built.
+
+## Bounded cleanup sweep foundation (2026-10-19)
+
+Migration 0027 records `cleanup_completed_at` on upload sessions. Successful
+private-part deletion sets it; failed deletion leaves it null. A bounded
+maintenance page selects overdue OPEN sessions and uncleaned EXPIRED/ABORTED
+sessions, processes each outside a long database transaction, and returns a
+cursor for the next page. Completed rows no longer crowd out later sessions.
+The worker schedule and orphan-object audit remain pending.

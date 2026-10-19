@@ -35,6 +35,7 @@ export {
 export {
   abortUploadRecord,
   expireUploadSession,
+  sweepUploadCleanup,
   claimUploadFinalize,
   recordUploadPart,
   type FinalizeClaim,
