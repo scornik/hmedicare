@@ -19,6 +19,17 @@ describe('loadConfig (ENVIRONMENT-CONTRACT.md)', () => {
     expect(cfg.OTP_TTL_SECONDS).toBe(180);
     expect(cfg.JOB_CLAIM_STRATEGY).toBe('skip_locked');
     expect(cfg.DEFAULT_TIMEZONE).toBe('Asia/Dhaka');
+    expect(cfg.UPLOAD_SCAN_WORKER_ENABLED).toBe(false);
+    expect(cfg.UPLOAD_SCAN_MAX_PDF_PAGES).toBe(50);
+    expect(cfg.UPLOAD_SCAN_MAX_IMAGE_PIXELS).toBe(12_000_000);
+  });
+
+  it('bounds upload scanner limits', () => {
+    expect(
+      problemsOf(() => loadConfig('worker', testEnv({ UPLOAD_SCAN_MAX_PDF_PAGES: '1001' }))).some((problem) =>
+        problem.startsWith('UPLOAD_SCAN_MAX_PDF_PAGES:'),
+      ),
+    ).toBe(true);
   });
 
   it('lists every missing required variable by name and never prints values', () => {

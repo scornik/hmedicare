@@ -383,3 +383,16 @@ pending; the upload routes are still disabled.
 Worker typecheck, lint, formatting and dependency-boundary checks passed.
 Cleanup job attempts now fail visibly when a deletion fails; the null marker
 still lets the next attempt or scheduled window retry it.
+
+## Baseline scan worker composition — 2026-10-19
+
+The worker now supports an explicit `UPLOAD_SCAN_WORKER_ENABLED` flag, default
+false. Enabling it requires a configured private disk root and registers the
+baseline scanner for `ScanDocumentVersion`; per-category MIME/byte policy comes
+from upload admission, with 50 PDF pages and 12 million image pixels as bounded
+defaults. This does not enable upload HTTP routes. HOST-002 Sharp and HOST-007
+private storage probes still must pass before the flag is set on a deployed
+worker.
+Validation: 27 config unit cases and 12 worker-shell integration cases passed
+on MariaDB 10.6 and 11.8. Worker typecheck, lint, formatting and dependency
+boundaries passed. No scanner flag was changed in a deployed environment.

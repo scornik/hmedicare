@@ -1,4 +1,7 @@
 import request from 'supertest';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type ServerConfig, loadConfig } from '@hmedic/config';
 import { generateSecret, testEnv } from '@hmedic/config/testing';
@@ -44,6 +47,28 @@ afterEach(async () => {
 });
 
 describe('worker mode', () => {
+  it('refuses scanner activation without a private storage root', async () => {
+    await expect(buildWorker(config({ UPLOAD_SCAN_WORKER_ENABLED: 'true' }))).rejects.toThrow(
+      'UPLOAD_SCAN_WORKER_ENABLED requires STORAGE_DISK_ROOT',
+    );
+  });
+
+  it('registers the scan handler only when explicitly enabled with private storage', async () => {
+    const disabled = await start({ JOB_RUNNER_MODE: 'cron' });
+    expect(disabled.jobs?.registry.get('ScanDocumentVersion')).toBeUndefined();
+    const root = await mkdtemp(path.join(tmpdir(), 'hmedic-worker-scan-'));
+    try {
+      const enabled = await start({
+        JOB_RUNNER_MODE: 'cron',
+        UPLOAD_SCAN_WORKER_ENABLED: 'true',
+        STORAGE_DISK_ROOT: root,
+      });
+      expect(enabled.jobs?.registry.get('ScanDocumentVersion')).toBeDefined();
+      expect(enabled.jobs?.runner.hasHandler('ScanDocumentVersion')).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
   it('two workers share one singleton loop; maintenance runs once per window', async () => {
     const [a, b] = [await start(), await start()];
     // `>=` not `===`: the count must reach the number of periodic jobs asserted below, and an equality
