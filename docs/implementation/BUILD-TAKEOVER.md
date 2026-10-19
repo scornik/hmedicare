@@ -339,3 +339,15 @@ The 13-case focused lifecycle suite passed on MariaDB 10.6 and 11.8; package
 typecheck, lint, formatting and dependency-boundary checks passed. Uploads remain disabled and are
 not deployed to production. Next: scan-result commits/retries, expiry cleanup,
 quota enforcement and authorized routes.
+
+## Scan-result commit foundation — 2026-10-19
+
+An internal scan processor now loads the exact tenant/document/version, runs
+the scanner outside a transaction and conditionally commits the result. Clean
+PDFs publish their original revision; clean images publish only the sanitized
+derived revision. Rejections and final scanner failures remain unavailable;
+transient errors move to SCAN_ERROR so the durable job can retry. The actual
+worker handler, deletion after audit, notifications, cleanup, quotas and HTTP
+routes are still pending. This code is not enabled in production.
+The five focused scan-result integration cases passed on MariaDB 10.6 and
+11.8; affected package typecheck, lint and formatting checks passed.

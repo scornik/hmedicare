@@ -7,7 +7,7 @@ import { type ProxiedUploadStoragePort, UploadStorageError } from '../applicatio
 import { claimUploadFinalize } from './upload-records';
 import type { OwnedUploadIdentity } from './upload-sessions';
 
-export const SCAN_UPLOADED_DOCUMENT = 'ScanUploadedDocument';
+export const SCAN_UPLOADED_DOCUMENT = 'ScanDocumentVersion';
 
 export function registerUploadScanJobType(registry: JobRegistry): void {
   registry.register({

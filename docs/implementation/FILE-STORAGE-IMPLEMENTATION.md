@@ -209,3 +209,13 @@ If enqueue fails, all database changes roll back; a retry after lease expiry
 can reuse the matching immutable object. A lost successful response can read
 the committed version. The scan job handler, cleanup, quotas, live HTTP
 authorization and routes are still required before uploads are exposed.
+
+## Scan-result commit foundation (2026-10-19)
+
+An internal scan processor now reads the exact tenant/document/version, calls
+the configured scanner outside a database transaction, and conditionally
+commits its result. Clean PDFs publish their original revision; clean images
+publish only the scanner's sanitized revision. Rejected content stays
+unavailable. Scanner errors move to SCAN_ERROR for retry and become REJECTED
+with SCAN_UNAVAILABLE after the final attempt. Object deletion, audit and
+notification, worker composition, host probe and HTTP routes remain pending.
