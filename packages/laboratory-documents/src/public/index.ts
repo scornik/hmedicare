@@ -44,6 +44,7 @@ export {
   commitUploadFinalize,
   finalizeUpload,
 } from '../infrastructure/upload-finalize';
+export { processUploadScan, type UploadScanIdentity } from '../infrastructure/upload-scan';
 export {
   type ObjectReadOptions,
   ObjectStorageError,

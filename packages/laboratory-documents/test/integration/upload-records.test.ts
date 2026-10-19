@@ -300,7 +300,7 @@ describe('durable upload receipt and finalize claims', () => {
     expect((await db.prisma.uploadSession.findUniqueOrThrow({ where: { id: sessionId } })).status).toBe(
       'FINALIZED',
     );
-    expect(await db.prisma.job.count({ where: { type: 'ScanUploadedDocument' } })).toBe(1);
+    expect(await db.prisma.job.count({ where: { type: 'ScanDocumentVersion' } })).toBe(1);
     await expect(
       commitUploadFinalize(
         db.prisma,
