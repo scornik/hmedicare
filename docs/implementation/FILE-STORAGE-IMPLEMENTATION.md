@@ -240,3 +240,7 @@ maintenance page selects overdue OPEN sessions and uncleaned EXPIRED/ABORTED
 sessions, processes each outside a long database transaction, and returns a
 cursor for the next page. Completed rows no longer crowd out later sessions.
 The worker schedule and orphan-object audit remain pending.
+The worker now registers a ten-minute maintenance job when private disk
+storage is configured. Each run processes at most ten pages of 100 sessions,
+checks its lease-loss signal between pages, and leaves failed deletions for a
+later window. No upload HTTP route is enabled by this schedule.

@@ -52,6 +52,11 @@ export {
   type UploadScanIdentity,
 } from '../infrastructure/upload-scan';
 export {
+  CLEANUP_UPLOAD_SESSIONS,
+  runUploadCleanup,
+  registerUploadCleanupJobs,
+} from '../infrastructure/upload-cleanup-jobs';
+export {
   type ObjectReadOptions,
   ObjectStorageError,
   type ObjectStoragePort,

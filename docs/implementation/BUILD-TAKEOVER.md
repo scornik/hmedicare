@@ -376,3 +376,8 @@ Completed rows cannot starve newer work. Worker scheduling and orphan-object
 reconciliation are still pending; uploads remain disabled.
 Migration lint and package typecheck/lint passed. The 16-case focused upload
 lifecycle suite passed on MariaDB 10.6 and 11.8.
+The worker now registers a ten-minute cleanup job when a disk storage root is
+configured. A run processes at most 1,000 sessions in bounded pages and stops
+between pages if it loses its job lease. Orphan-object reconciliation remains
+pending; the upload routes are still disabled.
+Worker typecheck, lint, formatting and dependency-boundary checks passed.
