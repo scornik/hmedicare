@@ -223,3 +223,11 @@ The internal job handler now shares the versioned payload schema with the
 enqueue side and retries SCAN_ERROR results through the durable job runner. It
 checks the runner's lease-loss signal before committing a scan result. Worker
 composition still waits for the host scanner probe.
+
+## Expiry transition foundation (2026-10-19)
+
+The internal expiry service conditionally moves an overdue OPEN session to
+EXPIRED, marks its unscanned document EXPIRED in the same short transaction,
+then removes private part bytes. A storage failure leaves the EXPIRED record
+for an idempotent cleanup retry. FINALIZING and FINALIZED sessions are refused;
+an expiry sweep and scheduling remain to be built.
