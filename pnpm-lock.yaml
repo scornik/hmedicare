@@ -333,6 +333,9 @@ importers:
       '@hmedic/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
+      '@hmedic/laboratory-documents':
+        specifier: workspace:*
+        version: link:../../packages/laboratory-documents
       '@hmedic/observability':
         specifier: workspace:*
         version: link:../../packages/observability

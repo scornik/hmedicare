@@ -56,7 +56,8 @@ import type { PeriodicJob } from '@hmedic/jobs';
 import { composeSchedulingAndQueue, registerQueueJobs } from '@hmedic/queue';
 import { RECORD_MEDICATION_USAGE, medicationGateChainSource } from '@hmedic/prescriptions';
 import { registerPrescriptionJobs } from '@hmedic/prescriptions/worker';
-import { DiskObjectStorage } from '@hmedic/storage-adapters-disk';
+import { DiskObjectStorage, DiskUploadStorage } from '@hmedic/storage-adapters-disk';
+import { registerUploadCleanupJobs } from '@hmedic/laboratory-documents';
 
 /**
  * Worker composition root (API-IMPLEMENTATION §2): health, metrics and the cron kick only. Context job
@@ -300,6 +301,13 @@ export async function buildWorker(
       });
       return [
         ...aiPeriodic,
+        ...(config.STORAGE_DISK_ROOT
+          ? registerUploadCleanupJobs(registry, runner, {
+              prisma: runtime.prisma,
+              storage: new DiskUploadStorage({ root: config.STORAGE_DISK_ROOT }),
+              now: () => runtime.clock.now(),
+            })
+          : []),
         ...(config.APP_ENV !== 'production'
           ? registerReminderJobs(registry, runner, communication, reminderSource)
           : []),

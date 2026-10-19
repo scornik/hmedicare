@@ -20,6 +20,7 @@
     "@hmedic/database": "workspace:*",
     "@hmedic/http-kit": "workspace:*",
     "@hmedic/jobs": "workspace:*",
+    "@hmedic/laboratory-documents": "workspace:*",
     "@hmedic/kernel": "workspace:*",
     "@hmedic/observability": "workspace:*",
     "@hmedic/prescriptions": "workspace:*",
