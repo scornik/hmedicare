@@ -1,8 +1,10 @@
 import { type PrismaClient, withTransaction } from '@hmedic/database';
+import { type JobRegistry, type JobRunner } from '@hmedic/jobs';
 import { newId } from '@hmedic/kernel';
 import { type MalwareScanPort, UPLOAD_SCAN_CATEGORIES } from '../application/malware-scan-port';
 import { UploadStorageError } from '../application/upload-storage-port';
 import { buildStorageKey } from '../domain/storage-keys';
+import { registerUploadScanJobType, SCAN_UPLOADED_DOCUMENT } from './upload-finalize';
 
 export interface UploadScanIdentity {
   tenantId: string;
@@ -17,6 +19,7 @@ export async function processUploadScan(
   identity: UploadScanIdentity,
   attempt: number,
   now: Date,
+  signal?: AbortSignal,
 ): Promise<'AVAILABLE' | 'REJECTED' | 'RETRY'> {
   if (!Number.isSafeInteger(attempt) || attempt < 1)
     throw new UploadStorageError('UPLOAD_INVALID', 'Invalid scan attempt');
@@ -56,6 +59,7 @@ export async function processUploadScan(
     })
     .catch(() => ({ result: 'ERROR' as const, reasonCode: 'SCAN_UNAVAILABLE' as const }));
   const adapter = scanner.describe().adapter;
+  if (signal?.aborted) throw new UploadStorageError('UPLOAD_CONFLICT', 'Scan lease lost');
   if (!/^[a-z0-9][a-z0-9-]{0,47}$/.test(adapter))
     throw new UploadStorageError('UPLOAD_INVALID', 'Invalid scanner adapter');
   if (verdict.result === 'CLEAN') {
@@ -151,4 +155,28 @@ export async function processUploadScan(
     : verdict.result === 'REJECTED' || terminal
       ? 'REJECTED'
       : 'RETRY';
+}
+
+/** Register the same payload contract in API and worker; only a worker receives a handler. */
+export function registerUploadScanJobs(
+  registry: JobRegistry,
+  runner: JobRunner | null,
+  deps: { prisma: PrismaClient; scanner?: MalwareScanPort; now?: () => Date },
+): void {
+  registerUploadScanJobType(registry);
+  if (!runner) return;
+  if (!deps.scanner) throw new Error('Upload scanner is required by the worker');
+  const scanner = deps.scanner;
+  runner.handle(SCAN_UPLOADED_DOCUMENT, async (ctx) => {
+    const payload = ctx.payload as { v: 1; tenantId: string; documentId: string; versionId: string };
+    const outcome = await processUploadScan(
+      deps.prisma,
+      scanner,
+      payload,
+      ctx.attempt,
+      (deps.now ?? (() => new Date()))(),
+      ctx.signal,
+    );
+    if (outcome === 'RETRY') throw new Error('SCAN_UNAVAILABLE');
+  });
 }
