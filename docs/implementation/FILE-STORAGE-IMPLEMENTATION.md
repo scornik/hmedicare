@@ -244,3 +244,5 @@ The worker now registers a ten-minute maintenance job when private disk
 storage is configured. Each run processes at most ten pages of 100 sessions,
 checks its lease-loss signal between pages, and leaves failed deletions for a
 later window. No upload HTTP route is enabled by this schedule.
+If any deletion fails, the job attempt fails after the bounded page, making
+the failure visible to the job runner while retaining null cleanup markers.

@@ -381,3 +381,5 @@ configured. A run processes at most 1,000 sessions in bounded pages and stops
 between pages if it loses its job lease. Orphan-object reconciliation remains
 pending; the upload routes are still disabled.
 Worker typecheck, lint, formatting and dependency-boundary checks passed.
+Cleanup job attempts now fail visibly when a deletion fails; the null marker
+still lets the next attempt or scheduled window retry it.

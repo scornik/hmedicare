@@ -40,7 +40,13 @@ export function registerUploadCleanupJobs(
     priority: 200,
   });
   runner?.handle(CLEANUP_UPLOAD_SESSIONS, async (ctx) => {
-    await runUploadCleanup(deps.prisma, deps.storage, (deps.now ?? (() => new Date()))(), ctx.signal);
+    const result = await runUploadCleanup(
+      deps.prisma,
+      deps.storage,
+      (deps.now ?? (() => new Date()))(),
+      ctx.signal,
+    );
+    if (ctx.signal.aborted || result.failed > 0) throw new Error('UPLOAD_CLEANUP_FAILED');
   });
   return [{ type: CLEANUP_UPLOAD_SESSIONS, everyMs: 10 * 60_000 }];
 }
