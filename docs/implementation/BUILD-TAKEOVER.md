@@ -346,8 +346,12 @@ An internal scan processor now loads the exact tenant/document/version, runs
 the scanner outside a transaction and conditionally commits the result. Clean
 PDFs publish their original revision; clean images publish only the sanitized
 derived revision. Rejections and final scanner failures remain unavailable;
-transient errors move to SCAN_ERROR so the durable job can retry. The actual
-worker handler, deletion after audit, notifications, cleanup, quotas and HTTP
-routes are still pending. This code is not enabled in production.
+transient errors move to SCAN_ERROR so the durable job can retry. An internal
+job handler now shares the payload contract, throws on retryable outcomes and
+checks lease loss before committing. Worker composition awaits the host scanner
+probe; deletion after audit, notifications, cleanup, quotas and HTTP routes
+are still pending. This code is not enabled in production.
 The five focused scan-result integration cases passed on MariaDB 10.6 and
 11.8; affected package typecheck, lint and formatting checks passed.
+After adding the job registration and lease-loss check, the six-case scan
+suite passed on MariaDB 10.6; package typecheck and lint passed.

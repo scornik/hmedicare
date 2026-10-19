@@ -78,6 +78,23 @@ describe('upload scan result commit', () => {
     expect(called).toBe(false);
   });
 
+  it('does not publish a result after the worker loses its lease', async () => {
+    const controller = new AbortController();
+    const guarded: MalwareScanPort = {
+      ...scanner({ result: 'CLEAN' }),
+      scan: async () => {
+        controller.abort();
+        return { result: 'CLEAN' };
+      },
+    };
+    await expect(
+      processUploadScan(db.prisma, guarded, identity(), 1, now, controller.signal),
+    ).rejects.toMatchObject({ code: 'UPLOAD_CONFLICT' });
+    expect((await db.prisma.document.findUniqueOrThrow({ where: { id: documentId } })).status).toBe(
+      'SCANNING',
+    );
+  });
+
   it('publishes a clean PDF revision and treats repeat delivery as idempotent', async () => {
     expect(await processUploadScan(db.prisma, scanner({ result: 'CLEAN' }), identity(), 1, now)).toBe(
       'AVAILABLE',
