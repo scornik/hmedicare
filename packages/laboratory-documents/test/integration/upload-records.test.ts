@@ -10,6 +10,7 @@ import {
   claimUploadFinalize,
   expireUploadSession,
   recordUploadPart,
+  sweepUploadCleanup,
 } from '../../src/infrastructure/upload-records';
 import { UploadSessionService } from '../../src/infrastructure/upload-sessions';
 import { commitUploadFinalize, registerUploadScanJobType } from '../../src/infrastructure/upload-finalize';
@@ -303,10 +304,52 @@ describe('durable upload receipt and finalize claims', () => {
     );
     const row = await db.prisma.uploadSession.findUniqueOrThrow({ where: { id: sessionId } });
     expect(row.status).toBe('EXPIRED');
+    expect(row.cleanupCompletedAt).toBeNull();
     expect((await db.prisma.document.findUniqueOrThrow({ where: { id: row.documentId } })).status).toBe(
       'EXPIRED',
     );
     await expireUploadSession(db.prisma, storage, { tenantId, sessionId }, expiredAt);
+    expect(calls).toBe(2);
+    expect(
+      (await db.prisma.uploadSession.findUniqueOrThrow({ where: { id: sessionId } })).cleanupCompletedAt,
+    ).toEqual(expiredAt);
+  });
+
+  it('sweeps overdue sessions once and leaves a failed deletion eligible for retry', async () => {
+    const expiredAt = new Date(expiresAt.getTime() + 1);
+    let calls = 0;
+    const storage: ProxiedUploadStoragePort = {
+      async createUploadSession() {
+        throw new Error('unused');
+      },
+      async uploadPart() {
+        throw new Error('unused');
+      },
+      async completeUpload() {
+        throw new Error('unused');
+      },
+      async abortUpload() {
+        if (++calls === 1) throw new Error('disk offline');
+      },
+    };
+    expect(await sweepUploadCleanup(db.prisma, storage, expiredAt, 1)).toMatchObject({
+      attempted: 1,
+      cleaned: 0,
+      failed: 1,
+    });
+    expect((await db.prisma.uploadSession.findUniqueOrThrow({ where: { id: sessionId } })).status).toBe(
+      'EXPIRED',
+    );
+    expect(await sweepUploadCleanup(db.prisma, storage, expiredAt, 1)).toMatchObject({
+      attempted: 1,
+      cleaned: 1,
+      failed: 0,
+    });
+    expect(await sweepUploadCleanup(db.prisma, storage, expiredAt, 1)).toMatchObject({
+      attempted: 0,
+      cleaned: 0,
+      failed: 0,
+    });
     expect(calls).toBe(2);
   });
 

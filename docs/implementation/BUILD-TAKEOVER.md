@@ -365,3 +365,14 @@ FINALIZING and FINALIZED sessions. A bounded sweep/schedule is still needed;
 this foundation does not enable or deploy upload routes.
 The 15-case focused upload lifecycle suite passed on MariaDB 10.6 and 11.8;
 the affected package typecheck, lint and formatting checks passed.
+
+## Bounded upload cleanup sweep — 2026-10-19
+
+Migration 0027 adds a cleanup completion timestamp to upload sessions. Abort
+and expiry set it only after private storage deletion succeeds. A bounded
+maintenance page now selects overdue OPEN and uncleaned EXPIRED/ABORTED
+sessions, returns a cursor, and keeps failed deletions eligible for retry.
+Completed rows cannot starve newer work. Worker scheduling and orphan-object
+reconciliation are still pending; uploads remain disabled.
+Migration lint and package typecheck/lint passed. The 16-case focused upload
+lifecycle suite passed on MariaDB 10.6 and 11.8.

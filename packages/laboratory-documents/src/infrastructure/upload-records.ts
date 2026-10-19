@@ -152,6 +152,15 @@ export async function abortUploadRecord(
     { context: 'abort-upload-session' },
   );
   await storage.abortUpload(session);
+  await prisma.uploadSession.updateMany({
+    where: {
+      id: identity.sessionId,
+      tenantId: identity.tenantId,
+      status: 'ABORTED',
+      cleanupCompletedAt: null,
+    },
+    data: { cleanupCompletedAt: now, updatedAt: now },
+  });
 }
 
 /** Expire one known session before removing its private parts. An EXPIRED retry repeats storage cleanup. */
@@ -208,6 +217,63 @@ export async function expireUploadSession(
     { context: 'expire-upload-session' },
   );
   await storage.abortUpload(session);
+  await prisma.uploadSession.updateMany({
+    where: {
+      id: identity.sessionId,
+      tenantId: identity.tenantId,
+      status: 'EXPIRED',
+      cleanupCompletedAt: null,
+    },
+    data: { cleanupCompletedAt: now, updatedAt: now },
+  });
+}
+
+/** Bounded maintenance page; failed rows retain a null cleanup marker for a later retry. */
+export async function sweepUploadCleanup(
+  prisma: PrismaClient,
+  storage: ProxiedUploadStoragePort,
+  now: Date,
+  limit = 100,
+  afterId?: string,
+): Promise<{ attempted: number; cleaned: number; failed: number; nextCursor: string | null }> {
+  if (!Number.isFinite(now.getTime()) || !Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
+    throw new UploadStorageError('UPLOAD_INVALID', 'Invalid cleanup sweep');
+  const rows = await prisma.uploadSession.findMany({
+    where: {
+      ...(afterId ? { id: { gt: afterId } } : {}),
+      cleanupCompletedAt: null,
+      OR: [{ status: 'OPEN', expiresAt: { lte: now } }, { status: 'EXPIRED' }, { status: 'ABORTED' }],
+    },
+    select: { id: true, tenantId: true, ownerUserId: true, status: true },
+    orderBy: { id: 'asc' },
+    take: limit,
+  });
+  let cleaned = 0;
+  for (const row of rows) {
+    try {
+      if (row.status === 'ABORTED')
+        await abortUploadRecord(
+          prisma,
+          storage,
+          {
+            tenantId: row.tenantId,
+            sessionId: row.id,
+            ownerUserId: row.ownerUserId,
+          },
+          now,
+        );
+      else await expireUploadSession(prisma, storage, { tenantId: row.tenantId, sessionId: row.id }, now);
+      cleaned++;
+    } catch {
+      // The row stays eligible. A later sweep can retry without exposing private bytes.
+    }
+  }
+  return {
+    attempted: rows.length,
+    cleaned,
+    failed: rows.length - cleaned,
+    nextCursor: rows.length === limit ? rows[rows.length - 1]!.id : null,
+  };
 }
 
 /**
