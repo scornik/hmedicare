@@ -306,6 +306,10 @@ export const aiSection = {
 export const medicationCatalogSection = {
   MEDICATION_IMPORT_PRODUCTION_ALLOWED: bool(false),
   STORAGE_DISK_ROOT: z.string().min(1).optional(),
+  /** Enable only after HOST-002 (Sharp) and HOST-007 (private persistent storage) pass. */
+  UPLOAD_SCAN_WORKER_ENABLED: bool(false),
+  UPLOAD_SCAN_MAX_PDF_PAGES: int(50, 1, 1000),
+  UPLOAD_SCAN_MAX_IMAGE_PIXELS: int(12_000_000, 1, 40_000_000),
   MEDICATION_DATASET_STORAGE_PREFIX: z.string().min(1).default('platform/medicine-datasets/'),
   MEDICATION_IMPORT_EXCLUDE_VETERINARY: bool(true),
 };

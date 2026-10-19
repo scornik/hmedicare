@@ -354,6 +354,9 @@ importers:
       '@hmedic/storage-adapters-disk':
         specifier: workspace:*
         version: link:../../packages/storage-adapters/disk
+      '@hmedic/storage-adapters-scanner-baseline':
+        specifier: workspace:*
+        version: link:../../packages/storage-adapters/scanner-baseline
       '@hmedic/timeline':
         specifier: workspace:*
         version: link:../../packages/timeline

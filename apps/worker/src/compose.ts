@@ -57,7 +57,13 @@ import { composeSchedulingAndQueue, registerQueueJobs } from '@hmedic/queue';
 import { RECORD_MEDICATION_USAGE, medicationGateChainSource } from '@hmedic/prescriptions';
 import { registerPrescriptionJobs } from '@hmedic/prescriptions/worker';
 import { DiskObjectStorage, DiskUploadStorage } from '@hmedic/storage-adapters-disk';
-import { registerUploadCleanupJobs } from '@hmedic/laboratory-documents';
+import {
+  registerUploadCleanupJobs,
+  registerUploadScanJobs,
+  UPLOAD_CATEGORY_POLICY,
+  UPLOAD_SCAN_CATEGORIES,
+} from '@hmedic/laboratory-documents';
+import { BaselineContentPolicyScanner } from '@hmedic/storage-adapters-scanner-baseline';
 
 /**
  * Worker composition root (API-IMPLEMENTATION §2): health, metrics and the cron kick only. Context job
@@ -96,6 +102,8 @@ export async function buildWorker(
   config: ServerConfig,
   overrides: { database?: Database } = {},
 ): Promise<WorkerInstance> {
+  if (config.UPLOAD_SCAN_WORKER_ENABLED && !config.STORAGE_DISK_ROOT)
+    throw new Error('UPLOAD_SCAN_WORKER_ENABLED requires STORAGE_DISK_ROOT');
   const { runtime, database } = createRuntime('worker', config, overrides);
   const sms = createSmsServices(runtime);
   const reminderSource = new FollowUpReminderSource(runtime.prisma, runtime.clock);
@@ -299,6 +307,33 @@ export async function buildWorker(
           : undefined,
         logger: runtime.logger,
       });
+      if (config.UPLOAD_SCAN_WORKER_ENABLED && config.STORAGE_DISK_ROOT) {
+        const storage = new DiskObjectStorage({ root: config.STORAGE_DISK_ROOT });
+        const limits = Object.fromEntries(
+          UPLOAD_SCAN_CATEGORIES.map((category) => [
+            category,
+            {
+              maxBytes: UPLOAD_CATEGORY_POLICY[category].maxBytes,
+              allowedTypes: UPLOAD_CATEGORY_POLICY[category].contentTypes,
+              maxPdfPages: config.UPLOAD_SCAN_MAX_PDF_PAGES,
+              maxImagePixels: config.UPLOAD_SCAN_MAX_IMAGE_PIXELS,
+            },
+          ]),
+        ) as Record<
+          (typeof UPLOAD_SCAN_CATEGORIES)[number],
+          {
+            maxBytes: number;
+            allowedTypes: readonly string[];
+            maxPdfPages: number;
+            maxImagePixels: number;
+          }
+        >;
+        registerUploadScanJobs(registry, runner, {
+          prisma: runtime.prisma,
+          scanner: new BaselineContentPolicyScanner({ storage, limits }),
+          now: () => runtime.clock.now(),
+        });
+      }
       return [
         ...aiPeriodic,
         ...(config.STORAGE_DISK_ROOT

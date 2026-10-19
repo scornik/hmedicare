@@ -218,11 +218,13 @@ commits its result. Clean PDFs publish their original revision; clean images
 publish only the scanner's sanitized revision. Rejected content stays
 unavailable. Scanner errors move to SCAN_ERROR for retry and become REJECTED
 with SCAN_UNAVAILABLE after the final attempt. Object deletion, audit and
-notification, worker composition, host probe and HTTP routes remain pending.
+notification, host probe and HTTP routes remain pending.
 The internal job handler now shares the versioned payload schema with the
 enqueue side and retries SCAN_ERROR results through the durable job runner. It
 checks the runner's lease-loss signal before committing a scan result. Worker
-composition still waits for the host scanner probe.
+composition is guarded by `UPLOAD_SCAN_WORKER_ENABLED=false` by default and
+cannot start enabled without a private disk root. The host probes must pass
+before an operator enables it.
 
 ## Expiry transition foundation (2026-10-19)
 

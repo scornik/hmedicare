@@ -67,6 +67,9 @@ Column **Apps** lists the Hostinger apps that need the variable (`api`, `worker`
 |---|---|---|---|---|
 | `STORAGE_ADAPTER` | REQ-PROD | api, worker | `s3` local; staging `disk`; production `s3` (unless HOST-007 passes and disk is chosen) | ADR-016 |
 | `STORAGE_DISK_ROOT` | REQ-PROD when `disk` | api, worker | e.g. `/home/<user>/hmedic-storage/staging` | absolute; outside web roots and `hbuilds` |
+| `UPLOAD_SCAN_WORKER_ENABLED` | OPT | worker | `false` | enable only after HOST-002 Sharp and HOST-007 private storage pass; requires `STORAGE_DISK_ROOT` |
+| `UPLOAD_SCAN_MAX_PDF_PAGES` | OPT | worker | 50 | hard ceiling 1,000 pages |
+| `UPLOAD_SCAN_MAX_IMAGE_PIXELS` | OPT | worker | 12,000,000 | hard ceiling 40,000,000 pixels |
 | `STORAGE_DISK_FORBIDDEN_ROOTS` | OPT | api, worker | `public_html,hbuilds` path fragments | startup check |
 | `STORAGE_DISK_BUDGET_GB` | OPT | worker | 40 | alerts 60/75% |
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE` | REQ-PROD when `s3` | api, worker | MinIO values locally | provider = external decision |
