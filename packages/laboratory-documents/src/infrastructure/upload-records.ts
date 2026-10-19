@@ -154,6 +154,62 @@ export async function abortUploadRecord(
   await storage.abortUpload(session);
 }
 
+/** Expire one known session before removing its private parts. An EXPIRED retry repeats storage cleanup. */
+export async function expireUploadSession(
+  prisma: PrismaClient,
+  storage: ProxiedUploadStoragePort,
+  identity: { tenantId: string; sessionId: string },
+  now: Date,
+): Promise<void> {
+  const session = await withTransaction(
+    prisma,
+    async (tx) => {
+      const row = await tx.uploadSession.findFirst({
+        where: { id: identity.sessionId, tenantId: identity.tenantId },
+      });
+      if (!row) throw new UploadStorageError('UPLOAD_NOT_FOUND', 'Upload session not found');
+      if (row.expiresAt > now)
+        throw new UploadStorageError('UPLOAD_CONFLICT', 'Upload session has not expired');
+      if (row.status !== 'OPEN' && row.status !== 'EXPIRED')
+        throw new UploadStorageError('UPLOAD_CONFLICT', 'Upload session cannot expire');
+      if (row.storageAdapter !== 'disk')
+        throw new UploadStorageError('UPLOAD_CONFLICT', 'Upload adapter mismatch');
+      if (row.status === 'OPEN') {
+        const expired = await tx.uploadSession.updateMany({
+          where: {
+            id: row.id,
+            tenantId: row.tenantId,
+            status: 'OPEN',
+            rowVersion: row.rowVersion,
+            expiresAt: { lte: now },
+          },
+          data: {
+            status: 'EXPIRED',
+            updatedAt: now,
+            rowVersion: { increment: 1 },
+          },
+        });
+        if (expired.count !== 1) throw new UploadStorageError('UPLOAD_CONFLICT', 'Upload session changed');
+        await tx.document.updateMany({
+          where: { id: row.documentId, tenantId: row.tenantId, status: { in: ['CREATED', 'UPLOADING'] } },
+          data: { status: 'EXPIRED', updatedAt: now, rowVersion: { increment: 1 } },
+        });
+      }
+      return {
+        sessionId: row.id,
+        key: row.storageKey,
+        contentType: row.contentType,
+        sizeBytes: Number(row.expectedSizeBytes),
+        sha256: row.expectedSha256,
+        partSizeBytes: row.partSizeBytes,
+        expiresAt: row.expiresAt,
+      } satisfies UploadStorageSession;
+    },
+    { context: 'expire-upload-session' },
+  );
+  await storage.abortUpload(session);
+}
+
 /**
  * Snapshot exact ordered receipts and take a bounded finalize lease in one short transaction. A retry
  * can reclaim an expired lease only for the same receipt set; no transaction spans object-storage I/O.

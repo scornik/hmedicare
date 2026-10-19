@@ -355,3 +355,13 @@ The five focused scan-result integration cases passed on MariaDB 10.6 and
 11.8; affected package typecheck, lint and formatting checks passed.
 After adding the job registration and lease-loss check, the six-case scan
 suite passed on MariaDB 10.6; package typecheck and lint passed.
+
+## Upload expiry transition — 2026-10-19
+
+An internal per-session maintenance function now conditionally expires an
+overdue OPEN upload and its unscanned document before deleting private parts.
+Failed storage deletion can be retried from EXPIRED. It refuses unexpired,
+FINALIZING and FINALIZED sessions. A bounded sweep/schedule is still needed;
+this foundation does not enable or deploy upload routes.
+The 15-case focused upload lifecycle suite passed on MariaDB 10.6 and 11.8;
+the affected package typecheck, lint and formatting checks passed.

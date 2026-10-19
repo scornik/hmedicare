@@ -8,6 +8,7 @@ import { openTestDatabase, truncateAll } from '../../../../tests/support/db';
 import {
   abortUploadRecord,
   claimUploadFinalize,
+  expireUploadSession,
   recordUploadPart,
 } from '../../src/infrastructure/upload-records';
 import { UploadSessionService } from '../../src/infrastructure/upload-sessions';
@@ -274,6 +275,65 @@ describe('proxied part admission', () => {
 const identity = () => ({ tenantId, sessionId, ownerUserId });
 
 describe('durable upload receipt and finalize claims', () => {
+  it('expires an abandoned session before private cleanup and retries failed cleanup', async () => {
+    const expiredAt = new Date(expiresAt.getTime() + 1);
+    let calls = 0;
+    const storage: ProxiedUploadStoragePort = {
+      async createUploadSession() {
+        throw new Error('unused');
+      },
+      async uploadPart() {
+        throw new Error('unused');
+      },
+      async completeUpload() {
+        throw new Error('unused');
+      },
+      async abortUpload() {
+        calls++;
+        const row = await db.prisma.uploadSession.findUniqueOrThrow({ where: { id: sessionId } });
+        expect(row.status).toBe('EXPIRED');
+        if (calls === 1) throw new Error('temporary storage failure');
+      },
+    };
+    await expect(expireUploadSession(db.prisma, storage, { tenantId, sessionId }, now)).rejects.toMatchObject(
+      { code: 'UPLOAD_CONFLICT' },
+    );
+    await expect(expireUploadSession(db.prisma, storage, { tenantId, sessionId }, expiredAt)).rejects.toThrow(
+      'temporary storage failure',
+    );
+    const row = await db.prisma.uploadSession.findUniqueOrThrow({ where: { id: sessionId } });
+    expect(row.status).toBe('EXPIRED');
+    expect((await db.prisma.document.findUniqueOrThrow({ where: { id: row.documentId } })).status).toBe(
+      'EXPIRED',
+    );
+    await expireUploadSession(db.prisma, storage, { tenantId, sessionId }, expiredAt);
+    expect(calls).toBe(2);
+  });
+
+  it('cannot expire a session already claimed for finalization', async () => {
+    await recordUploadPart(db.prisma, identity(), receipt, now);
+    await claimUploadFinalize(db.prisma, identity(), now);
+    let cleaned = false;
+    const storage: ProxiedUploadStoragePort = {
+      async createUploadSession() {
+        throw new Error('unused');
+      },
+      async uploadPart() {
+        throw new Error('unused');
+      },
+      async completeUpload() {
+        throw new Error('unused');
+      },
+      async abortUpload() {
+        cleaned = true;
+      },
+    };
+    await expect(
+      expireUploadSession(db.prisma, storage, { tenantId, sessionId }, new Date(expiresAt.getTime() + 1)),
+    ).rejects.toMatchObject({ code: 'UPLOAD_CONFLICT' });
+    expect(cleaned).toBe(false);
+  });
+
   const jobPort = () => {
     const registry = new JobRegistry();
     registerUploadScanJobType(registry);

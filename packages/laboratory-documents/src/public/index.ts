@@ -34,6 +34,7 @@ export {
 } from '../infrastructure/upload-sessions';
 export {
   abortUploadRecord,
+  expireUploadSession,
   claimUploadFinalize,
   recordUploadPart,
   type FinalizeClaim,
