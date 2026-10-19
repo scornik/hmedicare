@@ -13,7 +13,9 @@ export function TopBar() {
   const can = (p: string) => ctx.data?.permissions.includes(p) ?? false;
   return (
     <nav className="topbar">
-      <strong>{t('appName')}</strong>
+      <strong>
+        <Link to="/dashboard">{t('appName')}</Link>
+      </strong>
       <span className="muted">{user?.displayName ?? user?.phoneMasked ?? ''}</span>
       {tenant && can('patient.read') && <Link to="/patients/search">{t('nav.patients')}</Link>}
       {tenant && can('patient.merge') && <Link to="/patients/merge-cases">{t('nav.mergeCases')}</Link>}

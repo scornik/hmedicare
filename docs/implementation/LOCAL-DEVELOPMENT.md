@@ -75,6 +75,7 @@ A root `Makefile` is **optional** and may only wrap these scripts one-to-one (`m
 3. `pnpm db:migrate && pnpm db:seed`
 4. `pnpm dev`
 5. Web at `http://localhost:5173` (API `http://localhost:3000/api/v1`; CORS allows the Vite origin locally; the refresh cookie uses `__Host-` only over HTTPS, so locally the cookie name is `hm_rt_dev`, `Secure=false`, `SameSite=Lax`, controlled by `AUTH_COOKIE_DEV_MODE=true`, which is refused when `APP_ENV` is not `development`).
+   If another app owns port 3000, set `HM_DEV_API_PORT=3002` before `pnpm dev` (in PowerShell: `$env:HM_DEV_API_PORT='3002'`). The launcher passes the selected API origin to Vite automatically.
 6. `pnpm mobile:bootstrap` and run Flutter apps against `http://10.0.2.2:3000` (Android emulator).
 7. `pnpm test`
 

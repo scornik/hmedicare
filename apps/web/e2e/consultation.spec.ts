@@ -700,13 +700,19 @@ test('an interrupted consultation is still editable and says so', async ({ page 
   await expect(page.getByTestId('note-plan')).toBeEnabled();
 });
 
-test('later-stage panels are labelled and empty, not mocked', async ({ page }) => {
+test('the lab placeholder remains while the real timeline is shown once', async ({ page }) => {
   await mockApi(page);
   await open(page);
-  // Prescriptions and AI now have real editors, covered by their workflow tests.
-  for (const panel of ['labs', 'timeline']) {
-    await expect(page.getByTestId(`panel-${panel}`)).toContainText('Arrives in a later stage.');
-  }
+  await expect(page.getByTestId('panel-labs')).toContainText('Arrives in a later stage.');
+  await expect(page.getByTestId('panel-timeline')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Patient timeline' })).toHaveCount(1);
+});
+
+test('doctor can return to the dashboard from a consultation', async ({ page }) => {
+  await mockApi(page);
+  await open(page);
+  await page.getByRole('link', { name: 'HMedic' }).click();
+  await expect(page).toHaveURL('/dashboard');
 });
 
 test('no clinical text is written to browser storage', async ({ page }) => {

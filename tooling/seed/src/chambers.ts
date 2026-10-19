@@ -29,7 +29,6 @@ const MORNING = { localStartTime: '09:00', localEndTime: '12:00' };
 
 export async function seedChambers(d: ChamberSeedDeps): Promise<void> {
   const { prisma, tenantA } = d;
-  if ((await prisma.chamber.count({ where: { tenantId: tenantA.tenantId } })) > 0) return;
   const ctx = composeSchedulingAndQueue({ prisma, audit: d.audit, clock: d.clock });
   // A fresh request id per call, exactly as the API gives each request its own (queue events are keyed by it).
   const actorA = (): SchedulingActor => ({ ...tenantA.ownerCtx, requestId: newId(), correlationId: newId() });
@@ -41,6 +40,68 @@ export async function seedChambers(d: ChamberSeedDeps): Promise<void> {
   const today = dhakaDate(d.clock.now());
   const yesterday = addDays(today, -1);
   const tomorrow = addDays(today, 1);
+
+  // A long-lived development database must still have a board for the current day.
+  // The original seed populated only its first run's date, then silently skipped
+  // chamber days forever; the queue seed failed as soon as that date passed.
+  if ((await prisma.chamber.count({ where: { tenantId: tenantA.tenantId } })) > 0) {
+    const general = await prisma.chamber.findFirstOrThrow({
+      where: { tenantId: tenantA.tenantId, name: 'DEMO Dhanmondi Evening Chamber' },
+    });
+    const existing = await prisma.chamberDay.findFirst({
+      where: { chamberId: general.id, localDate: new Date(`${today}T00:00:00.000Z`) },
+    });
+    if (!existing) {
+      const created = await ctx.days.materialize(actorA(), { chamberId: general.id, localDate: today });
+      const opened = await ctx.days.open(actorA(), created.day.id, {
+        expectedRowVersion: created.day.rowVersion,
+      });
+      await ctx.days.recordDelay(actorA(), opened.id, {
+        expectedQueueOrderVersion: opened.queueOrderVersion,
+        delayMinutes: 15,
+        reasonCode: 'DOCTOR_LATE',
+      });
+      d.report.created.push("today's demo chamber day");
+    }
+    const day =
+      existing ??
+      (await prisma.chamberDay.findFirstOrThrow({
+        where: { chamberId: general.id, localDate: new Date(`${today}T00:00:00.000Z`) },
+      }));
+    if ((await prisma.appointment.count({ where: { chamberDayId: day.id } })) === 0) {
+      const taken = new Set(
+        (
+          await prisma.serial.findMany({
+            where: { chamberDayId: day.id },
+            select: { patientId: true },
+          })
+        ).map((s) => s.patientId),
+      );
+      const patients = (
+        await prisma.patient.findMany({
+          where: { tenantId: tenantA.tenantId, status: 'ACTIVE' },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true },
+        })
+      ).filter((p) => !taken.has(p.id));
+      if (patients.length < 2) throw new Error('seed: not enough patients for current-day bookings');
+      for (let i = 0; i < 2; i++) {
+        const booked = await ctx.appointments.create(
+          { kind: 'staff', actor: actorA() },
+          { chamberId: general.id, localDate: today, patientId: patients[i]!.id, careMode: 'PHYSICAL' },
+          { idempotencyKey: newId() },
+        );
+        if (i === 0) {
+          const serial = await prisma.serial.findFirstOrThrow({ where: { appointmentId: booked.id } });
+          await ctx.serials.confirm({ kind: 'staff', actor: actorA() }, serial.id, {
+            expectedRowVersion: serial.rowVersion,
+          });
+        }
+      }
+      d.report.created.push("today's demo bookings");
+    }
+    return;
+  }
 
   const clinics = await prisma.clinic.findMany({
     where: { tenantId: tenantA.tenantId, status: 'ACTIVE' },
