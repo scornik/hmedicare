@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ApiSchemas } from '@hmedic/contracts/client';
 import { ApiError, api, getTenant } from '../api';
 
@@ -59,6 +59,27 @@ export function usePatientSearch(input: SearchInput | null) {
           params: { header: tenantHeader(), query: { ...input, limit: 20 } },
         }),
       ),
+  });
+}
+
+/** Keep earlier pages visible while a receptionist checks more matches. The cursor belongs to this query. */
+export function usePatientSearchPages(input: SearchInput | null) {
+  const tenant = getTenant();
+  return useInfiniteQuery({
+    queryKey: ['patients', 'search-pages', tenant, input],
+    enabled: input !== null && tenant !== null,
+    initialPageParam: '',
+    queryFn: async ({ pageParam }) =>
+      unwrap(
+        await api.GET('/api/v1/patients', {
+          params: {
+            header: tenantHeader(),
+            query: { ...input, cursor: pageParam || undefined, limit: 20 },
+          },
+        }),
+      ),
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore && lastPage.nextCursor ? lastPage.nextCursor : undefined,
   });
 }
 

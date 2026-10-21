@@ -72,7 +72,7 @@ const json = (route: Route, status: number, body: unknown) =>
     body: JSON.stringify(body),
   });
 
-async function mockApi(page: Page, opts: { permissions?: string[] } = {}) {
+async function mockApi(page: Page, opts: { permissions?: string[]; searchPages?: boolean } = {}) {
   const seen: Seen = { createBodies: [], approveVersions: [], searchQueries: [] };
   let p2Status = 'ACTIVE';
   let caseVersion = 1;
@@ -119,8 +119,13 @@ async function mockApi(page: Page, opts: { permissions?: string[] } = {}) {
         summary(P1, 'Rahima Khatun', 'রহিমা খাতুন', 1990),
         summary(P2, 'Rohima Khatun', null, 1990),
       ];
-      const items = mrn ? all.filter((s) => s.medicalRecordNumber === mrn) : [all[0]];
-      return json(route, 200, { data: { items, nextCursor: null, hasMore: false } });
+      const items = mrn
+        ? all.filter((s) => s.medicalRecordNumber === mrn)
+        : opts.searchPages && url.searchParams.get('cursor') === 'second'
+          ? [all[1]]
+          : [all[0]];
+      const hasMore = Boolean(opts.searchPages && !mrn && !url.searchParams.has('cursor'));
+      return json(route, 200, { data: { items, nextCursor: hasMore ? 'second' : null, hasMore } });
     }
     if (path === '/patients/duplicate-check')
       return json(route, 200, {
@@ -210,6 +215,28 @@ test('patient search: name query, masked phone only, opens the record', async ({
   await page.getByRole('link', { name: 'P-0001-AAAA-BBBB-CCCC' }).click();
   await expect(page.getByTestId('patient-mrn')).toHaveText('P-0001-AAAA-BBBB-CCCC');
   await expect(page.getByTestId('patient-status')).toHaveText('Active');
+});
+
+test('patient search keeps earlier results when loading more and resets for a new query', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const { seen } = await mockApi(page, { searchPages: true });
+  await signIn(page);
+  await page.goto('/patients/search');
+  await page.getByLabel('Name, phone or MRN').fill('rahima');
+  await page.getByRole('button', { name: 'Search' }).click();
+  await expect(page.getByTestId('patient-results')).toContainText('Rahima Khatun');
+  await page.getByRole('button', { name: 'Show more' }).click();
+  await expect(page.getByTestId('patient-results')).toContainText('Rohima Khatun');
+  await expect(page.getByTestId('patient-results')).toContainText('Rahima Khatun');
+  expect(seen.searchQueries.at(-1)).toContain('cursor=second');
+
+  await page.getByLabel('Name, phone or MRN').fill('P-0002-AAAA-BBBB-CCCC');
+  await page.getByRole('button', { name: 'Search' }).click();
+  await expect(page.getByTestId('patient-results')).toContainText('Rohima Khatun');
+  await expect(page.getByTestId('patient-results')).not.toContainText('Rahima Khatun');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
 test('create with duplicate review: 409 shows candidates, acknowledged retry creates', async ({ page }) => {

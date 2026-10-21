@@ -221,6 +221,73 @@ button.link,
   padding: 8px;
   border-bottom: 1px solid var(--border);
 }
+.patient-search-header {
+  flex-wrap: wrap;
+}
+.patient-search-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  padding: clamp(16px, 3vw, 24px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-subtle);
+}
+.patient-search-form label {
+  min-width: 0;
+}
+.patient-search-form input {
+  width: 100%;
+}
+.patient-results-title {
+  margin: 28px 0 12px;
+  font-size: 1.1rem;
+}
+.patient-result-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.patient-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+}
+.patient-result strong,
+.patient-result-meta a {
+  display: block;
+}
+.patient-result .muted,
+.patient-result-meta span {
+  display: block;
+  font-size: 0.9rem;
+}
+.patient-result-meta {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .patient-search {
+    padding: 18px;
+  }
+  .patient-search-form {
+    grid-template-columns: 1fr;
+  }
+  .patient-result {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .patient-result-meta {
+    text-align: left;
+  }
+}
 .subcard,
 .notice {
   border: 1px solid var(--border);
