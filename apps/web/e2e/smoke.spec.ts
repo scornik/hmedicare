@@ -100,6 +100,8 @@ test('password login → tenant picker → dashboard; token never in web storage
   const state = await mockApi(page);
   await passwordLogin(page);
   await page.getByRole('button', { name: /Demo Clinic/ }).click();
+  await expect(page.getByRole('heading', { name: 'Quick actions' })).toBeVisible();
+  await page.getByText('Account details').click();
   await expect(page.getByTestId('role')).toHaveText('tenant_owner');
   await expect(page.getByTestId('permission-count')).toHaveText('2');
 
