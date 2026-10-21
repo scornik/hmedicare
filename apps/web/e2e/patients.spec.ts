@@ -215,6 +215,8 @@ test('patient search: name query, masked phone only, opens the record', async ({
   await page.getByRole('link', { name: 'P-0001-AAAA-BBBB-CCCC' }).click();
   await expect(page.getByTestId('patient-mrn')).toHaveText('P-0001-AAAA-BBBB-CCCC');
   await expect(page.getByTestId('patient-status')).toHaveText('Active');
+  await expect(page.getByRole('region', { name: 'Patient overview' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Back to patient search' })).toBeVisible();
 });
 
 test('patient search keeps earlier results when loading more and resets for a new query', async ({
