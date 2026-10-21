@@ -26,55 +26,61 @@ export function PatientDetailPage() {
   return (
     <>
       <TopBar />
-      <main className="card">
+      <main className="patient-profile">
+        <Link className="patient-profile-back" to="/patients/search">
+          ← {t('patients.backToSearch')}
+        </Link>
         {patient.isPending && <p>{t('common.loading')}</p>}
         {patient.error && !(patient.error instanceof ApiError) && (
           <p role="alert">{t('patients.loadFailed')}</p>
         )}
         {p && (
           <>
-            <div className="row">
+            <header className="row patient-profile-header">
               <h1 data-testid="patient-name">
                 {locale === 'bn-BD' && p.legalNameBn ? p.legalNameBn : p.legalName}
               </h1>
               <span className="badge" data-testid="patient-status">
                 {t(`patients.status.${p.status}` as MessageKey)}
               </span>
-            </div>
+            </header>
             {p.status === 'MERGED' && p.mergedIntoPatientId && (
               <p className="notice">
                 {t('patients.mergedInto')}{' '}
                 <Link to={`/patients/${p.mergedIntoPatientId}`}>{t('patients.open')}</Link>
               </p>
             )}
-            <dl>
-              <dt>{t('patients.mrn')}</dt>
-              <dd data-testid="patient-mrn">{p.medicalRecordNumber}</dd>
-              <dt>{t('patients.legalName')}</dt>
-              <dd>
-                {p.legalName}
-                {p.legalNameBn ? ` / ${p.legalNameBn}` : ''}
-              </dd>
-              <dt>{t('patients.sex')}</dt>
-              <dd>{p.sex ? t(`patients.sex.${p.sex}` as MessageKey) : '—'}</dd>
-              <dt>{t('patients.dateOfBirth')}</dt>
-              <dd>{p.dateOfBirth ?? p.birthYear ?? '—'}</dd>
-              <dt>{t('patients.contacts')}</dt>
-              <dd>
-                <ul className="plain">
-                  {p.contacts.map((c) => (
-                    <li key={c.id}>
-                      {c.displayValue}{' '}
-                      <span className="muted">
-                        {t(`patients.contactType.${c.type}` as MessageKey)}
-                        {c.isPreferred ? ` · ${t('patients.preferred')}` : ''}
-                        {c.verificationStatus === 'VERIFIED' ? ` · ${t('patients.verified')}` : ''}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </dd>
-            </dl>
+            <section className="card patient-profile-overview" aria-label={t('patients.overview')}>
+              <h2>{t('patients.overview')}</h2>
+              <dl className="patient-facts">
+                <dt>{t('patients.mrn')}</dt>
+                <dd data-testid="patient-mrn">{p.medicalRecordNumber}</dd>
+                <dt>{t('patients.legalName')}</dt>
+                <dd>
+                  {p.legalName}
+                  {p.legalNameBn ? ` / ${p.legalNameBn}` : ''}
+                </dd>
+                <dt>{t('patients.sex')}</dt>
+                <dd>{p.sex ? t(`patients.sex.${p.sex}` as MessageKey) : '—'}</dd>
+                <dt>{t('patients.dateOfBirth')}</dt>
+                <dd>{p.dateOfBirth ?? p.birthYear ?? '—'}</dd>
+                <dt>{t('patients.contacts')}</dt>
+                <dd>
+                  <ul className="plain">
+                    {p.contacts.map((c) => (
+                      <li key={c.id}>
+                        {c.displayValue}{' '}
+                        <span className="muted">
+                          {t(`patients.contactType.${c.type}` as MessageKey)}
+                          {c.isPreferred ? ` · ${t('patients.preferred')}` : ''}
+                          {c.verificationStatus === 'VERIFIED' ? ` · ${t('patients.verified')}` : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </dl>
+            </section>
             {ctx.data?.permissions.includes('timeline.read') && <TimelinePanel key={p.id} patientId={p.id} />}
             {ctx.data?.permissions.includes('communication.read') && (
               <CommunicationPanel

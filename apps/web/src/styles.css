@@ -272,6 +272,50 @@ button.link,
   text-align: right;
   overflow-wrap: anywhere;
 }
+.patient-profile {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: clamp(18px, 4vw, 40px) clamp(16px, 3vw, 24px);
+}
+.patient-profile-back {
+  display: inline-block;
+  margin-bottom: 18px;
+}
+.patient-profile-header {
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin-bottom: 20px;
+}
+.patient-profile-header h1 {
+  margin: 0;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+.patient-profile .card {
+  max-width: none;
+  margin: 0 0 18px;
+}
+.patient-profile-overview h2 {
+  margin-top: 0;
+}
+.patient-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 24px;
+  margin: 0;
+}
+.patient-facts dt {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.patient-facts dd {
+  margin: 0 0 14px;
+  overflow-wrap: anywhere;
+}
+.patient-facts dd:last-child {
+  margin-bottom: 0;
+}
 @media (max-width: 600px) {
   .patient-search {
     padding: 18px;
@@ -286,6 +330,9 @@ button.link,
   }
   .patient-result-meta {
     text-align: left;
+  }
+  .patient-facts {
+    grid-template-columns: 1fr;
   }
 }
 .subcard,
