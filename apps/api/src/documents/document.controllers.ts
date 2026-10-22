@@ -282,6 +282,42 @@ export class DocumentController {
     };
   }
 
+  @Get(':id')
+  @RequirePermission('document.read')
+  async getMetadata(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id') documentId: string,
+    @Req() req: FastifyRequest,
+  ) {
+    const document = await this.runtime.prisma.document.findFirst({
+      where: { id: documentId, tenantId: tenant.tenantId },
+      select: {
+        id: true,
+        patientId: true,
+        encounterId: true,
+        category: true,
+        title: true,
+        status: true,
+        currentRevision: true,
+        accessPolicy: true,
+        redactedAt: true,
+      },
+    });
+    if (!document || document.redactedAt || document.accessPolicy === 'AUDIT_ONLY' || !document.encounterId)
+      throw new AppError('RESOURCE_NOT_FOUND');
+    const context = await clinicalActor(this.runtime, actor, tenant, req);
+    const access = await this.clinical.access.assignedOrScoped(context, document.encounterId);
+    if (access.encounter.patientId !== document.patientId) throw new AppError('RESOURCE_NOT_FOUND');
+    return {
+      id: document.id,
+      category: document.category,
+      title: document.title,
+      status: document.status,
+      currentRevision: document.currentRevision,
+    };
+  }
+
   @Post(':id/download-token')
   @HttpCode(201)
   @RequirePermission('document.read')

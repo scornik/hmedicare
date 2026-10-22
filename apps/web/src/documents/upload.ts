@@ -34,7 +34,7 @@ export async function uploadEncounterDocument(input: {
   category: UploadCategory;
   file: File;
   onProgress: (completed: number, total: number) => void;
-}): Promise<void> {
+}): Promise<string> {
   const { file, encounterId, patientId, category, onProgress } = input;
   const bytes = await file.arrayBuffer();
   const digest = await sha256(bytes);
@@ -65,6 +65,7 @@ export async function uploadEncounterDocument(input: {
       },
     });
     if (finalized.error || !finalized.data) throw new Error('Upload finalization failed');
+    return finalized.data.data.documentId;
   } catch (error) {
     await api
       .POST('/api/v1/documents/upload-sessions/{sessionId}/abort', {

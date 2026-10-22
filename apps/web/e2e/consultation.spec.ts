@@ -751,9 +751,32 @@ test('visit documents show a readable empty state and available files', async ({
   expect((await download).suggestedFilename()).toBe('synthetic-prescription.pdf');
 });
 
-test('doctor uploads a report and sees that scanning is pending', async ({ page }) => {
-  await mockApi(page);
+test('doctor uploads a report and sees it become available after scanning', async ({ page }) => {
+  const state = await mockApi(page);
   const seen: string[] = [];
+  let statusReads = 0;
+  await page.route(`${API}/documents/${DOCUMENT}`, (route) => {
+    statusReads++;
+    const ready = statusReads > 1;
+    if (ready)
+      state.documents = [
+        {
+          id: DOCUMENT,
+          category: 'LAB_REPORT',
+          title: 'synthetic-report.pdf',
+          createdAt: '2026-10-01T09:00:00.000Z',
+        },
+      ];
+    return json(route, 200, {
+      data: {
+        id: DOCUMENT,
+        category: 'LAB_REPORT',
+        title: 'synthetic-report.pdf',
+        status: ready ? 'AVAILABLE' : 'SCANNING',
+        currentRevision: ready ? 1 : null,
+      },
+    });
+  });
   await page.route(`${API}/documents/upload-sessions**`, async (route) => {
     const req = route.request();
     const pathname = new URL(req.url()).pathname;
@@ -808,6 +831,8 @@ test('doctor uploads a report and sees that scanning is pending', async ({ page 
   });
   await panel.getByRole('button', { name: 'Upload document' }).click();
   await expect(panel.getByText('The document is being checked.')).toBeVisible();
+  await expect(panel.getByText('Document check complete.')).toBeVisible({ timeout: 12_000 });
+  await expect(panel.getByTestId('encounter-documents')).toContainText('synthetic-report.pdf');
   expect(seen).toEqual(['create', 'part', 'finalize']);
 });
 

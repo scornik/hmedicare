@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, getTenant } from '../api';
 import { useI18n } from '../i18n/i18n';
 import type { MessageKey } from '../i18n/messages';
@@ -23,11 +23,13 @@ export function EncounterDocumentsPanel({
 }) {
   const { t, locale } = useI18n();
   const tenant = getTenant();
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [category, setCategory] = useState<UploadCategory>('LAB_REPORT');
   const [file, setFile] = useState<File | null>(null);
   const [inputKey, setInputKey] = useState(0);
   const [progress, setProgress] = useState<{ completed: number; total: number } | null>(null);
+  const [pendingDocumentId, setPendingDocumentId] = useState<string | null>(null);
   const allowedTypes =
     category === 'IMAGE'
       ? ['image/jpeg', 'image/png', 'image/webp']
@@ -66,6 +68,23 @@ export function EncounterDocumentsPanel({
   const download = useMutation({
     mutationFn: downloadDocument,
   });
+  const processing = useQuery({
+    queryKey: ['document-processing', tenant, pendingDocumentId],
+    enabled: pendingDocumentId !== null,
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/documents/{id}', {
+        params: { header: { 'X-Tenant-ID': tenant ?? '' }, path: { id: pendingDocumentId! } },
+      });
+      if (result.error || !result.data) throw new Error('Document status unavailable');
+      return result.data.data;
+    },
+    refetchInterval: (query) =>
+      ['AVAILABLE', 'REJECTED', 'EXPIRED'].includes(query.state.data?.status ?? '') ? false : 5000,
+  });
+  useEffect(() => {
+    if (processing.data?.status === 'AVAILABLE')
+      void queryClient.invalidateQueries({ queryKey: ['encounter-documents', tenant, encounterId] });
+  }, [processing.data?.status, queryClient, tenant, encounterId]);
   const upload = useMutation({
     mutationFn: () =>
       uploadEncounterDocument({
@@ -75,7 +94,9 @@ export function EncounterDocumentsPanel({
         file: file!,
         onProgress: (completed, total) => setProgress({ completed, total }),
       }),
-    onSuccess: () => {
+    onMutate: () => setPendingDocumentId(null),
+    onSuccess: (documentId) => {
+      setPendingDocumentId(documentId);
       setFile(null);
       setInputKey((value) => value + 1);
       setProgress(null);
@@ -146,7 +167,21 @@ export function EncounterDocumentsPanel({
           {progress ? ` ${progress.completed}/${progress.total}` : ''}
         </p>
       )}
-      {upload.isSuccess && <p role="status">{t('documents.scanning')}</p>}
+      {upload.isSuccess && !['AVAILABLE', 'REJECTED', 'EXPIRED'].includes(processing.data?.status ?? '') && (
+        <p role="status">{t('documents.scanning')}</p>
+      )}
+      {processing.data?.status === 'AVAILABLE' && <p role="status">{t('documents.ready')}</p>}
+      {['REJECTED', 'EXPIRED'].includes(processing.data?.status ?? '') && (
+        <p role="alert">{t('documents.rejected')}</p>
+      )}
+      {processing.isError && (
+        <p role="alert">
+          {t('documents.statusFailed')}{' '}
+          <button type="button" onClick={() => void processing.refetch()}>
+            {t('documents.retry')}
+          </button>
+        </p>
+      )}
       {upload.isError && <p role="alert">{t('documents.uploadFailed')}</p>}
       {list.isPending && <p role="status">{t('common.loading')}</p>}
       {list.isError && (
