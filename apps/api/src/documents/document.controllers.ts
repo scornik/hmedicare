@@ -41,9 +41,13 @@ export class DocumentController {
   ) {
     const document = await this.documents.downloads.describe(tenant.tenantId, documentId);
     if (!document) throw new AppError('RESOURCE_NOT_FOUND');
+    if (document.accessPolicy === 'AUDIT_ONLY') throw new AppError('RESOURCE_NOT_FOUND');
     if (!document.encounterId) throw new AppError('RESOURCE_NOT_FOUND');
     const clinicalActorContext = await clinicalActor(this.runtime, actor, tenant, req);
-    await this.clinical.access.assignedOrScoped(clinicalActorContext, document.encounterId);
+    const access = await this.clinical.access.assignedOrScoped(clinicalActorContext, document.encounterId);
+    // The two foreign keys prove that the patient and encounter exist in this tenant, but they do not
+    // prove the document belongs to that encounter's patient. Do not serve a mismatched row.
+    if (access.encounter.patientId !== document.patientId) throw new AppError('RESOURCE_NOT_FOUND');
     return document;
   }
 
