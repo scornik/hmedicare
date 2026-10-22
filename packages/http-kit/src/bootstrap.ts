@@ -24,6 +24,7 @@ export const CORS_ALLOWED_HEADERS = [
   'x-csrf-token',
   'x-device-id',
   'if-none-match',
+  'x-part-sha256',
 ];
 export const CORS_EXPOSED_HEADERS = [
   'x-request-id',
@@ -91,6 +92,15 @@ export async function createHttpApp(
   options: { cors: boolean },
 ): Promise<NestFastifyApplication> {
   const adapter = new FastifyAdapter(fastifyOptions(runtime));
+  // Upload parts use an exact-size binary body. Keep the larger limit on this content type so JSON
+  // endpoints retain Fastify's ordinary limit; the upload service verifies the exact part size/hash.
+  adapter
+    .getInstance()
+    .addContentTypeParser(
+      'application/octet-stream',
+      { parseAs: 'buffer', bodyLimit: 8 * 1024 * 1024 },
+      (_request, body, done) => done(null, body),
+    );
   registerHttpHooks(adapter.getInstance(), runtime);
   const app = await NestFactory.create<NestFastifyApplication>(rootModule as never, adapter, {
     logger: new PinoNestLogger(runtime),

@@ -1,4 +1,5 @@
 import { mkdtemp, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import request from 'supertest';
@@ -228,6 +229,97 @@ async function tokenFor(d: Awaited<ReturnType<typeof storedDocument>>): Promise<
 }
 
 describe('document download over HTTP', () => {
+  it('accepts an authorized upload and queues its completed bytes for scanning', async () => {
+    const d = await storedDocument('upload-ok');
+    const bytes = Buffer.from('%PDF-1.7\nsynthetic lab report\n');
+    const sha256 = createHash('sha256').update(bytes).digest('hex');
+    const created = await request(server)
+      .post('/api/v1/documents/upload-sessions')
+      .set(d.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({
+        patientId: d.patientId,
+        encounterId: d.encounterId,
+        category: 'LAB_REPORT',
+        contentType: 'application/pdf',
+        sizeBytes: bytes.length,
+        sha256,
+        fileName: 'report.pdf',
+      })
+      .expect(201);
+    const { sessionId, documentId } = created.body.data;
+    await request(server)
+      .put(`/api/v1/documents/upload-sessions/${sessionId}/parts/1`)
+      .set(d.doctor.headers)
+      .set('x-part-sha256', sha256)
+      .set('content-type', 'application/octet-stream')
+      .send(bytes)
+      .expect(200);
+    const finished = await request(server)
+      .post(`/api/v1/documents/upload-sessions/${sessionId}/finalize`)
+      .set(d.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(201);
+    expect(finished.body.data.documentId).toBe(documentId);
+    expect(
+      await api.runtime.prisma.document.findFirst({ where: { id: documentId }, select: { status: true } }),
+    ).toEqual({ status: 'SCANNING' });
+  });
+
+  it('refuses an upload for a patient outside the authorized encounter', async () => {
+    const d = await storedDocument('upload-mismatch');
+    const bytes = Buffer.from('%PDF-1.7\nreport\n');
+    const response = await request(server)
+      .post('/api/v1/documents/upload-sessions')
+      .set(d.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({
+        patientId: newId(),
+        encounterId: d.encounterId,
+        category: 'LAB_REPORT',
+        contentType: 'application/pdf',
+        sizeBytes: bytes.length,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+      });
+    expect(response.status).toBe(404);
+  });
+
+  it('rejects a wrong part checksum and allows its owner to abort', async () => {
+    const d = await storedDocument('upload-abort');
+    const bytes = Buffer.from('%PDF-1.7\nreport\n');
+    const created = await request(server)
+      .post('/api/v1/documents/upload-sessions')
+      .set(d.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({
+        patientId: d.patientId,
+        encounterId: d.encounterId,
+        category: 'LAB_REPORT',
+        contentType: 'application/pdf',
+        sizeBytes: bytes.length,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+      })
+      .expect(201);
+    const { sessionId, documentId } = created.body.data;
+    await request(server)
+      .put(`/api/v1/documents/upload-sessions/${sessionId}/parts/1`)
+      .set(d.doctor.headers)
+      .set('x-part-sha256', '0'.repeat(64))
+      .set('content-type', 'application/octet-stream')
+      .send(bytes)
+      .expect(422);
+    await request(server)
+      .post(`/api/v1/documents/upload-sessions/${sessionId}/abort`)
+      .set(d.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(201);
+    expect(
+      await api.runtime.prisma.document.findFirst({ where: { id: documentId }, select: { status: true } }),
+    ).toEqual({ status: 'EXPIRED' });
+  });
+
   it('lists only available documents for the authorized encounter and patient', async () => {
     const d = await storedDocument('dl-list');
     const result = await request(server)
