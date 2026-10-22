@@ -46,6 +46,26 @@ export const EncounterDocumentList = registry.register(
   }),
 );
 
+export const DocumentMetadata = registry.register(
+  'DocumentMetadata',
+  z.object({
+    id: Uuid,
+    category: z.string(),
+    title: z.string().nullable(),
+    status: z.enum([
+      'CREATED',
+      'UPLOADING',
+      'UPLOADED',
+      'SCANNING',
+      'SCAN_ERROR',
+      'AVAILABLE',
+      'REJECTED',
+      'EXPIRED',
+    ]),
+    currentRevision: z.number().int().nullable(),
+  }),
+);
+
 const UploadRequest = registry.register(
   'DocumentUploadRequest',
   z.object({
@@ -149,6 +169,17 @@ registry.registerPath({
     query: z.object({ page: z.coerce.number().int().min(1).max(1000).optional() }),
   },
   responses: { 200: ok(EncounterDocumentList, 'Available encounter documents'), ...errorResponses },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/documents/{id}',
+  operationId: 'getDocumentMetadata',
+  tags: ['documents'],
+  security: secured,
+  description: 'Returns the current processing state of a clinical document for an authorized encounter.',
+  request: { headers: tenantHeaders, params: z.object({ id: Uuid }) },
+  responses: { 200: ok(DocumentMetadata, 'Document metadata'), ...errorResponses },
 });
 
 registry.registerPath({

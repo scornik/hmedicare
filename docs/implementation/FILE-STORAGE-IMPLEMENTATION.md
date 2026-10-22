@@ -259,3 +259,7 @@ The route accepts uploads only when `UPLOAD_SCAN_WORKER_ENABLED` is enabled;
 the UI reads that capability and otherwise shows an unavailable state. Worker
 configuration and the production host scanner probe remain operational gates.
 Patient-context uploads, quotas and S3 storage remain outside this increment.
+The document metadata route now reports processing state to the authorized
+clinical team. The consultation UI polls until scanning makes the document
+AVAILABLE or rejects it, then refreshes the visible document list. This does
+not change the worker activation gate above.

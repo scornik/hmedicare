@@ -297,6 +297,11 @@ describe('document download over HTTP', () => {
     expect(
       await api.runtime.prisma.document.findFirst({ where: { id: documentId }, select: { status: true } }),
     ).toEqual({ status: 'SCANNING' });
+    const metadata = await request(server)
+      .get(`/api/v1/documents/${documentId}`)
+      .set(d.doctor.headers)
+      .expect(200);
+    expect(metadata.body.data).toMatchObject({ id: documentId, status: 'SCANNING', currentRevision: null });
   });
 
   it('refuses an upload for a patient outside the authorized encounter', async () => {
@@ -379,6 +384,17 @@ describe('document download over HTTP', () => {
       .get(`/api/v1/documents/by-encounter/${d.encounterId}`)
       .set(unrelated.headers)
       .expect(403);
+  });
+
+  it('limits document processing status to the authorized clinical scope', async () => {
+    const d = await storedDocument('dl-status-access');
+    const available = await request(server)
+      .get(`/api/v1/documents/${d.documentId}`)
+      .set(d.doctor.headers)
+      .expect(200);
+    expect(available.body.data).toMatchObject({ status: 'AVAILABLE', currentRevision: 1 });
+    const unrelated = await doctor(d.tenantId, 'Status other');
+    await request(server).get(`/api/v1/documents/${d.documentId}`).set(unrelated.headers).expect(403);
   });
 
   it('issues a token and streams the bytes as an attachment', async () => {

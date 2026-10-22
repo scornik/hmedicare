@@ -953,6 +953,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Returns the current processing state of a clinical document for an authorized encounter. */
+        get: operations["getDocumentMetadata"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/{id}/download": {
         parameters: {
             query?: never;
@@ -3600,6 +3617,18 @@ export interface components {
             startsAt: string;
             /** @enum {string} */
             status: "ACTIVE" | "REVOKED";
+        };
+        DocumentMetadata: {
+            category: string;
+            currentRevision: number | null;
+            /**
+             * Format: uuid
+             * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+             */
+            id: string;
+            /** @enum {string} */
+            status: "CREATED" | "UPLOADING" | "UPLOADED" | "SCANNING" | "SCAN_ERROR" | "AVAILABLE" | "REJECTED" | "EXPIRED";
+            title: string | null;
         };
         DocumentUploadRequest: {
             /** @enum {string} */
@@ -12289,6 +12318,105 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["AiCredential"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getDocumentMetadata: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Document metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["DocumentMetadata"];
                         meta: components["schemas"]["ResponseMeta"];
                     };
                 };
