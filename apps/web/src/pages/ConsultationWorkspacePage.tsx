@@ -332,7 +332,13 @@ export function ConsultationWorkspacePage() {
         </section>
 
         <PrescriptionPanel encounterId={encounterId} />
-        <EncounterDocumentsPanel key={[tenant, encounterId].join(':')} encounterId={encounterId} />
+        {encounter.data && (
+          <EncounterDocumentsPanel
+            key={[tenant, encounterId].join(':')}
+            encounterId={encounterId}
+            patientId={encounter.data.patientId}
+          />
+        )}
         {encounter.data && (
           <AIPanel
             key={[tenant, currentUser()?.id, encounterId].join(':')}

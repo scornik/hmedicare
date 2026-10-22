@@ -99,6 +99,12 @@ export class DocumentController {
     });
   }
 
+  @Get('upload-capability')
+  @RequirePermission('document.write')
+  uploadCapability() {
+    return { enabled: this.runtime.config.UPLOAD_SCAN_WORKER_ENABLED };
+  }
+
   @Post('upload-sessions')
   @HttpCode(201)
   @RequirePermission('document.write')
@@ -109,6 +115,7 @@ export class DocumentController {
     @Req() req: FastifyRequest,
     @Body() body: unknown,
   ) {
+    if (!this.runtime.config.UPLOAD_SCAN_WORKER_ENABLED) throw new AppError('FEATURE_DISABLED');
     const parsed = uploadRequest.safeParse(body);
     if (!parsed.success) throw new AppError('VALIDATION_FAILED');
     const input = { ...parsed.data, tenantId: tenant.tenantId, ownerUserId: actor.userId };

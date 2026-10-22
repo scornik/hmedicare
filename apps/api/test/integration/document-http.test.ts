@@ -34,7 +34,11 @@ beforeAll(async () => {
   api = await buildApi(
     loadConfig<ServerConfig>(
       'api',
-      testEnv({ DATABASE_URL: testDatabaseUrl(), STORAGE_DISK_ROOT: storageRoot }),
+      testEnv({
+        DATABASE_URL: testDatabaseUrl(),
+        STORAGE_DISK_ROOT: storageRoot,
+        UPLOAD_SCAN_WORKER_ENABLED: 'true',
+      }),
     ),
   );
   server = api.app.getHttpServer();
@@ -229,6 +233,34 @@ async function tokenFor(d: Awaited<ReturnType<typeof storedDocument>>): Promise<
 }
 
 describe('document download over HTTP', () => {
+  it('disables upload admission when the scan worker is not enabled', async () => {
+    const d = await storedDocument('upload-disabled');
+    Object.assign(api.runtime.config, { UPLOAD_SCAN_WORKER_ENABLED: false });
+    try {
+      const capability = await request(server)
+        .get('/api/v1/documents/upload-capability')
+        .set(d.doctor.headers)
+        .expect(200);
+      expect(capability.body.data.enabled).toBe(false);
+      const bytes = Buffer.from('%PDF-1.7\nreport\n');
+      const response = await request(server)
+        .post('/api/v1/documents/upload-sessions')
+        .set(d.doctor.headers)
+        .set('idempotency-key', idem())
+        .send({
+          patientId: d.patientId,
+          encounterId: d.encounterId,
+          category: 'LAB_REPORT',
+          contentType: 'application/pdf',
+          sizeBytes: bytes.length,
+          sha256: createHash('sha256').update(bytes).digest('hex'),
+        })
+        .expect(409);
+      expect(response.body.code).toBe('FEATURE_DISABLED');
+    } finally {
+      Object.assign(api.runtime.config, { UPLOAD_SCAN_WORKER_ENABLED: true });
+    }
+  });
   it('accepts an authorized upload and queues its completed bytes for scanning', async () => {
     const d = await storedDocument('upload-ok');
     const bytes = Buffer.from('%PDF-1.7\nsynthetic lab report\n');
