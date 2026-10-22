@@ -20,6 +20,7 @@ export interface DocumentDescriptor {
   patientId: string;
   encounterId: string | null;
   category: string;
+  accessPolicy: string;
   revision: number;
   contentType: string;
   sizeBytes: number;
@@ -46,6 +47,7 @@ export class DocumentDownloadService {
         patientId: true,
         encounterId: true,
         category: true,
+        accessPolicy: true,
         status: true,
         currentRevision: true,
         redactedAt: true,
@@ -68,6 +70,7 @@ export class DocumentDownloadService {
       patientId: doc.patientId,
       encounterId: doc.encounterId,
       category: doc.category,
+      accessPolicy: doc.accessPolicy,
       revision: version.revision,
       contentType: version.contentType,
       sizeBytes: Number(version.sizeBytes),

@@ -308,6 +308,62 @@ describe('document download over HTTP', () => {
       .expect(404);
   });
 
+  it('refuses a document whose patient does not match its authorized encounter', async () => {
+    const d = await storedDocument('dl-mismatched-patient');
+    const token = await tokenFor(d);
+    const otherPatientId = newId();
+    const now = new Date();
+    await api.runtime.prisma.patient.create({
+      data: {
+        id: otherPatientId,
+        tenantId: d.tenantId,
+        medicalRecordNumber: `P-DL-${otherPatientId.slice(-8)}`,
+        legalName: 'Other Synthetic Patient',
+        displayName: 'Other Synthetic Patient',
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await api.runtime.prisma.document.update({
+      where: { id: d.documentId },
+      data: { patientId: otherPatientId },
+    });
+
+    await request(server)
+      .post(`/api/v1/documents/${d.documentId}/download-token`)
+      .set(d.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(404);
+    await request(server)
+      .get(`/api/v1/documents/${d.documentId}/download`)
+      .query({ token })
+      .set(d.doctor.headers)
+      .expect(404);
+  });
+
+  it('does not issue or redeem a clinical download for an audit-only document', async () => {
+    const d = await storedDocument('dl-audit-only');
+    const token = await tokenFor(d);
+    await api.runtime.prisma.document.update({
+      where: { id: d.documentId },
+      data: { accessPolicy: 'AUDIT_ONLY' },
+    });
+
+    await request(server)
+      .post(`/api/v1/documents/${d.documentId}/download-token`)
+      .set(d.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(404);
+    await request(server)
+      .get(`/api/v1/documents/${d.documentId}/download`)
+      .query({ token })
+      .set(d.doctor.headers)
+      .expect(404);
+  });
+
   it('refuses a token for a document that is not available yet', async () => {
     const d = await storedDocument('dl-scanning', { status: 'SCANNING' });
 
