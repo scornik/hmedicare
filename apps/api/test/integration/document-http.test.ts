@@ -228,6 +228,35 @@ async function tokenFor(d: Awaited<ReturnType<typeof storedDocument>>): Promise<
 }
 
 describe('document download over HTTP', () => {
+  it('lists only available documents for the authorized encounter and patient', async () => {
+    const d = await storedDocument('dl-list');
+    const result = await request(server)
+      .get(`/api/v1/documents/by-encounter/${d.encounterId}`)
+      .set(d.doctor.headers)
+      .expect(200);
+    expect(result.body.data.items.map((item: { id: string }) => item.id)).toEqual([d.documentId]);
+    expect(result.body.data).toMatchObject({ page: 1, hasMore: false });
+
+    await api.runtime.prisma.document.update({
+      where: { id: d.documentId },
+      data: { accessPolicy: 'AUDIT_ONLY' },
+    });
+    const hidden = await request(server)
+      .get(`/api/v1/documents/by-encounter/${d.encounterId}`)
+      .set(d.doctor.headers)
+      .expect(200);
+    expect(hidden.body.data.items).toEqual([]);
+  });
+
+  it('does not list another doctor’s encounter documents', async () => {
+    const d = await storedDocument('dl-list-access');
+    const unrelated = await doctor(d.tenantId, 'List other');
+    await request(server)
+      .get(`/api/v1/documents/by-encounter/${d.encounterId}`)
+      .set(unrelated.headers)
+      .expect(403);
+  });
+
   it('issues a token and streams the bytes as an attachment', async () => {
     const d = await storedDocument('dl-ok');
     const token = await tokenFor(d);

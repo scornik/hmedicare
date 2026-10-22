@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, getTenant } from '../api';
 import { useI18n } from '../i18n/i18n';
 import type { MessageKey } from '../i18n/messages';
+import { downloadDocument } from '../documents/download';
 
 /**
  * The prescription editor inside the consultation workspace (Stage 7 CP10).
@@ -258,24 +259,14 @@ export function PrescriptionPanel({ encounterId }: { encounterId: string }) {
   });
 
   /**
-   * Fetches a single-use token and follows it.
+   * Fetches a single-use token and downloads with the in-memory access token.
    *
    * The token is spent on use and bound to this actor, so it cannot be turned into a link to share —
    * which is why the download is driven here rather than rendered as an anchor the browser might
    * prefetch or a user might copy.
    */
   const download = useMutation({
-    mutationFn: async (documentId: string) => {
-      const issued = await api.POST('/api/v1/documents/{id}/download-token', {
-        params: { header: idemHeader(), path: { id: documentId } },
-      });
-      if (issued.error) throw issued;
-      const token = issued.data?.data?.token;
-      if (!token) throw issued;
-      window.location.assign(
-        `/api/v1/documents/${encodeURIComponent(documentId)}/download?token=${encodeURIComponent(token)}`,
-      );
-    },
+    mutationFn: downloadDocument,
     onError: (e: { response?: { status: number } }) => onFailure(e?.response?.status, undefined),
   });
 

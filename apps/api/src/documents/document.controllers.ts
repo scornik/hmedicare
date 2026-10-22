@@ -51,6 +51,41 @@ export class DocumentController {
     return document;
   }
 
+  @Get('by-encounter/:encounterId')
+  @RequirePermission('document.read')
+  async listForEncounter(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('encounterId') encounterId: string,
+    @Query('page') rawPage: string | undefined,
+    @Req() req: FastifyRequest,
+  ) {
+    const page = rawPage === undefined ? 1 : Number(rawPage);
+    if (!Number.isSafeInteger(page) || page < 1 || page > 1000) throw new AppError('VALIDATION_FAILED');
+    const clinicalActorContext = await clinicalActor(this.runtime, actor, tenant, req);
+    const access = await this.clinical.access.assignedOrScoped(clinicalActorContext, encounterId);
+    const rows = await this.runtime.prisma.document.findMany({
+      where: {
+        tenantId: tenant.tenantId,
+        encounterId,
+        patientId: access.encounter.patientId,
+        status: 'AVAILABLE',
+        currentRevision: { not: null },
+        accessPolicy: { not: 'AUDIT_ONLY' },
+        redactedAt: null,
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: (page - 1) * 25,
+      take: 26,
+      select: { id: true, category: true, title: true, createdAt: true },
+    });
+    return {
+      items: rows.slice(0, 25).map((row) => ({ ...row, createdAt: row.createdAt.toISOString() })),
+      page,
+      hasMore: rows.length > 25,
+    };
+  }
+
   @Post(':id/download-token')
   @HttpCode(201)
   @RequirePermission('document.read')
