@@ -4,7 +4,7 @@ import { bearerAuth, registry, z } from './registry';
 /**
  * Stored documents (API §3.8, FILE-STORAGE-IMPLEMENTATION.md §2.5).
  *
- * Only the read half exists so far: the upload session routes arrive with the upload path. A clinical
+ * The upload session routes arrive with the upload path. A clinical
  * file is never reachable by URL alone — authorization happens when a token is issued, and the token
  * carries the actor, the document and the revision it was issued for.
  */
@@ -30,6 +30,38 @@ export const DownloadTokenResponse = registry.register(
     }),
   }),
 );
+
+export const EncounterDocumentList = registry.register(
+  'EncounterDocumentList',
+  z.object({
+    items: z.array(
+      z.object({
+        id: Uuid,
+        category: z.string(),
+        title: z.string().nullable(),
+        createdAt: Timestamp,
+      }),
+    ),
+    page: z.number().int().positive(),
+    hasMore: z.boolean(),
+  }),
+);
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/documents/by-encounter/{encounterId}',
+  operationId: 'listEncounterDocuments',
+  tags: ['documents'],
+  security: secured,
+  description:
+    'Lists available clinical documents for an authorized encounter. Audit-only, redacted and mismatched-patient records are excluded.',
+  request: {
+    headers: tenantHeaders,
+    params: z.object({ encounterId: Uuid }),
+    query: z.object({ page: z.coerce.number().int().min(1).max(1000).optional() }),
+  },
+  responses: { 200: ok(EncounterDocumentList, 'Available encounter documents'), ...errorResponses },
+});
 
 registry.registerPath({
   method: 'post',

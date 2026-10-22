@@ -29,6 +29,7 @@ const session = {
 const cors = {
   'access-control-allow-origin': 'http://localhost:4173',
   'access-control-allow-credentials': 'true',
+  'access-control-expose-headers': 'content-disposition',
 };
 const json = (route: Route, status: number, body: unknown) =>
   route.fulfill({
@@ -53,6 +54,7 @@ interface State {
   revisions: Array<{ revision: number; correctionReason: string | null }>;
   /** Stage 7 CP10: the encounter's prescription revisions, newest first. */
   prescriptions: Array<Record<string, unknown> & { rowVersion: number }>;
+  documents: Array<{ id: string; category: string; title: string | null; createdAt: string }>;
   /** Saves the server refuses, to stage a race without needing a second browser. */
   rejectNextSave: boolean;
   seen: { saves: number[]; signs: unknown[] };
@@ -76,6 +78,7 @@ async function mockApi(page: Page, overrides: Partial<State> = {}): Promise<Stat
     rejectNextSave: false,
     seen: { saves: [], signs: [] },
     prescriptions: [],
+    documents: [],
     ...overrides,
   };
 
@@ -299,6 +302,25 @@ async function mockApi(page: Page, overrides: Partial<State> = {}): Promise<Stat
     if (path === `/documents/${DOCUMENT}/download-token` && req.method() === 'POST') {
       return json(route, 201, {
         data: { token: '9999999999.' + 'a'.repeat(64), expiresAt: new Date().toISOString(), revision: 1 },
+      });
+    }
+    if (path === `/documents/${DOCUMENT}/download` && req.method() === 'GET') {
+      if (req.headers()['authorization'] !== `Bearer ${ACCESS}`)
+        return json(route, 401, { code: 'UNAUTHENTICATED' });
+      return route.fulfill({
+        status: 200,
+        headers: {
+          ...cors,
+          'content-type': 'application/pdf',
+          'content-disposition': "attachment; filename*=UTF-8''synthetic-prescription.pdf",
+        },
+        body: '%PDF-1.7\nsynthetic',
+      });
+    }
+    if (path === `/documents/by-encounter/${ENCOUNTER}` && req.method() === 'GET') {
+      const pageNumber = Number(url.searchParams.get('page') ?? '1');
+      return json(route, 200, {
+        data: { items: pageNumber === 1 ? state.documents : [], page: pageNumber, hasMore: false },
       });
     }
     if (path === '/medications/search' && req.method() === 'GET') {
@@ -706,6 +728,25 @@ test('the lab placeholder remains while the real timeline is shown once', async 
   await expect(page.getByTestId('panel-labs')).toContainText('Arrives in a later stage.');
   await expect(page.getByTestId('panel-timeline')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Patient timeline' })).toHaveCount(1);
+});
+
+test('visit documents show a readable empty state and available files', async ({ page }) => {
+  const state = await mockApi(page);
+  await open(page);
+  await expect(page.getByText('No documents are available for this visit yet.')).toBeVisible();
+  state.documents = [
+    {
+      id: DOCUMENT,
+      category: 'PRESCRIPTION_PDF',
+      title: 'Synthetic prescription',
+      createdAt: '2026-10-01T09:00:00.000Z',
+    },
+  ];
+  await page.getByTestId('panel-documents').getByRole('button', { name: 'Refresh' }).click();
+  await expect(page.getByTestId('encounter-documents')).toContainText('Synthetic prescription');
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download: Synthetic prescription' }).click();
+  expect((await download).suggestedFilename()).toBe('synthetic-prescription.pdf');
 });
 
 test('doctor can return to the dashboard from a consultation', async ({ page }) => {

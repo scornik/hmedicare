@@ -25,7 +25,13 @@ export const CORS_ALLOWED_HEADERS = [
   'x-device-id',
   'if-none-match',
 ];
-export const CORS_EXPOSED_HEADERS = ['x-request-id', 'retry-after', 'etag', 'idempotent-replayed'];
+export const CORS_EXPOSED_HEADERS = [
+  'x-request-id',
+  'retry-after',
+  'etag',
+  'idempotent-replayed',
+  'content-disposition',
+];
 
 export function parseAllowedOrigins(value: string): string[] {
   return value

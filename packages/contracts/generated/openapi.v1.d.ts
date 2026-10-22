@@ -987,6 +987,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/by-encounter/{encounterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Lists available clinical documents for an authorized encounter. Audit-only, redacted and mismatched-patient records are excluded. */
+        get: operations["listEncounterDocuments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/encounters/{id}": {
         parameters: {
             query?: never;
@@ -3614,6 +3631,24 @@ export interface components {
             startedAt: string;
             /** @enum {string} */
             status: "IN_PROGRESS" | "INTERRUPTED" | "COMPLETED" | "ENTERED_IN_ERROR";
+        };
+        EncounterDocumentList: {
+            hasMore: boolean;
+            items: {
+                category: string;
+                /**
+                 * Format: date-time
+                 * @example 2026-09-18T10:49:42.206Z
+                 */
+                createdAt: string;
+                /**
+                 * Format: uuid
+                 * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+                 */
+                id: string;
+                title: string | null;
+            }[];
+            page: number;
         };
         EncounterNoteDraft: {
             assessment: string | null;
@@ -12332,6 +12367,107 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["DownloadTokenResponse"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listEncounterDocuments: {
+        parameters: {
+            query?: {
+                page?: number;
+            };
+            header: {
+                "X-Tenant-ID": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Available encounter documents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["EncounterDocumentList"];
                         meta: components["schemas"]["ResponseMeta"];
                     };
                 };
