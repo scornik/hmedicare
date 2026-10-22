@@ -72,6 +72,16 @@ const UploadSession = registry.register(
 const uploadParams = z.object({ sessionId: Uuid });
 
 registry.registerPath({
+  method: 'get',
+  path: '/api/v1/documents/upload-capability',
+  operationId: 'getDocumentUploadCapability',
+  tags: ['documents'],
+  security: secured,
+  request: { headers: tenantHeaders },
+  responses: { 200: ok(z.object({ enabled: z.boolean() }), 'Upload availability'), ...errorResponses },
+});
+
+registry.registerPath({
   method: 'post',
   path: '/api/v1/documents/upload-sessions',
   operationId: 'createDocumentUploadSession',

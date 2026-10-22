@@ -4,6 +4,7 @@ import { api, getTenant } from '../api';
 import { useI18n } from '../i18n/i18n';
 import type { MessageKey } from '../i18n/messages';
 import { downloadDocument } from './download';
+import { uploadEncounterDocument, type UploadCategory } from './upload';
 
 const categoryKeys: Record<string, MessageKey> = {
   PRESCRIPTION_PDF: 'documents.category.prescription',
@@ -13,10 +14,41 @@ const categoryKeys: Record<string, MessageKey> = {
   OTHER: 'documents.category.other',
 };
 
-export function EncounterDocumentsPanel({ encounterId }: { encounterId: string }) {
+export function EncounterDocumentsPanel({
+  encounterId,
+  patientId,
+}: {
+  encounterId: string;
+  patientId: string;
+}) {
   const { t, locale } = useI18n();
   const tenant = getTenant();
   const [page, setPage] = useState(1);
+  const [category, setCategory] = useState<UploadCategory>('LAB_REPORT');
+  const [file, setFile] = useState<File | null>(null);
+  const [inputKey, setInputKey] = useState(0);
+  const [progress, setProgress] = useState<{ completed: number; total: number } | null>(null);
+  const allowedTypes =
+    category === 'IMAGE'
+      ? ['image/jpeg', 'image/png', 'image/webp']
+      : category === 'LAB_REPORT'
+        ? ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+        : ['application/pdf', 'image/jpeg', 'image/png'];
+  const fileValid =
+    !!file &&
+    file.size > 0 &&
+    file.size <= (category === 'IMAGE' ? 10 : 20) * 1024 * 1024 &&
+    allowedTypes.includes(file.type);
+  const capability = useQuery({
+    queryKey: ['document-upload-capability', tenant],
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/documents/upload-capability', {
+        params: { header: { 'X-Tenant-ID': tenant ?? '' } },
+      });
+      if (result.error || !result.data) return false;
+      return result.data.data.enabled;
+    },
+  });
   const list = useQuery({
     queryKey: ['encounter-documents', tenant, encounterId, page],
     queryFn: async () => {
@@ -34,6 +66,22 @@ export function EncounterDocumentsPanel({ encounterId }: { encounterId: string }
   const download = useMutation({
     mutationFn: downloadDocument,
   });
+  const upload = useMutation({
+    mutationFn: () =>
+      uploadEncounterDocument({
+        encounterId,
+        patientId,
+        category,
+        file: file!,
+        onProgress: (completed, total) => setProgress({ completed, total }),
+      }),
+    onSuccess: () => {
+      setFile(null);
+      setInputKey((value) => value + 1);
+      setProgress(null);
+      void list.refetch();
+    },
+  });
 
   return (
     <section
@@ -47,6 +95,59 @@ export function EncounterDocumentsPanel({ encounterId }: { encounterId: string }
           {t('documents.refresh')}
         </button>
       </div>
+      {capability.data === false && <p className="muted">{t('documents.uploadUnavailable')}</p>}
+      {capability.data === true && (
+        <form
+          className="encounter-document-upload"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (fileValid && !upload.isPending) upload.mutate();
+          }}
+        >
+          <label>
+            {t('documents.uploadCategory')}
+            <select
+              value={category}
+              onChange={(event) => {
+                setCategory(event.target.value as UploadCategory);
+                upload.reset();
+              }}
+              disabled={upload.isPending}
+            >
+              {(['LAB_REPORT', 'IMAGE', 'REFERRAL', 'OTHER'] as const).map((value) => (
+                <option key={value} value={value}>
+                  {t(categoryKeys[value] ?? 'documents.category.other')}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t('documents.chooseFile')}
+            <input
+              key={inputKey}
+              type="file"
+              accept=".pdf,image/jpeg,image/png,image/webp"
+              disabled={upload.isPending}
+              onChange={(event) => {
+                setFile(event.target.files?.[0] ?? null);
+                upload.reset();
+              }}
+            />
+          </label>
+          <button type="submit" disabled={!fileValid || upload.isPending}>
+            {t('documents.upload')}
+          </button>
+        </form>
+      )}
+      {file && !fileValid && <p role="alert">{t('documents.invalidFile')}</p>}
+      {upload.isPending && (
+        <p role="status">
+          {t('documents.uploading')}
+          {progress ? ` ${progress.completed}/${progress.total}` : ''}
+        </p>
+      )}
+      {upload.isSuccess && <p role="status">{t('documents.scanning')}</p>}
+      {upload.isError && <p role="alert">{t('documents.uploadFailed')}</p>}
       {list.isPending && <p role="status">{t('common.loading')}</p>}
       {list.isError && (
         <p role="alert">

@@ -323,6 +323,8 @@ async function mockApi(page: Page, overrides: Partial<State> = {}): Promise<Stat
         data: { items: pageNumber === 1 ? state.documents : [], page: pageNumber, hasMore: false },
       });
     }
+    if (path === '/documents/upload-capability' && req.method() === 'GET')
+      return json(route, 200, { data: { enabled: true } });
     if (path === '/medications/search' && req.method() === 'GET') {
       // Only "synth" matches, so the free-text fallback has a query that genuinely finds nothing.
       const q = (url.searchParams.get('q') ?? '').toLowerCase();
@@ -747,6 +749,66 @@ test('visit documents show a readable empty state and available files', async ({
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download: Synthetic prescription' }).click();
   expect((await download).suggestedFilename()).toBe('synthetic-prescription.pdf');
+});
+
+test('doctor uploads a report and sees that scanning is pending', async ({ page }) => {
+  await mockApi(page);
+  const seen: string[] = [];
+  await page.route(`${API}/documents/upload-sessions**`, async (route) => {
+    const req = route.request();
+    const pathname = new URL(req.url()).pathname;
+    if (req.method() === 'OPTIONS')
+      return route.fulfill({
+        status: 204,
+        headers: {
+          ...cors,
+          'access-control-allow-methods': 'POST, PUT',
+          'access-control-allow-headers':
+            'authorization,content-type,x-tenant-id,idempotency-key,x-part-sha256',
+        },
+      });
+    if (pathname.endsWith('/upload-sessions') && req.method() === 'POST') {
+      expect(req.postDataJSON().patientId).toBe(PATIENT);
+      seen.push('create');
+      return json(route, 201, {
+        data: {
+          documentId: DOCUMENT,
+          sessionId: RX,
+          mode: 'proxied',
+          partSizeBytes: 5 * 1024 * 1024,
+          partCount: 1,
+          expiresAt: new Date().toISOString(),
+        },
+      });
+    }
+    if (pathname.endsWith('/parts/1') && req.method() === 'PUT') {
+      expect(req.headers()['authorization']).toBe(`Bearer ${ACCESS}`);
+      expect(req.postDataBuffer()?.toString()).toContain('synthetic lab report');
+      seen.push('part');
+      return json(route, 200, {
+        data: {
+          partNumber: 1,
+          sizeBytes: req.postDataBuffer()?.length,
+          sha256: req.headers()['x-part-sha256'],
+        },
+      });
+    }
+    if (pathname.endsWith('/finalize') && req.method() === 'POST') {
+      seen.push('finalize');
+      return json(route, 201, { data: { documentId: DOCUMENT, versionId: RX } });
+    }
+    return json(route, 404, { code: 'RESOURCE_NOT_FOUND' });
+  });
+  await open(page);
+  const panel = page.getByTestId('panel-documents');
+  await panel.getByLabel('Choose file').setInputFiles({
+    name: 'synthetic-report.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('%PDF-1.7\nsynthetic lab report\n'),
+  });
+  await panel.getByRole('button', { name: 'Upload document' }).click();
+  await expect(panel.getByText('The document is being checked.')).toBeVisible();
+  expect(seen).toEqual(['create', 'part', 'finalize']);
 });
 
 test('doctor can return to the dashboard from a consultation', async ({ page }) => {

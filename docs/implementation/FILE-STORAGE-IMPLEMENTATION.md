@@ -248,3 +248,14 @@ checks its lease-loss signal between pages, and leaves failed deletions for a
 later window. No upload HTTP route is enabled by this schedule.
 If any deletion fails, the job attempt fails after the bounded page, making
 the failure visible to the job runner while retaining null cleanup markers.
+
+## Staff encounter upload route (2026-10-22)
+
+The API now exposes create, binary part, finalize and abort for a staff-owned
+encounter upload. It checks `document.write`, the live clinical encounter
+scope, patient/encounter match and session owner. The consultation web UI can
+select a category and file, show part progress and report scan-pending state.
+The route accepts uploads only when `UPLOAD_SCAN_WORKER_ENABLED` is enabled;
+the UI reads that capability and otherwise shows an unavailable state. Worker
+configuration and the production host scanner probe remain operational gates.
+Patient-context uploads, quotas and S3 storage remain outside this increment.
