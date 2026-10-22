@@ -154,8 +154,12 @@ import {
   createRuntime,
   sessionModeCheck,
 } from '@hmedic/http-kit';
-import { DiskObjectStorage } from '@hmedic/storage-adapters-disk';
-import { DocumentDownloadService, DownloadTokenService } from '@hmedic/laboratory-documents';
+import { DiskObjectStorage, DiskUploadStorage } from '@hmedic/storage-adapters-disk';
+import {
+  DocumentDownloadService,
+  DownloadTokenService,
+  registerUploadScanJobType,
+} from '@hmedic/laboratory-documents';
 import { DocumentModule, type DocumentServices } from '@hmedic/laboratory-documents/nest';
 
 /**
@@ -465,8 +469,11 @@ export async function buildApi(
     }),
   };
   const documentStorage = createDocumentStorage(config);
+  if (documentStorage) registerUploadScanJobType(enqueueRegistry);
   const documents: DocumentServices | null = documentStorage
     ? {
+        uploadStorage: new DiskUploadStorage({ root: config.STORAGE_DISK_ROOT! }),
+        uploadJobs: new JobPort(runtime.prisma, enqueueRegistry, runtime.clock),
         downloads: new DocumentDownloadService({
           prisma: runtime.prisma,
           storage: documentStorage,
