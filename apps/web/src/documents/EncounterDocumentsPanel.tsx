@@ -66,7 +66,7 @@ export function EncounterDocumentsPanel({
     },
   });
   const download = useMutation({
-    mutationFn: downloadDocument,
+    mutationFn: (documentId: string) => downloadDocument(documentId),
   });
   const processing = useQuery({
     queryKey: ['document-processing', tenant, pendingDocumentId],

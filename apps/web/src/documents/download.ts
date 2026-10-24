@@ -1,11 +1,20 @@
-import { api, getTenant } from '../api';
+import { api, getTenant, patientApi } from '../api';
 import { apiBase, getAccessToken, refresh } from '../auth/session';
 
 /** Download with the in-memory access token. A browser navigation cannot attach that header. */
-export async function downloadDocument(documentId: string): Promise<void> {
-  const issued = await api.POST('/api/v1/documents/{id}/download-token', {
+export async function downloadDocument(
+  documentId: string,
+  patientContext?: { tenantId: string; patientId: string },
+): Promise<void> {
+  const tenantId = patientContext?.tenantId ?? getTenant() ?? '';
+  const headers = {
+    'X-Tenant-ID': tenantId,
+    'Idempotency-Key': crypto.randomUUID(),
+    ...(patientContext ? { 'X-Patient-Context': patientContext.patientId } : {}),
+  };
+  const issued = await (patientContext ? patientApi : api).POST('/api/v1/documents/{id}/download-token', {
     params: {
-      header: { 'X-Tenant-ID': getTenant() ?? '', 'Idempotency-Key': crypto.randomUUID() },
+      header: headers,
       path: { id: documentId },
     },
   });
@@ -17,7 +26,8 @@ export async function downloadDocument(documentId: string): Promise<void> {
       credentials: 'include',
       headers: {
         Authorization: `Bearer ${getAccessToken() ?? ''}`,
-        'X-Tenant-ID': getTenant() ?? '',
+        'X-Tenant-ID': tenantId,
+        ...(patientContext ? { 'X-Patient-Context': patientContext.patientId } : {}),
       },
     });
   let response = await fetchFile();

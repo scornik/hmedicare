@@ -4,6 +4,7 @@ import { bearerAuth, registry, z } from './registry';
 const secured = [{ [bearerAuth.name]: [] }];
 const headers = z.object({ 'X-Tenant-ID': TenantIdHeader });
 const idemHeaders = headers.extend({ 'Idempotency-Key': IdempotencyKeyHeader });
+const patientHeaders = headers.extend({ 'X-Patient-Context': Uuid });
 const ok = <T extends z.ZodTypeAny>(schema: T, description: string) => ({
   description,
   content: { 'application/json': { schema: envelope(schema) } },
@@ -23,6 +24,7 @@ export const LabReportView = registry.register(
     reviewStatus: z.enum(['UNREVIEWED', 'REVIEWED', 'ENTERED_IN_ERROR']),
     reviewedAt: Timestamp.nullable(),
     rowVersion: z.number().int().positive(),
+    patientShared: z.boolean(),
   }),
 );
 export const LabResultView = registry.register(
@@ -137,4 +139,47 @@ registry.registerPath({
     },
   },
   responses: { 200: ok(LabReportView, 'Lab report reviewed'), ...errorResponses },
+});
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/lab-reports/{id}/share',
+  operationId: 'shareLabReportWithPatient',
+  tags: ['labs'],
+  security: secured,
+  description: 'Doctor shares a reviewed lab report and its source document with the patient.',
+  request: {
+    headers: idemHeaders,
+    params,
+    body: {
+      content: {
+        'application/json': { schema: z.object({ expectedRowVersion: z.number().int().positive() }) },
+      },
+    },
+  },
+  responses: { 200: ok(LabReportView, 'Lab report shared'), ...errorResponses },
+});
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/lab-reports/patient/mine',
+  operationId: 'listMyLabReports',
+  tags: ['labs'],
+  security: secured,
+  description: 'Reviewed, explicitly shared lab reports for the active patient context.',
+  request: { headers: patientHeaders },
+  responses: {
+    200: ok(z.object({ items: z.array(LabReportView) }), 'Shared lab reports'),
+    ...errorResponses,
+  },
+});
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/lab-reports/patient/mine/{id}',
+  operationId: 'getMyLabReport',
+  tags: ['labs'],
+  security: secured,
+  request: { headers: patientHeaders, params },
+  responses: {
+    200: ok(LabReportView.extend({ results: z.array(LabResultView) }), 'Shared lab report'),
+    ...errorResponses,
+  },
 });

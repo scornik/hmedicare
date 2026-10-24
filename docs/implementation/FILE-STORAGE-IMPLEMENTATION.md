@@ -276,6 +276,19 @@ consultation workspace now lists and opens reports, offers the original file,
 and supports entry and review. The uploaded file remains authoritative.
 Patient-context access, quota enforcement and extraction are still open.
 
+## Patient access to reviewed lab reports (2026-10-24)
+
+A doctor can explicitly share a reviewed report's available, unredacted source
+document with the patient. The share operation checks the report version and
+source state in one transaction and records an audit event. A patient with a
+live `VIEW_RECORDS` context can list and open shared reports and download the
+source through the existing short-lived, single-use document token. The token
+and download routes recheck the live patient context and report/source state,
+including after a patient account is revoked. The patient web records page
+shows reviewed values and the original file. Unreviewed reports and unshared
+sources remain hidden. Upload quotas, extraction and patient uploads remain
+open.
+
 The hourly `DiskUsageCheck` worker now walks the private root without following
 symlinks, compares its bytes with indexed disk document versions, reads available
 filesystem space, and logs structured alerts at the configured budget and

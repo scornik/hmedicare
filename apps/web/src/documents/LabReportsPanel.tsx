@@ -116,7 +116,24 @@ export function LabReportsPanel({ encounterId }: { encounterId: string }) {
       void queryClient.invalidateQueries({ queryKey: ['lab-reports', tenant, encounterId] });
     },
   });
-  const source = useMutation({ mutationFn: downloadDocument });
+  const share = useMutation({
+    mutationFn: async () => {
+      if (!selectedId || !detail.data) throw new Error('Select a reviewed lab report');
+      const result = await api.POST('/api/v1/lab-reports/{id}/share', {
+        params: {
+          header: { 'X-Tenant-ID': tenant ?? '', 'Idempotency-Key': crypto.randomUUID() },
+          path: { id: selectedId },
+        },
+        body: { expectedRowVersion: detail.data.rowVersion },
+      });
+      if (result.error || !result.data) throw new Error('Share lab report failed');
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['lab-report', tenant, selectedId] });
+      void queryClient.invalidateQueries({ queryKey: ['lab-reports', tenant, encounterId] });
+    },
+  });
+  const source = useMutation({ mutationFn: (documentId: string) => downloadDocument(documentId) });
 
   return (
     <section className="card lab-reports" aria-labelledby="lab-reports-heading" data-testid="panel-labs">
@@ -284,7 +301,19 @@ export function LabReportsPanel({ encounterId }: { encounterId: string }) {
               {review.isError && <p role="alert">{t('labs.reviewFailed')}</p>}
             </>
           )}
-          {detail.data.reviewStatus === 'REVIEWED' && <p className="badge">{t('labs.reviewed')}</p>}
+          {detail.data.reviewStatus === 'REVIEWED' && (
+            <div className="row">
+              <p className="badge">{t('labs.reviewed')}</p>
+              {detail.data.patientShared ? (
+                <p className="badge">{t('labs.shared')}</p>
+              ) : (
+                <button type="button" disabled={share.isPending} onClick={() => share.mutate()}>
+                  {t('labs.share')}
+                </button>
+              )}
+            </div>
+          )}
+          {share.isError && <p role="alert">{t('labs.shareFailed')}</p>}
         </div>
       )}
     </section>

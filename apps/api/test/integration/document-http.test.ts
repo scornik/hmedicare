@@ -114,6 +114,47 @@ async function doctor(tenantId: string, label: string) {
   return { ...s, profileId };
 }
 
+async function patientUser(tenantId: string, patientId: string) {
+  const now = new Date();
+  const userId = newId();
+  const email = `patient.${userId.slice(-10)}@example.invalid`;
+  await api.runtime.prisma.user.create({
+    data: {
+      id: userId,
+      email,
+      emailNormalized: email,
+      status: 'ACTIVE',
+      passwordHash: await hasher.hash(PASSWORD),
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+  await api.runtime.prisma.patientAccount.create({
+    data: {
+      id: newId(),
+      tenantId,
+      userId,
+      patientId,
+      relationship: 'SELF',
+      verificationMethod: 'STAFF_VERIFIED_IN_PERSON',
+      verifiedAt: now,
+      status: 'ACTIVE',
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+  const login = await request(server)
+    .post('/api/v1/auth/password/login')
+    .set('idempotency-key', idem())
+    .send({ email, password: PASSWORD, client: 'web' })
+    .expect(200);
+  return {
+    authorization: `Bearer ${login.body.data.accessToken}`,
+    'x-tenant-id': tenantId,
+    'x-patient-context': patientId,
+  };
+}
+
 /**
  * A stored PRESCRIPTION_PDF document, with its encounter and a doctor logged in over HTTP.
  *
@@ -642,6 +683,63 @@ describe('lab reports over HTTP', () => {
       .set(d.doctor.headers)
       .expect(200);
     expect(final.body.data.results[0].reviewStatus).toBe('REVIEWED');
+    const patientHeaders = await patientUser(d.tenantId, d.patientId);
+    const hidden = await request(server)
+      .get('/api/v1/lab-reports/patient/mine')
+      .set(patientHeaders)
+      .expect(200);
+    expect(hidden.body.data.items).toEqual([]);
+    await request(server).get(`/api/v1/lab-reports/patient/mine/${reportId}`).set(patientHeaders).expect(404);
+    await request(server)
+      .post(`/api/v1/documents/${d.documentId}/download-token`)
+      .set(patientHeaders)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(404);
+    const shared = await request(server)
+      .post(`/api/v1/lab-reports/${reportId}/share`)
+      .set(d.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: 3 })
+      .expect(200);
+    expect(shared.body.data.patientShared).toBe(true);
+    const visible = await request(server)
+      .get('/api/v1/lab-reports/patient/mine')
+      .set(patientHeaders)
+      .expect(200);
+    expect(visible.body.data.items).toHaveLength(1);
+    const patientReport = await request(server)
+      .get(`/api/v1/lab-reports/patient/mine/${reportId}`)
+      .set(patientHeaders)
+      .expect(200);
+    expect(patientReport.body.data.results).toMatchObject([{ analyteDisplay: 'Synthetic analyte' }]);
+    const patientToken = await request(server)
+      .post(`/api/v1/documents/${d.documentId}/download-token`)
+      .set(patientHeaders)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(201);
+    await request(server)
+      .get(`/api/v1/documents/${d.documentId}/download`)
+      .query({ token: patientToken.body.data.token })
+      .set(patientHeaders)
+      .expect(200);
+    const unusedToken = await request(server)
+      .post(`/api/v1/documents/${d.documentId}/download-token`)
+      .set(patientHeaders)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(201);
+    await api.runtime.prisma.patientAccount.updateMany({
+      where: { tenantId: d.tenantId, patientId: d.patientId },
+      data: { status: 'REVOKED' },
+    });
+    await request(server).get(`/api/v1/lab-reports/patient/mine/${reportId}`).set(patientHeaders).expect(403);
+    await request(server)
+      .get(`/api/v1/documents/${d.documentId}/download`)
+      .query({ token: unusedToken.body.data.token })
+      .set(patientHeaders)
+      .expect(403);
     await request(server)
       .post(`/api/v1/lab-reports/${reportId}/results`)
       .set(d.doctor.headers)
