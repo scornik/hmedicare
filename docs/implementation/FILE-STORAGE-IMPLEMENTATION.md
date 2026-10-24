@@ -274,4 +274,11 @@ the current row version and an explicit attestation that the values were
 checked against the source file. Review freezes further result entry. The web
 consultation workspace now lists and opens reports, offers the original file,
 and supports entry and review. The uploaded file remains authoritative.
-Disk usage accounting, patient-context access and extraction are still open.
+Patient-context access, quota enforcement and extraction are still open.
+
+The hourly `DiskUsageCheck` worker now walks the private root without following
+symlinks, compares its bytes with indexed disk document versions, reads available
+filesystem space, and logs structured alerts at the configured budget and
+filesystem thresholds. A failed walk alerts and retries. The full walk is used
+on each run so unindexed temporary, AI, and generated objects are included;
+quota enforcement on upload admission remains open.

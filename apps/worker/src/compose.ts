@@ -59,6 +59,7 @@ import { registerPrescriptionJobs } from '@hmedic/prescriptions/worker';
 import { DiskObjectStorage, DiskUploadStorage } from '@hmedic/storage-adapters-disk';
 import {
   registerUploadCleanupJobs,
+  registerDiskUsageJobs,
   registerUploadScanJobs,
   UPLOAD_CATEGORY_POLICY,
   UPLOAD_SCAN_CATEGORIES,
@@ -341,6 +342,14 @@ export async function buildWorker(
               prisma: runtime.prisma,
               storage: new DiskUploadStorage({ root: config.STORAGE_DISK_ROOT }),
               now: () => runtime.clock.now(),
+            })
+          : []),
+        ...(config.STORAGE_DISK_ROOT
+          ? registerDiskUsageJobs(registry, runner, {
+              prisma: runtime.prisma,
+              root: config.STORAGE_DISK_ROOT,
+              budgetGb: config.STORAGE_DISK_BUDGET_GB,
+              logger: runtime.logger,
             })
           : []),
         ...(config.APP_ENV !== 'production'
