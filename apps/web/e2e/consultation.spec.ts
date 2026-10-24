@@ -325,6 +325,8 @@ async function mockApi(page: Page, overrides: Partial<State> = {}): Promise<Stat
     }
     if (path === '/documents/upload-capability' && req.method() === 'GET')
       return json(route, 200, { data: { enabled: true } });
+    if (path === `/lab-reports/by-encounter/${ENCOUNTER}` && req.method() === 'GET')
+      return json(route, 200, { data: { items: [] } });
     if (path === '/medications/search' && req.method() === 'GET') {
       // Only "synth" matches, so the free-text fallback has a query that genuinely finds nothing.
       const q = (url.searchParams.get('q') ?? '').toLowerCase();
@@ -724,12 +726,102 @@ test('an interrupted consultation is still editable and says so', async ({ page 
   await expect(page.getByTestId('note-plan')).toBeEnabled();
 });
 
-test('the lab placeholder remains while the real timeline is shown once', async ({ page }) => {
+test('labs show an empty state while the real timeline is shown once', async ({ page }) => {
   await mockApi(page);
   await open(page);
-  await expect(page.getByTestId('panel-labs')).toContainText('Arrives in a later stage.');
+  await expect(page.getByTestId('panel-labs')).toContainText('No lab reports for this visit yet.');
   await expect(page.getByTestId('panel-timeline')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Patient timeline' })).toHaveCount(1);
+});
+
+test('doctor links an accepted lab file, enters a value and reviews against the source', async ({ page }) => {
+  const state = await mockApi(page);
+  state.documents = [
+    {
+      id: DOCUMENT,
+      category: 'LAB_REPORT',
+      title: 'Synthetic lab file',
+      createdAt: '2026-10-01T09:00:00.000Z',
+    },
+  ];
+  let created = false;
+  let report = {
+    id: RX,
+    documentId: DOCUMENT,
+    patientId: PATIENT,
+    encounterId: ENCOUNTER,
+    labName: 'Synthetic Lab',
+    reportDate: '2026-10-01',
+    reviewStatus: 'UNREVIEWED',
+    reviewedAt: null as string | null,
+    rowVersion: 1,
+  };
+  const results: Array<{
+    id: string;
+    analyteDisplay: string;
+    valueNumeric: string | null;
+    valueText: string | null;
+    unit: string | null;
+    referenceRange: string | null;
+    abnormalFlag: null;
+    reviewStatus: string;
+  }> = [];
+  await page.route(`${API}/lab-reports**`, (route) => {
+    const req = route.request();
+    const path = new URL(req.url()).pathname.replace('/api/v1', '');
+    if (req.method() === 'OPTIONS')
+      return route.fulfill({
+        status: 204,
+        headers: { ...cors, 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' },
+      });
+    if (path === `/lab-reports/by-encounter/${ENCOUNTER}`)
+      return json(route, 200, { data: { items: created ? [report] : [] } });
+    if (path === '/lab-reports' && req.method() === 'POST') {
+      expect(req.postDataJSON().documentId).toBe(DOCUMENT);
+      created = true;
+      return json(route, 201, { data: report });
+    }
+    if (path === `/lab-reports/${RX}` && req.method() === 'GET')
+      return json(route, 200, { data: { ...report, results } });
+    if (path === `/lab-reports/${RX}/results` && req.method() === 'POST') {
+      expect(req.postDataJSON().expectedRowVersion).toBe(1);
+      results.push({
+        id: NOTE,
+        analyteDisplay: req.postDataJSON().analyteDisplay,
+        valueNumeric: req.postDataJSON().valueNumeric,
+        valueText: null,
+        unit: req.postDataJSON().unit,
+        referenceRange: null,
+        abnormalFlag: null,
+        reviewStatus: 'UNREVIEWED',
+      });
+      report = { ...report, rowVersion: 2 };
+      return json(route, 201, { data: { id: NOTE, reportId: RX, reviewStatus: 'UNREVIEWED' } });
+    }
+    if (path === `/lab-reports/${RX}/review` && req.method() === 'POST') {
+      expect(req.postDataJSON()).toMatchObject({ expectedRowVersion: 2, attestedSource: true });
+      report = { ...report, rowVersion: 3, reviewStatus: 'REVIEWED', reviewedAt: new Date().toISOString() };
+      results[0]!.reviewStatus = 'REVIEWED';
+      return json(route, 200, { data: report });
+    }
+    return json(route, 404, { code: 'RESOURCE_NOT_FOUND' });
+  });
+  await open(page);
+  const panel = page.getByTestId('panel-labs');
+  await panel.getByLabel('Lab name').fill('Synthetic Lab');
+  await panel.getByLabel('Report date').fill('2026-10-01');
+  await panel.getByRole('button', { name: 'Add report: Synthetic lab file' }).click();
+  await expect(panel.getByText('No values entered yet.')).toBeVisible();
+  await panel.getByLabel('Test name').fill('Synthetic analyte');
+  await panel.getByLabel('Value', { exact: true }).fill('4.25');
+  await panel.getByLabel('Unit').fill('mmol/L');
+  await panel.getByRole('button', { name: 'Add value' }).click();
+  await expect(panel.getByText('Synthetic analyte')).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Review report' })).toBeDisabled();
+  await panel.getByLabel('I checked the entered values against the original report.').check();
+  await panel.getByRole('button', { name: 'Review report' }).click();
+  await expect(panel.getByText('Reviewed', { exact: true })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Add value' })).toHaveCount(0);
 });
 
 test('visit documents show a readable empty state and available files', async ({ page }) => {

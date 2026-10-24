@@ -85,8 +85,9 @@
 | 0007 | `encounters` | `encounters`, `encounter_participants`, `encounter_notes`, `encounter_note_versions` |
 | 0008 | `clinical_observations` | `symptom_observations`, `diagnoses`. Created in Stage 6 (`202609230524_0008_clinical_observations`). **Split from the catalog in Stage 6 (C-52):** `patient_medications` cannot carry its FK before `medications` exists, and the catalog belongs to the stage that fills it |
 | 0009 | `prescriptions` | `prescriptions`, `prescription_items` |
-| 0010 | `documents_labs` | `documents`, `document_versions` (applied subset of §3.10; lab tables pending) |
+| 0010 | `documents_labs` | `documents`, `document_versions` (applied subset of §3.10) |
 | 0026 | `upload_sessions` | `upload_sessions`, `upload_session_parts` (incremental §3.10 migration; 0010 was already applied) |
+| 0028 | `lab_reports` | `lab_reports`, `lab_results` (additive §3.10 migration; requires an AVAILABLE source document) |
 | 0011 | `timeline` | `timeline_events`, `projection_checkpoints`. Created during takeover (2026-10-07). Follow-up tables are reserved for a separate 0020 migration (C-57). |
 | 0012 | `communication` | `communications`, `communication_attempts` (+ SMS columns), `communication_preferences`, `provider_webhook_events`, `communication_short_links` (implemented 2026-10-10) |
 | 0022 | `telemedicine` | `telemedicine_sessions`, `telemedicine_participants`, `telemedicine_participant_events` (C-59/C-61) |

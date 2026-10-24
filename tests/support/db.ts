@@ -78,6 +78,8 @@ const TABLES = [
   // document deleted first would fail that foreign key. Versions before the documents they belong to.
   'upload_session_parts',
   'upload_sessions',
+  'lab_results',
+  'lab_reports',
   'document_versions',
   'documents',
   // 0008 clinical_observations: children of encounters, so they go before them.

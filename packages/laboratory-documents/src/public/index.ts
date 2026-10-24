@@ -84,3 +84,8 @@ export {
   categorySegment,
 } from '../domain/storage-keys';
 export { DocumentHistoryMetadata } from '../infrastructure/history-metadata';
+export {
+  LabReportService,
+  type CreateLabReportInput,
+  type AddLabResultInput,
+} from '../infrastructure/lab-reports';

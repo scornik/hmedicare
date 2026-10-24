@@ -263,3 +263,15 @@ The document metadata route now reports processing state to the authorized
 clinical team. The consultation UI polls until scanning makes the document
 AVAILABLE or rejects it, then refreshes the visible document list. This does
 not change the worker activation gate above.
+
+## Lab report records (2026-10-22)
+
+Migration 0028 adds tenant-bound lab reports and manually entered results. A
+report can be created only from an AVAILABLE `LAB_REPORT` document; one source
+document has at most one report. A clinician can enter text or numeric values
+while the report is UNREVIEWED. Review requires a doctor with encounter access,
+the current row version and an explicit attestation that the values were
+checked against the source file. Review freezes further result entry. The web
+consultation workspace now lists and opens reports, offers the original file,
+and supports entry and review. The uploaded file remains authoritative.
+Disk usage accounting, patient-context access and extraction are still open.

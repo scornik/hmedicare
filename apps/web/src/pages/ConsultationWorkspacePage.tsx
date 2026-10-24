@@ -2,6 +2,7 @@ import { FollowUpPanel } from '../follow-up/FollowUpPanel';
 import { AIPanel } from '../ai/AIPanel';
 import { TimelinePanel } from '../timeline/TimelinePanel';
 import { EncounterDocumentsPanel } from '../documents/EncounterDocumentsPanel';
+import { LabReportsPanel } from '../documents/LabReportsPanel';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { currentUser } from '../auth/session';
@@ -375,10 +376,7 @@ export function ConsultationWorkspacePage() {
           />
         )}
 
-        <section className="card muted" data-testid="panel-labs">
-          <h2>{t('workspace.panel.labs')}</h2>
-          <p>{t('workspace.panel.later')}</p>
-        </section>
+        <LabReportsPanel key={[tenant, encounterId].join(':')} encounterId={encounterId} />
       </main>
     </>
   );

@@ -138,6 +138,7 @@ import {
 } from './prescriptions/medication-catalog.controllers';
 import { PrescriptionController } from './prescriptions/prescription.controllers';
 import { DocumentController } from './documents/document.controllers';
+import { LabReportController } from './documents/lab-report.controller';
 import { ConsentController, MergeCaseController, PatientController } from './patient/patient.controllers';
 import {
   CareTeamController,
@@ -279,7 +280,7 @@ export class ApiModule {
         PrescriptionController,
         MedicationImportAdminController,
         MedicationSearchController,
-        ...(documents ? [DocumentController] : []),
+        ...(documents ? [DocumentController, LabReportController] : []),
         ...(devInbox ? [DevInboxController] : []),
       ],
     };

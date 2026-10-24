@@ -1989,8 +1989,8 @@ model PrescriptionItem {
 // and the section number says where this belongs in the documented schema rather than where the file
 // happens to read best.
 //
-// **Scope note.** §3.10 also defines upload sessions and lab tables. Upload sessions are added in
-// section 0026; lab tables arrive with their callers.
+// **Scope note.** §3.10 also defines upload sessions and lab tables. They arrived in additive
+// migrations 0026 and 0028 because 0010 was already applied.
 //
 // A document row is the record that a file exists and who may read it. The bytes live in object storage
 // under a key the server generates; nothing here ever holds a path a client supplied.
@@ -2152,6 +2152,82 @@ model UploadSessionPart {
   @@id([uploadSessionId, partNumber])
   @@index([tenantId, uploadSessionId], map: "ix_upload_session_parts_tenant_session")
   @@map("upload_session_parts")
+}
+
+// ---------------------------------------------------------------- 0028 lab reports and manually entered results
+// The verified source document is authoritative; structured results are explicitly reviewed derivatives.
+model LabReport {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  patientId String @map("patient_id") @db.VarChar(36)
+  /// @ascii
+  encounterId String? @map("encounter_id") @db.VarChar(36)
+  /// @ascii
+  documentId String @map("document_id") @db.VarChar(36)
+  labName String? @map("lab_name") @db.VarChar(200)
+  reportDate DateTime? @map("report_date") @db.Date
+  /// `UNREVIEWED|REVIEWED|ENTERED_IN_ERROR`.
+  /// @ascii
+  reviewStatus String @map("review_status") @db.VarChar(16)
+  /// @ascii
+  reviewedByDoctorProfileId String? @map("reviewed_by_doctor_profile_id") @db.VarChar(36)
+  reviewedAt DateTime? @map("reviewed_at") @db.DateTime(3)
+  rawMetadata Json? @map("raw_metadata")
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String? @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String? @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId,id], map: "uq_lab_reports_tenant_id")
+  @@unique([tenantId,documentId], map: "uq_lab_reports_document")
+  @@index([tenantId,patientId,reportDate,id], map: "ix_lab_reports_patient")
+  @@index([tenantId,encounterId], map: "ix_lab_reports_encounter")
+  @@map("lab_reports")
+}
+
+model LabResult {
+  /// @ascii
+  id String @id @db.VarChar(36)
+  /// @ascii
+  tenantId String @map("tenant_id") @db.VarChar(36)
+  /// @ascii
+  labReportId String @map("lab_report_id") @db.VarChar(36)
+  /// @ascii
+  analyteCode String? @map("analyte_code") @db.VarChar(64)
+  /// @ascii
+  codeSystem String? @map("code_system") @db.VarChar(32)
+  analyteDisplay String @map("analyte_display") @db.VarChar(200)
+  valueNumeric Decimal? @map("value_numeric") @db.Decimal(18,6)
+  valueText String? @map("value_text") @db.VarChar(200)
+  unit String? @db.VarChar(40)
+  referenceRange String? @map("reference_range") @db.VarChar(120)
+  /// `LOW|HIGH|CRITICAL|NORMAL`.
+  /// @ascii
+  abnormalFlag String? @map("abnormal_flag") @db.VarChar(8)
+  resultDate DateTime? @map("result_date") @db.Date
+  /// `MANUAL|EXTRACTED`.
+  /// @ascii
+  entrySource String @map("entry_source") @db.VarChar(16)
+  /// `UNREVIEWED|REVIEWED|ENTERED_IN_ERROR`.
+  /// @ascii
+  reviewStatus String @map("review_status") @db.VarChar(16)
+  createdAt DateTime @map("created_at") @db.DateTime(3)
+  updatedAt DateTime @map("updated_at") @db.DateTime(3)
+  /// @ascii
+  createdByUserId String? @map("created_by_user_id") @db.VarChar(36)
+  /// @ascii
+  updatedByUserId String? @map("updated_by_user_id") @db.VarChar(36)
+  rowVersion Int @default(1) @map("row_version") @db.UnsignedInt
+
+  @@unique([tenantId,id], map: "uq_lab_results_tenant_id")
+  @@index([tenantId,labReportId,createdAt,id], map: "ix_lab_results_report")
+  @@map("lab_results")
 }
 
 // ---------------------------------------------------------------- 0011 timeline
