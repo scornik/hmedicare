@@ -191,7 +191,10 @@ registry.registerPath({
   description:
     'Re-checks authorization and returns a single-use token for the current revision. Refused with ' +
     'DOCUMENT_NOT_AVAILABLE unless the document is AVAILABLE.',
-  request: { headers: tenantIdemHeaders, params: z.object({ id: Uuid }) },
+  request: {
+    headers: tenantIdemHeaders.extend({ 'X-Patient-Context': Uuid.optional() }),
+    params: z.object({ id: Uuid }),
+  },
   responses: { 201: ok(DownloadTokenResponse, 'Token issued'), ...errorResponses },
 });
 
@@ -205,7 +208,7 @@ registry.registerPath({
     'Streams the revision the token was issued for. The token is spent on use, so a saved link does ' +
     'not work twice, and every rejection answers identically so a caller cannot probe for a valid one.',
   request: {
-    headers: tenantHeaders,
+    headers: tenantHeaders.extend({ 'X-Patient-Context': Uuid.optional() }),
     params: z.object({ id: Uuid }),
     query: z.object({ token: z.string().min(1) }),
   },

@@ -3,7 +3,15 @@ import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { AppError, type ActorContext, type TenantContext } from '@hmedic/kernel';
 import { HTTP_RUNTIME, Idempotent, type HttpRuntime } from '@hmedic/http-kit';
-import { CurrentActor, CurrentTenant, RequirePermission } from '@hmedic/identity-access/nest';
+import type { ResolvedPatientContext } from '@hmedic/identity-access';
+import {
+  CurrentActor,
+  CurrentPatientContext,
+  CurrentTenant,
+  PatientContextRoute,
+  RequirePermission,
+} from '@hmedic/identity-access/nest';
+import { withTransaction } from '@hmedic/database';
 import { CLINICAL_SERVICES, type ClinicalServices } from '@hmedic/clinical/nest';
 import { LabReportService } from '@hmedic/laboratory-documents';
 import { clinicalActor } from '../clinical/actor';
@@ -46,18 +54,22 @@ const resultBody = z
 const reviewBody = z
   .object({ expectedRowVersion: z.number().int().positive(), attestedSource: z.literal(true) })
   .strict();
+const shareBody = z.object({ expectedRowVersion: z.number().int().positive() }).strict();
 
-function reportView(row: {
-  id: string;
-  documentId: string;
-  patientId: string;
-  encounterId: string | null;
-  labName: string | null;
-  reportDate: Date | null;
-  reviewStatus: string;
-  reviewedAt: Date | null;
-  rowVersion: number;
-}) {
+function reportView(
+  row: {
+    id: string;
+    documentId: string;
+    patientId: string;
+    encounterId: string | null;
+    labName: string | null;
+    reportDate: Date | null;
+    reviewStatus: string;
+    reviewedAt: Date | null;
+    rowVersion: number;
+  },
+  patientShared = false,
+) {
   return {
     id: row.id,
     documentId: row.documentId,
@@ -68,6 +80,7 @@ function reportView(row: {
     reviewStatus: row.reviewStatus,
     reviewedAt: row.reviewedAt?.toISOString() ?? null,
     rowVersion: row.rowVersion,
+    patientShared,
   };
 }
 
@@ -112,12 +125,12 @@ export class LabReportController {
         status: 'AVAILABLE',
         redactedAt: null,
       },
-      select: { patientId: true, encounterId: true },
+      select: { patientId: true, encounterId: true, accessPolicy: true },
     });
     if (!document || document.patientId !== report.patientId || document.encounterId !== report.encounterId)
       throw new AppError('RESOURCE_NOT_FOUND');
     const context = await this.authorizeEncounter(actor, tenant, req, report.encounterId, report.patientId);
-    return { report, context };
+    return { report, document, context };
   }
 
   @Post()
@@ -180,10 +193,19 @@ export class LabReportController {
         patientId: access.encounter.patientId,
         encounterId,
       },
-      select: { id: true },
+      select: { id: true, accessPolicy: true },
     });
-    const readable = new Set(documents.map((row) => row.id));
-    return { items: rows.filter((row) => readable.has(row.documentId)).map(reportView) };
+    const readable = new Map(documents.map((row) => [row.id, row.accessPolicy]));
+    return {
+      items: rows
+        .filter((row) => readable.has(row.documentId))
+        .map((row) =>
+          reportView(
+            row,
+            row.reviewStatus === 'REVIEWED' && readable.get(row.documentId) === 'PATIENT_SHARED',
+          ),
+        ),
+    };
   }
 
   @Get(':id')
@@ -194,13 +216,13 @@ export class LabReportController {
     @Req() req: FastifyRequest,
     @Param('id') id: string,
   ) {
-    const { report } = await this.authorizeReport(actor, tenant, req, id);
+    const { report, document } = await this.authorizeReport(actor, tenant, req, id);
     const results = await this.runtime.prisma.labResult.findMany({
       where: { tenantId: tenant.tenantId, labReportId: id, reviewStatus: { not: 'ENTERED_IN_ERROR' } },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
     return {
-      ...reportView(report),
+      ...reportView(report, report.reviewStatus === 'REVIEWED' && document.accessPolicy === 'PATIENT_SHARED'),
       results: results.map((row) => ({
         id: row.id,
         analyteDisplay: row.analyteDisplay,
@@ -260,5 +282,142 @@ export class LabReportController {
       expectedRowVersion: parsed.data.expectedRowVersion,
     });
     return reportView(row);
+  }
+
+  @Post(':id/share')
+  @HttpCode(200)
+  @RequirePermission('lab.review')
+  @Idempotent()
+  async share(
+    @CurrentActor() actor: ActorContext,
+    @CurrentTenant() tenant: TenantContext,
+    @Req() req: FastifyRequest,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = shareBody.safeParse(body);
+    if (!parsed.success) throw new AppError('VALIDATION_FAILED');
+    const { report, context } = await this.authorizeReport(actor, tenant, req, id);
+    if (!context.doctorProfileId) throw new AppError('FORBIDDEN');
+    if (report.reviewStatus !== 'REVIEWED' || report.rowVersion !== parsed.data.expectedRowVersion)
+      throw new AppError('STALE_VERSION');
+    await withTransaction(this.runtime.prisma, async (tx) => {
+      const currentReport = await tx.labReport.findFirst({
+        where: {
+          id,
+          tenantId: tenant.tenantId,
+          patientId: report.patientId,
+          encounterId: report.encounterId,
+          documentId: report.documentId,
+          reviewStatus: 'REVIEWED',
+          rowVersion: parsed.data.expectedRowVersion,
+        },
+        select: { id: true },
+      });
+      if (!currentReport) throw new AppError('STALE_VERSION');
+      const source = await tx.document.updateMany({
+        where: {
+          id: report.documentId,
+          tenantId: tenant.tenantId,
+          patientId: report.patientId,
+          encounterId: report.encounterId,
+          category: 'LAB_REPORT',
+          status: 'AVAILABLE',
+          currentRevision: { not: null },
+          redactedAt: null,
+          accessPolicy: 'CLINICAL_TEAM',
+        },
+        data: {
+          accessPolicy: 'PATIENT_SHARED',
+          rowVersion: { increment: 1 },
+          updatedAt: this.runtime.clock.now(),
+          updatedByUserId: actor.userId,
+        },
+      });
+      if (source.count !== 1) throw new AppError('INVALID_TRANSITION');
+      await this.runtime.audit.append(tx, {
+        tenantId: tenant.tenantId,
+        actorUserId: actor.userId,
+        actorType: 'USER',
+        action: 'LAB_REPORT_SHARED',
+        resourceType: 'lab_report',
+        resourceId: id,
+        outcome: 'SUCCESS',
+        requestId: req.id,
+        correlationId: req.id,
+        metadata: { documentId: report.documentId, patientId: report.patientId },
+      });
+    });
+    return reportView(report, true);
+  }
+
+  @Get('patient/mine')
+  @PatientContextRoute({ mode: 'only', scope: 'VIEW_RECORDS' })
+  async myReports(@CurrentPatientContext() ctx: ResolvedPatientContext) {
+    const rows = await this.runtime.prisma.labReport.findMany({
+      where: { tenantId: ctx.tenantId, patientId: ctx.patientId, reviewStatus: 'REVIEWED' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 100,
+    });
+    const documents = await this.runtime.prisma.document.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        patientId: ctx.patientId,
+        id: { in: rows.map((row) => row.documentId) },
+        category: 'LAB_REPORT',
+        accessPolicy: 'PATIENT_SHARED',
+        status: 'AVAILABLE',
+        currentRevision: { not: null },
+        redactedAt: null,
+      },
+      select: { id: true, encounterId: true },
+    });
+    const shared = new Map(documents.map((document) => [document.id, document.encounterId]));
+    return {
+      items: rows
+        .filter((row) => row.encounterId && shared.get(row.documentId) === row.encounterId)
+        .map((row) => reportView(row, true)),
+    };
+  }
+
+  @Get('patient/mine/:id')
+  @PatientContextRoute({ mode: 'only', scope: 'VIEW_RECORDS' })
+  async myReport(@CurrentPatientContext() ctx: ResolvedPatientContext, @Param('id') id: string) {
+    const report = await this.runtime.prisma.labReport.findFirst({
+      where: { id, tenantId: ctx.tenantId, patientId: ctx.patientId, reviewStatus: 'REVIEWED' },
+    });
+    if (!report || !report.encounterId) throw new AppError('RESOURCE_NOT_FOUND');
+    const document = await this.runtime.prisma.document.findFirst({
+      where: {
+        id: report.documentId,
+        tenantId: ctx.tenantId,
+        patientId: ctx.patientId,
+        encounterId: report.encounterId,
+        category: 'LAB_REPORT',
+        accessPolicy: 'PATIENT_SHARED',
+        status: 'AVAILABLE',
+        currentRevision: { not: null },
+        redactedAt: null,
+      },
+      select: { id: true },
+    });
+    if (!document) throw new AppError('RESOURCE_NOT_FOUND');
+    const results = await this.runtime.prisma.labResult.findMany({
+      where: { tenantId: ctx.tenantId, labReportId: id, reviewStatus: 'REVIEWED' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return {
+      ...reportView(report, true),
+      results: results.map((row) => ({
+        id: row.id,
+        analyteDisplay: row.analyteDisplay,
+        valueNumeric: row.valueNumeric?.toString() ?? null,
+        valueText: row.valueText,
+        unit: row.unit,
+        referenceRange: row.referenceRange,
+        abnormalFlag: row.abnormalFlag,
+        reviewStatus: row.reviewStatus,
+      })),
+    };
   }
 }

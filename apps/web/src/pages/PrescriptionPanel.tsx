@@ -266,7 +266,7 @@ export function PrescriptionPanel({ encounterId }: { encounterId: string }) {
    * prefetch or a user might copy.
    */
   const download = useMutation({
-    mutationFn: downloadDocument,
+    mutationFn: (documentId: string) => downloadDocument(documentId),
     onError: (e: { response?: { status: number } }) => onFailure(e?.response?.status, undefined),
   });
 

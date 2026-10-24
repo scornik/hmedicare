@@ -137,3 +137,68 @@ test('login returns to the opaque reminder before patient selection', async ({ p
   await expect(page).toHaveURL('/r/' + token);
   await expect(page.getByRole('button', { name: /Demo Patient/ })).toBeVisible();
 });
+
+test('patient records show only the selected context and its shared lab report', async ({ page }) => {
+  await prepare(page);
+  const reportId = '00000000-0000-4000-8000-000000000222';
+  const documentId = '00000000-0000-4000-8000-000000000333';
+  await page.route('http://localhost:3999/api/v1/lab-reports/patient/mine**', (route) => {
+    if (route.request().method() === 'OPTIONS')
+      return route.fulfill({
+        status: 204,
+        headers: {
+          'access-control-allow-origin': 'http://localhost:4173',
+          'access-control-allow-credentials': 'true',
+          'access-control-allow-headers': '*',
+          'access-control-allow-methods': '*',
+        },
+      });
+    expect(route.request().headers()['x-tenant-id']).toBe(tenant);
+    expect(route.request().headers()['x-patient-context']).toBe(patient);
+    const report = {
+      id: reportId,
+      documentId,
+      patientId: patient,
+      encounterId: '00000000-0000-4000-8000-000000000444',
+      labName: 'Synthetic lab',
+      reportDate: '2026-10-01',
+      reviewStatus: 'REVIEWED',
+      reviewedAt: '2026-10-01T09:00:00.000Z',
+      rowVersion: 2,
+      patientShared: true,
+    };
+    const data = route.request().url().endsWith(`/${reportId}`)
+      ? {
+          ...report,
+          results: [
+            {
+              id: reportId,
+              analyteDisplay: 'Hemoglobin',
+              valueNumeric: '12.5',
+              valueText: null,
+              unit: 'g/dL',
+              referenceRange: null,
+              abnormalFlag: 'NORMAL',
+              reviewStatus: 'REVIEWED',
+            },
+          ],
+        }
+      : { items: [report] };
+    return route.fulfill({
+      status: 200,
+      headers: {
+        'access-control-allow-origin': 'http://localhost:4173',
+        'access-control-allow-credentials': 'true',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ data }),
+    });
+  });
+  await page.goto('/my/records');
+  await page.getByRole('button', { name: /Demo Patient/ }).click();
+  const labs = page.getByTestId('patient-labs');
+  await expect(labs).toContainText('Synthetic lab');
+  await labs.getByRole('button', { name: /Synthetic lab/ }).click();
+  await expect(labs).toContainText('Hemoglobin');
+  await expect(page.getByTestId('patient-timeline')).toContainText('Prescription approved');
+});

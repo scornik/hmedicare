@@ -755,6 +755,7 @@ test('doctor links an accepted lab file, enters a value and reviews against the 
     reviewStatus: 'UNREVIEWED',
     reviewedAt: null as string | null,
     rowVersion: 1,
+    patientShared: false,
   };
   const results: Array<{
     id: string;
@@ -804,6 +805,11 @@ test('doctor links an accepted lab file, enters a value and reviews against the 
       results[0]!.reviewStatus = 'REVIEWED';
       return json(route, 200, { data: report });
     }
+    if (path === `/lab-reports/${RX}/share` && req.method() === 'POST') {
+      expect(req.postDataJSON()).toMatchObject({ expectedRowVersion: 3 });
+      report = { ...report, patientShared: true };
+      return json(route, 200, { data: report });
+    }
     return json(route, 404, { code: 'RESOURCE_NOT_FOUND' });
   });
   await open(page);
@@ -822,6 +828,8 @@ test('doctor links an accepted lab file, enters a value and reviews against the 
   await panel.getByRole('button', { name: 'Review report' }).click();
   await expect(panel.getByText('Reviewed', { exact: true })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Add value' })).toHaveCount(0);
+  await panel.getByRole('button', { name: 'Share with patient' }).click();
+  await expect(panel.getByText('Shared with patient')).toBeVisible();
 });
 
 test('visit documents show a readable empty state and available files', async ({ page }) => {

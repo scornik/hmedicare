@@ -19,6 +19,7 @@ import { MergeCasesPage } from './pages/MergeCasesPage';
 import { PatientCreatePage } from './pages/PatientCreatePage';
 import { PatientDetailPage } from './pages/PatientDetailPage';
 import { PatientSearchPage } from './pages/PatientSearchPage';
+import { PatientRecordsPage } from './pages/PatientRecordsPage';
 import { QueueBoardPage } from './pages/QueueBoardPage';
 import { TenantPickerPage } from './pages/TenantPickerPage';
 
@@ -60,6 +61,7 @@ const router = createBrowserRouter([
         children: [
           { path: '/', element: <Navigate to="/dashboard" replace /> },
           { path: '/r/:token', element: <CommunicationLinkPage /> },
+          { path: '/my/records', element: <PatientRecordsPage /> },
           { path: '/select-tenant', element: <TenantPickerPage /> },
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/settings/sms', element: <SmsSettingsPage /> },

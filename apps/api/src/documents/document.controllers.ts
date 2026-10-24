@@ -3,6 +3,8 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppError, type ActorContext, type TenantContext } from '@hmedic/kernel';
 import { HTTP_RUNTIME, Idempotent, RawResponse, type HttpRuntime } from '@hmedic/http-kit';
 import { CurrentActor, CurrentTenant, RequirePermission } from '@hmedic/identity-access/nest';
+import { CurrentPatientContext, OptionalTenant, PatientContextRoute } from '@hmedic/identity-access/nest';
+import type { ResolvedPatientContext } from '@hmedic/identity-access';
 import { CLINICAL_SERVICES, type ClinicalServices } from '@hmedic/clinical/nest';
 import { DOCUMENT_SERVICES, type DocumentServices } from '@hmedic/laboratory-documents/nest';
 import {
@@ -231,14 +233,52 @@ export class DocumentController {
    */
   private async authorize(
     actor: ActorContext,
-    tenant: TenantContext,
+    tenant: TenantContext | undefined,
     req: FastifyRequest,
     documentId: string,
+    patientContext?: ResolvedPatientContext,
   ) {
-    const document = await this.documents.downloads.describe(tenant.tenantId, documentId);
+    const tenantId = patientContext?.tenantId ?? tenant?.tenantId;
+    if (!tenantId) throw new AppError('TENANT_CONTEXT_REQUIRED');
+    if (patientContext) {
+      const shared = await this.runtime.prisma.document.findFirst({
+        where: {
+          id: documentId,
+          tenantId,
+          patientId: patientContext.patientId,
+          accessPolicy: 'PATIENT_SHARED',
+          status: 'AVAILABLE',
+          currentRevision: { not: null },
+          redactedAt: null,
+          encounterId: { not: null },
+        },
+        select: { category: true, encounterId: true },
+      });
+      if (!shared) throw new AppError('RESOURCE_NOT_FOUND');
+      if (shared.category === 'LAB_REPORT') {
+        const reviewed = await this.runtime.prisma.labReport.findFirst({
+          where: {
+            tenantId,
+            patientId: patientContext.patientId,
+            encounterId: shared.encounterId,
+            documentId,
+            reviewStatus: 'REVIEWED',
+          },
+          select: { id: true },
+        });
+        if (!reviewed) throw new AppError('RESOURCE_NOT_FOUND');
+      }
+    }
+    const document = await this.documents.downloads.describe(tenantId, documentId);
     if (!document) throw new AppError('RESOURCE_NOT_FOUND');
     if (document.accessPolicy === 'AUDIT_ONLY') throw new AppError('RESOURCE_NOT_FOUND');
     if (!document.encounterId) throw new AppError('RESOURCE_NOT_FOUND');
+    if (patientContext) {
+      if (document.patientId !== patientContext.patientId || document.accessPolicy !== 'PATIENT_SHARED')
+        throw new AppError('RESOURCE_NOT_FOUND');
+      return document;
+    }
+    if (!tenant) throw new AppError('TENANT_CONTEXT_REQUIRED');
     const clinicalActorContext = await clinicalActor(this.runtime, actor, tenant, req);
     const access = await this.clinical.access.assignedOrScoped(clinicalActorContext, document.encounterId);
     // The two foreign keys prove that the patient and encounter exist in this tenant, but they do not
@@ -321,15 +361,21 @@ export class DocumentController {
   @Post(':id/download-token')
   @HttpCode(201)
   @RequirePermission('document.read')
+  @PatientContextRoute({ mode: 'or-staff', scope: 'VIEW_RECORDS' })
   @Idempotent()
   async createDownloadToken(
     @CurrentActor() actor: ActorContext,
-    @CurrentTenant() tenant: TenantContext,
+    @OptionalTenant() tenant: TenantContext | undefined,
     @Param('id') documentId: string,
     @Req() req: FastifyRequest,
+    @CurrentPatientContext() patientContext?: ResolvedPatientContext,
   ): Promise<{ token: string; expiresAt: string; revision: number }> {
-    await this.authorize(actor, tenant, req, documentId);
-    const issued = await this.documents.downloads.issueToken(tenant.tenantId, actor.userId, documentId);
+    await this.authorize(actor, tenant, req, documentId, patientContext);
+    const issued = await this.documents.downloads.issueToken(
+      patientContext?.tenantId ?? tenant!.tenantId,
+      actor.userId,
+      documentId,
+    );
     return {
       token: issued.token,
       expiresAt: issued.expiresAt.toISOString(),
@@ -344,17 +390,19 @@ export class DocumentController {
   @Get(':id/download')
   @RawResponse()
   @RequirePermission('document.read')
+  @PatientContextRoute({ mode: 'or-staff', scope: 'VIEW_RECORDS' })
   async download(
     @CurrentActor() actor: ActorContext,
-    @CurrentTenant() tenant: TenantContext,
+    @OptionalTenant() tenant: TenantContext | undefined,
     @Param('id') documentId: string,
     @Query('token') token: string,
     @Req() req: FastifyRequest,
     @Res() reply: FastifyReply,
+    @CurrentPatientContext() patientContext?: ResolvedPatientContext,
   ): Promise<void> {
-    const document = await this.authorize(actor, tenant, req, documentId);
+    const document = await this.authorize(actor, tenant, req, documentId, patientContext);
     const { stream } = await this.documents.downloads.open({
-      tenantId: tenant.tenantId,
+      tenantId: patientContext?.tenantId ?? tenant!.tenantId,
       actorUserId: actor.userId,
       documentId,
       token: token ?? '',

@@ -55,7 +55,7 @@ export function LoginPage() {
     void run(async () => {
       await verifyOtp(phone, code);
       setCode('');
-      await navigate(returnTo);
+      await navigate(returnTo === '/select-tenant' ? '/my/records' : returnTo);
     });
   };
 
