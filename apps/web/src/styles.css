@@ -571,6 +571,50 @@ a[role='button'] {
 .encounter-documents-pages {
   margin-top: 0.8rem;
 }
+.lab-report-create,
+.lab-report-detail {
+  display: grid;
+  gap: 0.75rem;
+  margin-block: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+.lab-report-create label,
+.lab-result-form label {
+  display: grid;
+  gap: 0.35rem;
+}
+.lab-report-candidates,
+.lab-report-list,
+.lab-result-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.lab-report-list button {
+  display: grid;
+  text-align: start;
+  gap: 0.2rem;
+  min-width: min(100%, 12rem);
+}
+.lab-report-list button[aria-current='true'] {
+  border-color: var(--accent);
+}
+.lab-result-form label {
+  flex: 1 1 9rem;
+}
+.lab-review-attestation {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.lab-report-create input,
+.lab-result-form input,
+.lab-result-form select,
+.lab-reports button {
+  min-height: 44px;
+}
 .encounter-document-upload {
   display: flex;
   align-items: end;

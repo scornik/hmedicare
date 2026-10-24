@@ -566,3 +566,87 @@ describe('document download over HTTP', () => {
     await request(server).get(`/api/v1/documents/${d.documentId}/download`).set(d.doctor.headers).expect(401);
   });
 });
+
+describe('lab reports over HTTP', () => {
+  it('links only an available lab file, records a result and freezes it on doctor review', async () => {
+    const d = await storedDocument('lab-flow');
+    const create = () =>
+      request(server)
+        .post('/api/v1/lab-reports')
+        .set(d.doctor.headers)
+        .set('idempotency-key', idem())
+        .send({ documentId: d.documentId, labName: 'Synthetic Lab', reportDate: '2026-10-01' });
+    await create().expect(409);
+    await api.runtime.prisma.document.update({
+      where: { id: d.documentId },
+      data: { category: 'LAB_REPORT', status: 'SCANNING', currentRevision: null },
+    });
+    await create().expect(409);
+    await api.runtime.prisma.document.update({
+      where: { id: d.documentId },
+      data: { status: 'AVAILABLE', currentRevision: 1 },
+    });
+    const created = await create().expect(201);
+    const reportId = created.body.data.id as string;
+    expect(created.body.data).toMatchObject({
+      documentId: d.documentId,
+      reviewStatus: 'UNREVIEWED',
+      rowVersion: 1,
+      reportDate: '2026-10-01',
+    });
+    await create().expect(409);
+    const listed = await request(server)
+      .get(`/api/v1/lab-reports/by-encounter/${d.encounterId}`)
+      .set(d.doctor.headers)
+      .expect(200);
+    expect(listed.body.data.items).toHaveLength(1);
+    const other = await doctor(d.tenantId, 'Lab other');
+    await request(server).get(`/api/v1/lab-reports/${reportId}`).set(other.headers).expect(403);
+
+    await request(server)
+      .post(`/api/v1/lab-reports/${reportId}/results`)
+      .set(d.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({
+        expectedRowVersion: 1,
+        analyteDisplay: 'Synthetic analyte',
+        valueNumeric: '4.250000',
+        unit: 'mmol/L',
+        referenceRange: '3–5',
+        abnormalFlag: 'NORMAL',
+      })
+      .expect(201);
+    const draft = await request(server)
+      .get(`/api/v1/lab-reports/${reportId}`)
+      .set(d.doctor.headers)
+      .expect(200);
+    expect(draft.body.data.rowVersion).toBe(2);
+    expect(draft.body.data.results).toMatchObject([
+      { analyteDisplay: 'Synthetic analyte', valueNumeric: '4.25', reviewStatus: 'UNREVIEWED' },
+    ]);
+    await request(server)
+      .post(`/api/v1/lab-reports/${reportId}/review`)
+      .set(d.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: 2 })
+      .expect(400);
+    const reviewed = await request(server)
+      .post(`/api/v1/lab-reports/${reportId}/review`)
+      .set(d.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: 2, attestedSource: true })
+      .expect(200);
+    expect(reviewed.body.data.reviewStatus).toBe('REVIEWED');
+    const final = await request(server)
+      .get(`/api/v1/lab-reports/${reportId}`)
+      .set(d.doctor.headers)
+      .expect(200);
+    expect(final.body.data.results[0].reviewStatus).toBe('REVIEWED');
+    await request(server)
+      .post(`/api/v1/lab-reports/${reportId}/results`)
+      .set(d.doctor.headers)
+      .set('idempotency-key', idem())
+      .send({ expectedRowVersion: 3, analyteDisplay: 'Late entry', valueText: 'positive' })
+      .expect(409);
+  });
+});

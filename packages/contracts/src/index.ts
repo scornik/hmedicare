@@ -12,6 +12,7 @@ export * from './clinical';
 export * from './prescriptions';
 export * from './openapi';
 export * from './documents';
+export * from './labs';
 export * from './timeline';
 export * from './follow-up';
 export * from './communication';
