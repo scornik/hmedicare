@@ -57,6 +57,13 @@ export {
   registerUploadCleanupJobs,
 } from '../infrastructure/upload-cleanup-jobs';
 export {
+  DISK_USAGE_CHECK,
+  storageRootBytes,
+  collectDiskUsage,
+  assessDiskUsage,
+  registerDiskUsageJobs,
+} from '../infrastructure/disk-usage-jobs';
+export {
   type ObjectReadOptions,
   ObjectStorageError,
   type ObjectStoragePort,

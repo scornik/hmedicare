@@ -56,6 +56,7 @@ describe('worker mode', () => {
   it('registers the scan handler only when explicitly enabled with private storage', async () => {
     const disabled = await start({ JOB_RUNNER_MODE: 'cron' });
     expect(disabled.jobs?.registry.get('ScanDocumentVersion')).toBeUndefined();
+    expect(disabled.jobs?.registry.get('DiskUsageCheck')).toBeUndefined();
     const root = await mkdtemp(path.join(tmpdir(), 'hmedic-worker-scan-'));
     try {
       const enabled = await start({
@@ -65,6 +66,8 @@ describe('worker mode', () => {
       });
       expect(enabled.jobs?.registry.get('ScanDocumentVersion')).toBeDefined();
       expect(enabled.jobs?.runner.hasHandler('ScanDocumentVersion')).toBe(true);
+      expect(enabled.jobs?.registry.get('DiskUsageCheck')).toBeDefined();
+      expect(enabled.jobs?.runner.hasHandler('DiskUsageCheck')).toBe(true);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
