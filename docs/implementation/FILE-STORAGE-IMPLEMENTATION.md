@@ -267,8 +267,10 @@ context. Creation requires the selected patient and encounter to match; parts,
 finalization and abort require the same session owner and recheck the live
 patient context. A patient-supplied source remains `CLINICAL_TEAM` while it is
 scanned and reviewed. The doctor can explicitly share a reviewed lab report
-through the report-sharing route below. The patient upload UI, quota admission
-and S3 adapter remain open. Idempotency fingerprints now include the resolved
+through the report-sharing route below. The patient web records page now offers
+a context-scoped lab-report upload against a recent encounter when scanning is
+enabled. Native patient upload, quota admission and the S3 adapter remain open.
+Idempotency fingerprints now include the resolved
 patient context, so a response from one dependent cannot replay under another.
 The document metadata route now reports processing state to the authorized
 clinical team. The consultation UI polls until scanning makes the document

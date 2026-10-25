@@ -202,3 +202,72 @@ test('patient records show only the selected context and its shared lab report',
   await expect(labs).toContainText('Hemoglobin');
   await expect(page.getByTestId('patient-timeline')).toContainText('Prescription approved');
 });
+
+test('patient submits a lab report for their selected visit', async ({ page }) => {
+  await prepare(page);
+  const encounterId = '00000000-0000-4000-8000-000000000444';
+  const sessionId = '00000000-0000-4000-8000-000000000555';
+  const submitted: string[] = [];
+  await page.route('http://localhost:3999/api/v1/documents/**', async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    const json = (data: unknown, status = 200) =>
+      route.fulfill({
+        status,
+        headers: {
+          'access-control-allow-origin': 'http://localhost:4173',
+          'access-control-allow-credentials': 'true',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ data }),
+      });
+    if (request.method() === 'OPTIONS')
+      return route.fulfill({
+        status: 204,
+        headers: {
+          'access-control-allow-origin': 'http://localhost:4173',
+          'access-control-allow-credentials': 'true',
+          'access-control-allow-headers': '*',
+          'access-control-allow-methods': '*',
+        },
+      });
+    expect(request.headers()['x-tenant-id']).toBe(tenant);
+    expect(request.headers()['x-patient-context']).toBe(patient);
+    if (path.endsWith('/upload-capability')) return json({ enabled: true });
+    if (path.endsWith('/patient/upload-encounters'))
+      return json({
+        items: [{ id: encounterId, startedAt: '2026-10-01T09:00:00.000Z', status: 'COMPLETED' }],
+      });
+    if (path.endsWith('/upload-sessions') && request.method() === 'POST') {
+      expect(request.postDataJSON()).toMatchObject({
+        patientId: patient,
+        encounterId,
+        category: 'LAB_REPORT',
+        contentType: 'application/pdf',
+      });
+      submitted.push('create');
+      return json({ sessionId, partCount: 1, partSizeBytes: 5 * 1024 * 1024 }, 201);
+    }
+    if (path.endsWith(`/upload-sessions/${sessionId}/parts/1`) && request.method() === 'PUT') {
+      expect(request.headers()['x-part-sha256']).toMatch(/^[a-f0-9]{64}$/);
+      submitted.push('part');
+      return json({ partNumber: 1 });
+    }
+    if (path.endsWith(`/upload-sessions/${sessionId}/finalize`) && request.method() === 'POST') {
+      submitted.push('finalize');
+      return json({ documentId: '00000000-0000-4000-8000-000000000666' });
+    }
+    throw new Error(`Unexpected document request: ${request.method()} ${path}`);
+  });
+  await page.goto('/my/records');
+  await page.getByRole('button', { name: /Demo Patient/ }).click();
+  const upload = page.getByTestId('patient-upload');
+  await expect(upload.getByRole('heading', { name: 'Submit a lab report' })).toBeVisible();
+  await upload.getByLabel('Visit').selectOption(encounterId);
+  await upload
+    .getByLabel('Report file')
+    .setInputFiles({ name: 'report.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n') });
+  await upload.getByRole('button', { name: 'Submit report' }).click();
+  await expect(upload).toContainText('Report submitted.');
+  expect(submitted).toEqual(['create', 'part', 'finalize']);
+});

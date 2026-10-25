@@ -149,6 +149,24 @@ export class DocumentController {
     return { enabled: this.runtime.config.UPLOAD_SCAN_WORKER_ENABLED };
   }
 
+  @Get('patient/upload-encounters')
+  @PatientContextRoute({ mode: 'only', scope: 'UPLOAD_DOCUMENTS' })
+  async patientUploadEncounters(@CurrentPatientContext() patientContext: ResolvedPatientContext) {
+    const rows = await this.runtime.prisma.encounter.findMany({
+      where: {
+        tenantId: patientContext.tenantId,
+        patientId: patientContext.patientId,
+        status: { not: 'ENTERED_IN_ERROR' },
+      },
+      orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
+      take: 25,
+      select: { id: true, startedAt: true, status: true },
+    });
+    return {
+      items: rows.map((row) => ({ id: row.id, startedAt: row.startedAt.toISOString(), status: row.status })),
+    };
+  }
+
   @Post('upload-sessions')
   @HttpCode(201)
   @RequirePermission('document.write')

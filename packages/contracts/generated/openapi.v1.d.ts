@@ -1021,6 +1021,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/patient/upload-encounters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Recent encounters the active patient context may attach an upload to. */
+        get: operations["listPatientUploadEncounters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/upload-capability": {
         parameters: {
             query?: never;
@@ -12898,6 +12915,119 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["EncounterDocumentList"];
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable (e.g. Idempotency-Key reused with another body) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Rate limited (see Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listPatientUploadEncounters: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Patient-Context": string;
+                "X-Tenant-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recent patient encounters */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            items: {
+                                /**
+                                 * Format: uuid
+                                 * @example 01a0b422-fd6f-7480-8586-444e7fc66080
+                                 */
+                                id: string;
+                                /**
+                                 * Format: date-time
+                                 * @example 2026-09-18T10:49:42.206Z
+                                 */
+                                startedAt: string;
+                                /** @enum {string} */
+                                status: "IN_PROGRESS" | "INTERRUPTED" | "COMPLETED";
+                            }[];
+                        };
                         meta: components["schemas"]["ResponseMeta"];
                     };
                 };
