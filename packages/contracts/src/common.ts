@@ -94,7 +94,7 @@ export const ProblemDetails = registry.register(
       requestId: Uuid,
       fieldErrors: z.array(FieldError).optional(),
       retryAfterSeconds: z.number().int().min(0).optional(),
-      details: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
+      details: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
     })
     .openapi({ description: 'Error body for every non-2xx response (API-IMPLEMENTATION §1)' }),
 );

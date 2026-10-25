@@ -29,19 +29,19 @@
   },
   "dependencies": {
     "@hmedic/audit": "workspace:*",
-    "@hmedic/database": "workspace:*",
-    "@hmedic/kernel": "workspace:*",
     "@hmedic/clinical": "workspace:*",
+    "@hmedic/communication": "workspace:*",
+    "@hmedic/config": "workspace:*",
+    "@hmedic/database": "workspace:*",
+    "@hmedic/follow-up": "workspace:*",
+    "@hmedic/jobs": "workspace:*",
+    "@hmedic/kernel": "workspace:*",
+    "@hmedic/laboratory-documents": "workspace:*",
+    "@hmedic/observability": "workspace:*",
     "@hmedic/prescriptions": "workspace:*",
     "@hmedic/queue": "workspace:*",
     "@hmedic/scheduling": "workspace:*",
-    "@hmedic/laboratory-documents": "workspace:*",
-    "@hmedic/jobs": "workspace:*",
-    "@hmedic/observability": "workspace:*",
-    "@hmedic/config": "workspace:*",
-    "zod": "3.25.76",
     "@nestjs/common": "11.2.5",
-    "@hmedic/follow-up": "workspace:*",
-    "@hmedic/communication": "workspace:*"
+    "zod": "4.6.6"
   }
 }

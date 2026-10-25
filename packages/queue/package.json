@@ -31,7 +31,7 @@
     "@hmedic/patient": "workspace:*",
     "@hmedic/scheduling": "workspace:*",
     "@nestjs/common": "11.2.5",
-    "zod": "3.25.76"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@hmedic/config": "workspace:*",

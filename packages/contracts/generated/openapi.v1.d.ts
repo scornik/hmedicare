@@ -9112,7 +9112,9 @@ export interface operations {
             query: {
                 chamberId?: string;
                 doctorProfileId?: string;
+                /** @description Calendar date (no time zone) */
                 from: string;
+                /** @description Calendar date (no time zone) */
                 to: string;
             };
             header: {

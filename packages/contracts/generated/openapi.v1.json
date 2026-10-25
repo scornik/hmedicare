@@ -205,7 +205,8 @@
               "MILD",
               "MODERATE",
               "SEVERE",
-              "UNKNOWN"
+              "UNKNOWN",
+              null
             ],
             "type": [
               "string",
@@ -1134,7 +1135,8 @@
             "enum": [
               "SELF",
               "GUARDIAN",
-              "STAFF"
+              "STAFF",
+              null
             ],
             "type": [
               "string",
@@ -4142,7 +4144,8 @@
           "verificationMethod": {
             "enum": [
               "STAFF_VERIFIED_IN_PERSON",
-              "STAFF_VERIFIED_DOCUMENT"
+              "STAFF_VERIFIED_DOCUMENT",
+              null
             ],
             "type": [
               "string",
@@ -4395,7 +4398,8 @@
               "LOW",
               "HIGH",
               "CRITICAL",
-              "NORMAL"
+              "NORMAL",
+              null
             ],
             "type": [
               "string",
@@ -5389,7 +5393,8 @@
           "preferredLocale": {
             "enum": [
               "bn-BD",
-              "en-BD"
+              "en-BD",
+              null
             ],
             "type": [
               "string",
@@ -5404,7 +5409,8 @@
               "FEMALE",
               "MALE",
               "INTERSEX",
-              "UNKNOWN"
+              "UNKNOWN",
+              null
             ],
             "type": [
               "string",
@@ -5880,7 +5886,8 @@
               "FEMALE",
               "MALE",
               "INTERSEX",
-              "UNKNOWN"
+              "UNKNOWN",
+              null
             ],
             "type": [
               "string",
@@ -6264,9 +6271,6 @@
                 },
                 {
                   "type": "boolean"
-                },
-                {
-                  "type": "null"
                 },
                 {
                   "type": "null"
@@ -7512,7 +7516,8 @@
               "RESCHEDULED",
               "NO_SHOW_POLICY",
               "PAYMENT_NOT_COMPLETED",
-              "OTHER"
+              "OTHER",
+              null
             ],
             "type": [
               "string",
@@ -8046,7 +8051,8 @@
               "MILD",
               "MODERATE",
               "SEVERE",
-              "UNKNOWN"
+              "UNKNOWN",
+              null
             ],
             "type": [
               "string",
@@ -13710,6 +13716,7 @@
             }
           },
           {
+            "description": "Calendar date (no time zone)",
             "in": "query",
             "name": "from",
             "required": true,
@@ -13721,6 +13728,7 @@
             }
           },
           {
+            "description": "Calendar date (no time zone)",
             "in": "query",
             "name": "to",
             "required": true,
@@ -25919,7 +25927,8 @@
                       "LOW",
                       "HIGH",
                       "CRITICAL",
-                      "NORMAL"
+                      "NORMAL",
+                      null
                     ],
                     "type": [
                       "string",

@@ -210,7 +210,7 @@ importers:
         version: 5.12.5
       nestjs-zod:
         specifier: 5.5.0
-        version: 5.5.0(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2))(rxjs@7.8.2)(zod@3.25.76)
+        version: 5.5.0(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2))(rxjs@7.8.2)(zod@4.6.6)
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2
@@ -218,8 +218,8 @@ importers:
         specifier: 7.8.2
         version: 7.8.2
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
     devDependencies:
       '@hmedic/communication-adapters-zamanit':
         specifier: workspace:*
@@ -410,8 +410,8 @@ importers:
         specifier: workspace:*
         version: link:../secrets
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
 
   packages/ai-adapters/gemini:
     dependencies:
@@ -446,8 +446,8 @@ importers:
         specifier: workspace:*
         version: link:../observability
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
 
   packages/clinical:
     dependencies:
@@ -482,8 +482,8 @@ importers:
         specifier: 11.2.5
         version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
     devDependencies:
       '@hmedic/config':
         specifier: workspace:*
@@ -516,8 +516,8 @@ importers:
         specifier: workspace:*
         version: link:../provider-credentials
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
     devDependencies:
       '@hmedic/secrets':
         specifier: workspace:*
@@ -538,20 +538,20 @@ importers:
   packages/config:
     dependencies:
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
 
   packages/contracts:
     dependencies:
       '@asteasolutions/zod-to-openapi':
-        specifier: 7.3.4
-        version: 7.3.4(zod@3.25.76)
+        specifier: 9.1.0
+        version: 9.1.0(zod@4.6.6)
       openapi-fetch:
         specifier: 0.17.0
         version: 0.17.0
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
     devDependencies:
       '@hmedic/kernel':
         specifier: workspace:*
@@ -609,8 +609,8 @@ importers:
         specifier: 11.2.5
         version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
 
   packages/http-kit:
     dependencies:
@@ -664,7 +664,7 @@ importers:
         version: 5.12.5
       nestjs-zod:
         specifier: 5.5.0
-        version: 5.5.0(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2))(rxjs@7.8.2)(zod@3.25.76)
+        version: 5.5.0(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2))(rxjs@7.8.2)(zod@4.6.6)
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2
@@ -672,8 +672,8 @@ importers:
         specifier: 7.8.2
         version: 7.8.2
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
     devDependencies:
       '@nestjs/testing':
         specifier: 11.2.5
@@ -746,8 +746,8 @@ importers:
         specifier: workspace:*
         version: link:../observability
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
 
   packages/kernel:
     dependencies:
@@ -770,8 +770,8 @@ importers:
         specifier: 11.1.6
         version: 11.1.6(reflect-metadata@0.2.2)(rxjs@7.8.2)
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
 
   packages/localization:
     dependencies:
@@ -857,8 +857,8 @@ importers:
         specifier: 0.2.20
         version: 0.2.20
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
     devDependencies:
       '@hmedic/storage-adapters-disk':
         specifier: workspace:*
@@ -885,8 +885,8 @@ importers:
         specifier: workspace:*
         version: link:../secrets
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
     devDependencies:
       '@hmedic/config':
         specifier: workspace:*
@@ -922,8 +922,8 @@ importers:
         specifier: 11.2.5
         version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
     devDependencies:
       '@hmedic/config':
         specifier: workspace:*
@@ -1120,8 +1120,8 @@ importers:
         specifier: 11.2.5
         version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
 
   tooling/eslint-plugin-hmedic: {}
 
@@ -1172,10 +1172,10 @@ importers:
 
 packages:
 
-  '@asteasolutions/zod-to-openapi@7.3.4':
-    resolution: {integrity: sha512-/2rThQ5zPi9OzVwes6U7lK1+Yvug0iXu25olp7S0XsYmOqnyMfxH7gdSQjn/+DSOHRg7wnotwGJSyL+fBKdnEA==}
+  '@asteasolutions/zod-to-openapi@9.1.0':
+    resolution: {integrity: sha512-pLMeRgRYS7/vZIgAAkOe2P6+XGTifR1MT9pqDoxZ11EmcJJ+DPmdPqLN8ZZF4U8R9KHCCQCS9c2wtuE8wSrfkw==}
     peerDependencies:
-      zod: ^3.20.2
+      zod: ^4.0.0
 
   '@aws-sdk/checksums@3.1001.3':
     resolution: {integrity: sha512-CcAkVyEUKGngbEqJdVdSc53Iy52+XzVL5NIcTen2BlK8UByNC1DThVtf5VKSrNzyA+SqyTvs+3S+knVBbOUizQ==}
@@ -3283,8 +3283,8 @@ packages:
     peerDependencies:
       typescript: ^5.x
 
-  openapi3-ts@4.6.1:
-    resolution: {integrity: sha512-XW9MOldkhoICNeXVzzmXzmOW5G73ppOEGmh7fLCqHjgfdEYCGGN+00MlVCeUZgovjjfC56j9tvtDt1zGabNjjA==}
+  openapi3-ts@4.6.2:
+    resolution: {integrity: sha512-gyyil3DweqhXiEhTqtAs9wwRLfWHmetwhI4kmM5Rn0d6gtmK863Ki7qqbQnp9+Wwlqoe3B1LFWj7kMp5ctE4rQ==}
 
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
@@ -4040,15 +4040,15 @@ packages:
     resolution: {integrity: sha512-zK7YHHz4ZXpW89AHXUPbQVGKI7uvkd3hzusTdotCg1UxyaVtg0zFJSTfW/Dq5f7OBBVnq6cZIaC8Ti4hb6dtCA==}
     engines: {node: '>= 14'}
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+  zod@4.6.6:
+    resolution: {integrity: sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA==}
 
 snapshots:
 
-  '@asteasolutions/zod-to-openapi@7.3.4(zod@3.25.76)':
+  '@asteasolutions/zod-to-openapi@9.1.0(zod@4.6.6)':
     dependencies:
-      openapi3-ts: 4.6.1
-      zod: 3.25.76
+      openapi3-ts: 4.6.2
+      zod: 4.6.6
 
   '@aws-sdk/checksums@3.1001.3':
     dependencies:
@@ -6136,12 +6136,12 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
-  nestjs-zod@5.5.0(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2))(rxjs@7.8.2)(zod@3.25.76):
+  nestjs-zod@5.5.0(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2))(rxjs@7.8.2)(zod@4.6.6):
     dependencies:
       '@nestjs/common': 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)
       deepmerge: 4.3.1
       rxjs: 7.8.2
-      zod: 3.25.76
+      zod: 4.6.6
 
   node-addon-api@8.9.2: {}
 
@@ -6192,7 +6192,7 @@ snapshots:
       typescript: 5.9.3
       yargs-parser: 21.1.1
 
-  openapi3-ts@4.6.1:
+  openapi3-ts@4.6.2:
     dependencies:
       yaml: 2.9.1
 
@@ -7010,4 +7010,4 @@ snapshots:
       compress-commons: 6.0.2
       readable-stream: 4.7.0
 
-  zod@3.25.76: {}
+  zod@4.6.6: {}
