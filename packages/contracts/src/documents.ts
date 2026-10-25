@@ -104,6 +104,31 @@ registry.registerPath({
 });
 
 registry.registerPath({
+  method: 'get',
+  path: '/api/v1/documents/patient/upload-encounters',
+  operationId: 'listPatientUploadEncounters',
+  tags: ['documents'],
+  security: secured,
+  description: 'Recent encounters the active patient context may attach an upload to.',
+  request: { headers: tenantHeaders.extend({ 'X-Patient-Context': Uuid }) },
+  responses: {
+    200: ok(
+      z.object({
+        items: z.array(
+          z.object({
+            id: Uuid,
+            startedAt: Timestamp,
+            status: z.enum(['IN_PROGRESS', 'INTERRUPTED', 'COMPLETED']),
+          }),
+        ),
+      }),
+      'Recent patient encounters',
+    ),
+    ...errorResponses,
+  },
+});
+
+registry.registerPath({
   method: 'post',
   path: '/api/v1/documents/upload-sessions',
   operationId: 'createDocumentUploadSession',

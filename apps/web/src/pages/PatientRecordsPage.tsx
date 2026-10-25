@@ -5,6 +5,7 @@ import { patientApi } from '../api';
 import { currentUser, logout } from '../auth/session';
 import { LanguageToggle } from '../components/LanguageToggle';
 import { PatientLabReportsPanel } from '../documents/PatientLabReportsPanel';
+import { PatientUploadPanel } from '../documents/PatientUploadPanel';
 import { useI18n } from '../i18n/i18n';
 import { TimelinePanel } from '../timeline/TimelinePanel';
 
@@ -22,7 +23,10 @@ export function PatientRecordsPage() {
       const result = await patientApi.GET('/api/v1/me/patient-contexts', { signal });
       if (result.error || !result.data) throw new Error('Patient contexts unavailable');
       return result.data.data.filter(
-        (context) => context.relationship === 'SELF' || context.authorityScope.includes('VIEW_RECORDS'),
+        (context) =>
+          context.relationship === 'SELF' ||
+          context.authorityScope.includes('VIEW_RECORDS') ||
+          context.authorityScope.includes('UPLOAD_DOCUMENTS'),
       );
     },
   });
@@ -31,6 +35,10 @@ export function PatientRecordsPage() {
     contexts.data?.find(
       (context) => context.tenantId === selected.tenantId && context.patientId === selected.patientId,
     );
+  const canView =
+    current && (current.relationship === 'SELF' || current.authorityScope.includes('VIEW_RECORDS'));
+  const canUpload =
+    current && (current.relationship === 'SELF' || current.authorityScope.includes('UPLOAD_DOCUMENTS'));
   return (
     <>
       <nav className="topbar">
@@ -70,12 +78,26 @@ export function PatientRecordsPage() {
                 {t('records.switch')}
               </button>
             </div>
-            <PatientLabReportsPanel
-              key={`${current.tenantId}:${current.patientId}`}
-              tenantId={current.tenantId}
-              patientId={current.patientId}
-            />
-            <TimelinePanel patientId={current.patientId} patientContext={{ tenantId: current.tenantId }} />
+            {canUpload && (
+              <PatientUploadPanel
+                key={`upload:${current.tenantId}:${current.patientId}`}
+                tenantId={current.tenantId}
+                patientId={current.patientId}
+              />
+            )}
+            {canView && (
+              <>
+                <PatientLabReportsPanel
+                  key={`reports:${current.tenantId}:${current.patientId}`}
+                  tenantId={current.tenantId}
+                  patientId={current.patientId}
+                />
+                <TimelinePanel
+                  patientId={current.patientId}
+                  patientContext={{ tenantId: current.tenantId }}
+                />
+              </>
+            )}
           </>
         )}
       </main>

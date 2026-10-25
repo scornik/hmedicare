@@ -348,6 +348,11 @@ describe('document download over HTTP', () => {
   it('lets a patient upload only to their encounter and refuses completion after access is revoked', async () => {
     const d = await storedDocument('patient-upload');
     const patient = await patientUser(d.tenantId, d.patientId);
+    const targets = await request(server)
+      .get('/api/v1/documents/patient/upload-encounters')
+      .set(patient)
+      .expect(200);
+    expect(targets.body.data.items).toMatchObject([{ id: d.encounterId, status: 'IN_PROGRESS' }]);
     const bytes = Buffer.from('%PDF-1.7\npatient supplied lab report\n');
     const sha256 = createHash('sha256').update(bytes).digest('hex');
     const payload = {
@@ -396,6 +401,7 @@ describe('document download over HTTP', () => {
       where: { tenantId: d.tenantId, patientId: d.patientId, status: 'ACTIVE' },
       data: { status: 'REVOKED' },
     });
+    await request(server).get('/api/v1/documents/patient/upload-encounters').set(patient).expect(403);
     await request(server)
       .post(`/api/v1/documents/upload-sessions/${sessionId}/finalize`)
       .set(patient)
