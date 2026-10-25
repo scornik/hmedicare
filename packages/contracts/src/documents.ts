@@ -13,6 +13,8 @@ const tenantIdemHeaders = z.object({
   'X-Tenant-ID': TenantIdHeader,
   'Idempotency-Key': IdempotencyKeyHeader,
 });
+const uploadHeaders = tenantHeaders.extend({ 'X-Patient-Context': Uuid.optional() });
+const uploadIdemHeaders = tenantIdemHeaders.extend({ 'X-Patient-Context': Uuid.optional() });
 const json = <T extends z.ZodTypeAny>(schema: T) => ({ 'application/json': { schema } });
 const ok = <T extends z.ZodTypeAny>(schema: T, description: string) => ({
   description,
@@ -97,7 +99,7 @@ registry.registerPath({
   operationId: 'getDocumentUploadCapability',
   tags: ['documents'],
   security: secured,
-  request: { headers: tenantHeaders },
+  request: { headers: uploadHeaders },
   responses: { 200: ok(z.object({ enabled: z.boolean() }), 'Upload availability'), ...errorResponses },
 });
 
@@ -107,8 +109,8 @@ registry.registerPath({
   operationId: 'createDocumentUploadSession',
   tags: ['documents'],
   security: secured,
-  description: 'Create a staff-owned upload for an authorized encounter.',
-  request: { headers: tenantIdemHeaders, body: { content: json(UploadRequest) } },
+  description: 'Create an upload for an authorized encounter. Patient contexts need UPLOAD_DOCUMENTS.',
+  request: { headers: uploadIdemHeaders, body: { content: json(UploadRequest) } },
   responses: { 201: ok(UploadSession, 'Upload session created'), ...errorResponses },
 });
 registry.registerPath({
@@ -118,7 +120,7 @@ registry.registerPath({
   tags: ['documents'],
   security: secured,
   request: {
-    headers: tenantHeaders.extend({ 'X-Part-SHA256': z.string().regex(/^[a-f0-9]{64}$/) }),
+    headers: uploadHeaders.extend({ 'X-Part-SHA256': z.string().regex(/^[a-f0-9]{64}$/) }),
     params: uploadParams.extend({ partNumber: z.coerce.number().int().positive() }),
     body: { content: { 'application/octet-stream': { schema: z.string().openapi({ format: 'binary' }) } } },
   },
@@ -136,7 +138,7 @@ registry.registerPath({
   operationId: 'finalizeDocumentUpload',
   tags: ['documents'],
   security: secured,
-  request: { headers: tenantIdemHeaders, params: uploadParams },
+  request: { headers: uploadIdemHeaders, params: uploadParams },
   responses: {
     201: ok(z.object({ documentId: Uuid, versionId: Uuid }), 'Queued for scanning'),
     ...errorResponses,
@@ -148,7 +150,7 @@ registry.registerPath({
   operationId: 'abortDocumentUpload',
   tags: ['documents'],
   security: secured,
-  request: { headers: tenantIdemHeaders, params: uploadParams },
+  request: { headers: uploadIdemHeaders, params: uploadParams },
   responses: {
     201: ok(z.object({ sessionId: Uuid, status: z.literal('ABORTED') }), 'Upload aborted'),
     ...errorResponses,

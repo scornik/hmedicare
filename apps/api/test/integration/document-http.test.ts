@@ -345,6 +345,116 @@ describe('document download over HTTP', () => {
     expect(metadata.body.data).toMatchObject({ id: documentId, status: 'SCANNING', currentRevision: null });
   });
 
+  it('lets a patient upload only to their encounter and refuses completion after access is revoked', async () => {
+    const d = await storedDocument('patient-upload');
+    const patient = await patientUser(d.tenantId, d.patientId);
+    const bytes = Buffer.from('%PDF-1.7\npatient supplied lab report\n');
+    const sha256 = createHash('sha256').update(bytes).digest('hex');
+    const payload = {
+      patientId: d.patientId,
+      encounterId: d.encounterId,
+      category: 'LAB_REPORT',
+      contentType: 'application/pdf',
+      sizeBytes: bytes.length,
+      sha256,
+      fileName: 'my-report.pdf',
+    };
+    await request(server)
+      .post('/api/v1/documents/upload-sessions')
+      .set(patient)
+      .set('idempotency-key', idem())
+      .send({ ...payload, patientId: newId() })
+      .expect(404);
+    const created = await request(server)
+      .post('/api/v1/documents/upload-sessions')
+      .set(patient)
+      .set('idempotency-key', idem())
+      .send(payload)
+      .expect(201);
+    const { sessionId, documentId } = created.body.data;
+    expect(
+      await api.runtime.prisma.document.findFirst({
+        where: { id: documentId },
+        select: { accessPolicy: true, patientId: true },
+      }),
+    ).toEqual({ accessPolicy: 'CLINICAL_TEAM', patientId: d.patientId });
+    await request(server)
+      .put(`/api/v1/documents/upload-sessions/${sessionId}/parts/1`)
+      .set(d.doctor.headers)
+      .set('x-part-sha256', sha256)
+      .set('content-type', 'application/octet-stream')
+      .send(bytes)
+      .expect(404);
+    await request(server)
+      .put(`/api/v1/documents/upload-sessions/${sessionId}/parts/1`)
+      .set(patient)
+      .set('x-part-sha256', sha256)
+      .set('content-type', 'application/octet-stream')
+      .send(bytes)
+      .expect(200);
+    await api.runtime.prisma.patientAccount.updateMany({
+      where: { tenantId: d.tenantId, patientId: d.patientId, status: 'ACTIVE' },
+      data: { status: 'REVOKED' },
+    });
+    await request(server)
+      .post(`/api/v1/documents/upload-sessions/${sessionId}/finalize`)
+      .set(patient)
+      .set('idempotency-key', idem())
+      .send({})
+      .expect(403);
+    await api.runtime.prisma.patientAccount.updateMany({
+      where: { tenantId: d.tenantId, patientId: d.patientId, status: 'REVOKED' },
+      data: { status: 'ACTIVE' },
+    });
+    const finalizeKey = idem();
+    const finished = await request(server)
+      .post(`/api/v1/documents/upload-sessions/${sessionId}/finalize`)
+      .set(patient)
+      .set('idempotency-key', finalizeKey)
+      .send({})
+      .expect(201);
+    expect(finished.body.data.documentId).toBe(documentId);
+    const owner = await api.runtime.prisma.patientAccount.findFirstOrThrow({
+      where: { tenantId: d.tenantId, patientId: d.patientId },
+      select: { userId: true },
+    });
+    const otherPatientId = newId();
+    const now = new Date();
+    await api.runtime.prisma.patient.create({
+      data: {
+        id: otherPatientId,
+        tenantId: d.tenantId,
+        medicalRecordNumber: `MRN-${otherPatientId}`,
+        legalName: 'Other patient',
+        displayName: 'Other patient',
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await api.runtime.prisma.patientAccount.create({
+      data: {
+        id: newId(),
+        tenantId: d.tenantId,
+        userId: owner.userId,
+        patientId: otherPatientId,
+        relationship: 'SELF',
+        verificationMethod: 'STAFF_VERIFIED_IN_PERSON',
+        verifiedAt: now,
+        status: 'ACTIVE',
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const switched = await request(server)
+      .post(`/api/v1/documents/upload-sessions/${sessionId}/finalize`)
+      .set({ ...patient, 'x-patient-context': otherPatientId })
+      .set('idempotency-key', finalizeKey)
+      .send({})
+      .expect(422);
+    expect(switched.body.code).toBe('IDEMPOTENCY_KEY_REUSED');
+  });
+
   it('refuses an upload for a patient outside the authorized encounter', async () => {
     const d = await storedDocument('upload-mismatch');
     const bytes = Buffer.from('%PDF-1.7\nreport\n');

@@ -18578,6 +18578,16 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Patient-Context",
+            "required": false,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -18704,7 +18714,7 @@
     },
     "/api/v1/documents/upload-sessions": {
       "post": {
-        "description": "Create a staff-owned upload for an authorized encounter.",
+        "description": "Create an upload for an authorized encounter. Patient contexts need UPLOAD_DOCUMENTS.",
         "operationId": "createDocumentUploadSession",
         "parameters": [
           {
@@ -18724,6 +18734,16 @@
             "schema": {
               "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
               "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Patient-Context",
+            "required": false,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -18882,6 +18902,16 @@
             "schema": {
               "example": "01a0b422-fd6f-7480-8586-444e7fc66081",
               "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Patient-Context",
+            "required": false,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -19050,6 +19080,16 @@
               "pattern": "^[A-Za-z0-9_\\-:.]{8,191}$",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Patient-Context",
+            "required": false,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -19210,6 +19250,16 @@
             "in": "header",
             "name": "X-Tenant-ID",
             "required": true,
+            "schema": {
+              "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Patient-Context",
+            "required": false,
             "schema": {
               "example": "01a0b422-fd6f-7480-8586-444e7fc66080",
               "format": "uuid",

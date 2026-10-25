@@ -259,6 +259,17 @@ The route accepts uploads only when `UPLOAD_SCAN_WORKER_ENABLED` is enabled;
 the UI reads that capability and otherwise shows an unavailable state. Worker
 configuration and the production host scanner probe remain operational gates.
 Patient-context uploads, quotas and S3 storage remain outside this increment.
+
+## Patient-context encounter uploads (2026-10-24)
+
+The proxied upload routes also accept a live SELF or guardian `UPLOAD_DOCUMENTS`
+context. Creation requires the selected patient and encounter to match; parts,
+finalization and abort require the same session owner and recheck the live
+patient context. A patient-supplied source remains `CLINICAL_TEAM` while it is
+scanned and reviewed. The doctor can explicitly share a reviewed lab report
+through the report-sharing route below. The patient upload UI, quota admission
+and S3 adapter remain open. Idempotency fingerprints now include the resolved
+patient context, so a response from one dependent cannot replay under another.
 The document metadata route now reports processing state to the authorized
 clinical team. The consultation UI polls until scanning makes the document
 AVAILABLE or rejects it, then refreshes the visible document list. This does

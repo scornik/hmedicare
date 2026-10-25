@@ -1046,7 +1046,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Create a staff-owned upload for an authorized encounter. */
+        /** @description Create an upload for an authorized encounter. Patient contexts need UPLOAD_DOCUMENTS. */
         post: operations["createDocumentUploadSession"];
         delete?: never;
         options?: never;
@@ -12980,6 +12980,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
+                "X-Patient-Context"?: string;
                 "X-Tenant-ID": string;
             };
             path?: never;
@@ -13080,6 +13081,7 @@ export interface operations {
             query?: never;
             header: {
                 "Idempotency-Key": string;
+                "X-Patient-Context"?: string;
                 "X-Tenant-ID": string;
             };
             path?: never;
@@ -13182,6 +13184,7 @@ export interface operations {
             query?: never;
             header: {
                 "Idempotency-Key": string;
+                "X-Patient-Context"?: string;
                 "X-Tenant-ID": string;
             };
             path: {
@@ -13290,6 +13293,7 @@ export interface operations {
             query?: never;
             header: {
                 "Idempotency-Key": string;
+                "X-Patient-Context"?: string;
                 "X-Tenant-ID": string;
             };
             path: {
@@ -13401,6 +13405,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-Part-SHA256": string;
+                "X-Patient-Context"?: string;
                 "X-Tenant-ID": string;
             };
             path: {
