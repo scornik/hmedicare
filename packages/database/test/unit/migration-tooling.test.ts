@@ -56,6 +56,7 @@ describe('schema sections', () => {
       // Documents follow prescriptions; timeline is appended afterward in MVP order.
       '0010',
       '0026',
+      '0028',
       '0011',
       '0021',
       '0020',

@@ -3,7 +3,13 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppError, type ActorContext, type TenantContext } from '@hmedic/kernel';
 import { HTTP_RUNTIME, Idempotent, RawResponse, type HttpRuntime } from '@hmedic/http-kit';
 import { CurrentActor, CurrentTenant, RequirePermission } from '@hmedic/identity-access/nest';
-import { CurrentPatientContext, OptionalTenant, PatientContextRoute } from '@hmedic/identity-access/nest';
+import {
+  CurrentPatientContext,
+  IDENTITY_SERVICES,
+  OptionalTenant,
+  PatientContextRoute,
+  type IdentityServices,
+} from '@hmedic/identity-access/nest';
 import type { ResolvedPatientContext } from '@hmedic/identity-access';
 import { CLINICAL_SERVICES, type ClinicalServices } from '@hmedic/clinical/nest';
 import { DOCUMENT_SERVICES, type DocumentServices } from '@hmedic/laboratory-documents/nest';
@@ -64,15 +70,41 @@ export class DocumentController {
     @Inject(DOCUMENT_SERVICES) private readonly documents: DocumentServices,
     @Inject(CLINICAL_SERVICES) private readonly clinical: ClinicalServices,
     @Inject(HTTP_RUNTIME) private readonly runtime: HttpRuntime,
+    @Inject(IDENTITY_SERVICES) private readonly identity: IdentityServices,
   ) {}
 
   private async authorizeUploadScope(
     actor: ActorContext,
-    tenant: TenantContext,
+    tenant: TenantContext | undefined,
     req: FastifyRequest,
     scope: UploadPatientScope,
+    patientContext?: ResolvedPatientContext,
   ): Promise<void> {
-    if (scope.tenantId !== tenant.tenantId || !scope.encounterId) throw new AppError('RESOURCE_NOT_FOUND');
+    if (!scope.encounterId) throw new AppError('RESOURCE_NOT_FOUND');
+    if (patientContext) {
+      const live = await this.identity.patientContexts?.resolve(
+        actor.userId,
+        patientContext.tenantId,
+        patientContext.patientId,
+        this.runtime.clock.now(),
+      );
+      if (
+        !live ||
+        live.actingAs !== patientContext.actingAs ||
+        live.guardianshipId !== patientContext.guardianshipId ||
+        (live.actingAs === 'GUARDIAN' && !live.authorityScope.has('UPLOAD_DOCUMENTS'))
+      )
+        throw new AppError('FORBIDDEN');
+      if (scope.tenantId !== patientContext.tenantId || scope.patientId !== patientContext.patientId)
+        throw new AppError('RESOURCE_NOT_FOUND');
+      const encounter = await this.runtime.prisma.encounter.findFirst({
+        where: { id: scope.encounterId, tenantId: scope.tenantId, patientId: scope.patientId },
+        select: { id: true },
+      });
+      if (!encounter) throw new AppError('RESOURCE_NOT_FOUND');
+      return;
+    }
+    if (!tenant || scope.tenantId !== tenant.tenantId) throw new AppError('RESOURCE_NOT_FOUND');
     const context = await clinicalActor(this.runtime, actor, tenant, req);
     const access = await this.clinical.access.assignedOrScoped(context, scope.encounterId);
     if (access.encounter.patientId !== scope.patientId) throw new AppError('RESOURCE_NOT_FOUND');
@@ -80,29 +112,39 @@ export class DocumentController {
 
   private async authorizeUploadSession(
     actor: ActorContext,
-    tenant: TenantContext,
+    tenant: TenantContext | undefined,
     req: FastifyRequest,
     sessionId: string,
+    patientContext?: ResolvedPatientContext,
   ) {
+    const tenantId = patientContext?.tenantId ?? tenant?.tenantId;
+    if (!tenantId) throw new AppError('TENANT_CONTEXT_REQUIRED');
     const session = await this.runtime.prisma.uploadSession.findFirst({
-      where: { id: sessionId, tenantId: tenant.tenantId, ownerUserId: actor.userId },
+      where: { id: sessionId, tenantId, ownerUserId: actor.userId },
     });
     if (!session) throw new AppError('RESOURCE_NOT_FOUND');
     const document = await this.runtime.prisma.document.findFirst({
-      where: { id: session.documentId, tenantId: tenant.tenantId },
+      where: { id: session.documentId, tenantId },
       select: { patientId: true, encounterId: true, category: true },
     });
     if (!document) throw new AppError('RESOURCE_NOT_FOUND');
-    await this.authorizeUploadScope(actor, tenant, req, {
-      tenantId: tenant.tenantId,
-      patientId: document.patientId,
-      encounterId: document.encounterId,
-      category: document.category,
-    });
+    await this.authorizeUploadScope(
+      actor,
+      tenant,
+      req,
+      {
+        tenantId,
+        patientId: document.patientId,
+        encounterId: document.encounterId,
+        category: document.category,
+      },
+      patientContext,
+    );
   }
 
   @Get('upload-capability')
   @RequirePermission('document.write')
+  @PatientContextRoute({ mode: 'or-staff', scope: 'UPLOAD_DOCUMENTS' })
   uploadCapability() {
     return { enabled: this.runtime.config.UPLOAD_SCAN_WORKER_ENABLED };
   }
@@ -110,27 +152,37 @@ export class DocumentController {
   @Post('upload-sessions')
   @HttpCode(201)
   @RequirePermission('document.write')
+  @PatientContextRoute({ mode: 'or-staff', scope: 'UPLOAD_DOCUMENTS' })
   @Idempotent()
   async createUpload(
     @CurrentActor() actor: ActorContext,
-    @CurrentTenant() tenant: TenantContext,
+    @OptionalTenant() tenant: TenantContext | undefined,
     @Req() req: FastifyRequest,
     @Body() body: unknown,
+    @CurrentPatientContext() patientContext?: ResolvedPatientContext,
   ) {
     if (!this.runtime.config.UPLOAD_SCAN_WORKER_ENABLED) throw new AppError('FEATURE_DISABLED');
     const parsed = uploadRequest.safeParse(body);
     if (!parsed.success) throw new AppError('VALIDATION_FAILED');
-    const input = { ...parsed.data, tenantId: tenant.tenantId, ownerUserId: actor.userId };
+    const tenantId = patientContext?.tenantId ?? tenant?.tenantId;
+    if (!tenantId) throw new AppError('TENANT_CONTEXT_REQUIRED');
+    const input = { ...parsed.data, tenantId, ownerUserId: actor.userId };
     const service = new UploadSessionService(
       this.runtime.prisma,
       this.documents.uploadStorage,
       async (candidate) => {
-        await this.authorizeUploadScope(actor, tenant, req, {
-          tenantId: candidate.tenantId,
-          patientId: candidate.patientId,
-          encounterId: candidate.encounterId ?? null,
-          category: candidate.category,
-        });
+        await this.authorizeUploadScope(
+          actor,
+          tenant,
+          req,
+          {
+            tenantId: candidate.tenantId,
+            patientId: candidate.patientId,
+            encounterId: candidate.encounterId ?? null,
+            category: candidate.category,
+          },
+          patientContext,
+        );
         return 'CLINICAL_TEAM';
       },
       () => this.runtime.clock.now(),
@@ -145,19 +197,23 @@ export class DocumentController {
 
   @Put('upload-sessions/:sessionId/parts/:partNumber')
   @RequirePermission('document.write')
+  @PatientContextRoute({ mode: 'or-staff', scope: 'UPLOAD_DOCUMENTS' })
   async uploadPart(
     @CurrentActor() actor: ActorContext,
-    @CurrentTenant() tenant: TenantContext,
+    @OptionalTenant() tenant: TenantContext | undefined,
     @Req() req: FastifyRequest,
     @Param('sessionId') sessionId: string,
     @Param('partNumber') rawPartNumber: string,
     @Body() body: unknown,
+    @CurrentPatientContext() patientContext?: ResolvedPatientContext,
   ) {
     const partNumber = Number(rawPartNumber);
     if (!Number.isSafeInteger(partNumber) || partNumber < 1 || !Buffer.isBuffer(body))
       throw new AppError('VALIDATION_FAILED');
     const checksum = req.headers['x-part-sha256'];
     if (typeof checksum !== 'string') throw new AppError('VALIDATION_FAILED');
+    const tenantId = patientContext?.tenantId ?? tenant?.tenantId;
+    if (!tenantId) throw new AppError('TENANT_CONTEXT_REQUIRED');
     const service = new UploadSessionService(
       this.runtime.prisma,
       this.documents.uploadStorage,
@@ -166,11 +222,11 @@ export class DocumentController {
     );
     try {
       return await service.uploadPart(
-        { tenantId: tenant.tenantId, sessionId, ownerUserId: actor.userId },
+        { tenantId, sessionId, ownerUserId: actor.userId },
         partNumber,
         body,
         checksum,
-        (scope) => this.authorizeUploadScope(actor, tenant, req, scope),
+        (scope) => this.authorizeUploadScope(actor, tenant, req, scope, patientContext),
       );
     } catch (error) {
       uploadError(error);
@@ -179,20 +235,24 @@ export class DocumentController {
 
   @Post('upload-sessions/:sessionId/finalize')
   @RequirePermission('document.write')
+  @PatientContextRoute({ mode: 'or-staff', scope: 'UPLOAD_DOCUMENTS' })
   @Idempotent()
   async finalizeUpload(
     @CurrentActor() actor: ActorContext,
-    @CurrentTenant() tenant: TenantContext,
+    @OptionalTenant() tenant: TenantContext | undefined,
     @Req() req: FastifyRequest,
     @Param('sessionId') sessionId: string,
+    @CurrentPatientContext() patientContext?: ResolvedPatientContext,
   ) {
-    const authorize = () => this.authorizeUploadSession(actor, tenant, req, sessionId);
+    const tenantId = patientContext?.tenantId ?? tenant?.tenantId;
+    if (!tenantId) throw new AppError('TENANT_CONTEXT_REQUIRED');
+    const authorize = () => this.authorizeUploadSession(actor, tenant, req, sessionId, patientContext);
     try {
       return await finalizeUpload(
         this.runtime.prisma,
         this.documents.uploadStorage,
         this.documents.uploadJobs,
-        { tenantId: tenant.tenantId, sessionId, ownerUserId: actor.userId },
+        { tenantId, sessionId, ownerUserId: actor.userId },
         authorize,
         this.runtime.clock.now(),
       );
@@ -203,19 +263,23 @@ export class DocumentController {
 
   @Post('upload-sessions/:sessionId/abort')
   @RequirePermission('document.write')
+  @PatientContextRoute({ mode: 'or-staff', scope: 'UPLOAD_DOCUMENTS' })
   @Idempotent()
   async abortUpload(
     @CurrentActor() actor: ActorContext,
-    @CurrentTenant() tenant: TenantContext,
+    @OptionalTenant() tenant: TenantContext | undefined,
     @Req() req: FastifyRequest,
     @Param('sessionId') sessionId: string,
+    @CurrentPatientContext() patientContext?: ResolvedPatientContext,
   ) {
-    await this.authorizeUploadSession(actor, tenant, req, sessionId);
+    const tenantId = patientContext?.tenantId ?? tenant?.tenantId;
+    if (!tenantId) throw new AppError('TENANT_CONTEXT_REQUIRED');
+    await this.authorizeUploadSession(actor, tenant, req, sessionId, patientContext);
     try {
       await abortUploadRecord(
         this.runtime.prisma,
         this.documents.uploadStorage,
-        { tenantId: tenant.tenantId, sessionId, ownerUserId: actor.userId },
+        { tenantId, sessionId, ownerUserId: actor.userId },
         this.runtime.clock.now(),
       );
       return { sessionId, status: 'ABORTED' };

@@ -105,7 +105,17 @@ export class IdempotencyInterceptor implements NestInterceptor {
       requestHash: requestHash({
         method: request.method,
         path: routeTemplate(request),
-        body: { params: request.params ?? null, body: request.body ?? null },
+        body: {
+          params: request.params ?? null,
+          body: request.body ?? null,
+          patientContext: state.patientContext
+            ? {
+                patientId: state.patientContext.patientId,
+                actingAs: state.patientContext.actingAs,
+                guardianshipId: state.patientContext.guardianshipId,
+              }
+            : null,
+        },
       }),
     };
     const store = this.runtime.idempotency;
