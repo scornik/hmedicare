@@ -27,6 +27,6 @@
     "@hmedic/jobs": "workspace:*",
     "@hmedic/kernel": "workspace:*",
     "@hmedic/observability": "workspace:*",
-    "zod": "3.25.76"
+    "zod": "4.6.6"
   }
 }

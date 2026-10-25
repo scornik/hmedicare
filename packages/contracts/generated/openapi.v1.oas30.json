@@ -185,7 +185,8 @@
               "MILD",
               "MODERATE",
               "SEVERE",
-              "UNKNOWN"
+              "UNKNOWN",
+              null
             ],
             "nullable": true,
             "type": "string"
@@ -1066,7 +1067,8 @@
             "enum": [
               "SELF",
               "GUARDIAN",
-              "STAFF"
+              "STAFF",
+              null
             ],
             "nullable": true,
             "type": "string"
@@ -3942,7 +3944,8 @@
           "verificationMethod": {
             "enum": [
               "STAFF_VERIFIED_IN_PERSON",
-              "STAFF_VERIFIED_DOCUMENT"
+              "STAFF_VERIFIED_DOCUMENT",
+              null
             ],
             "nullable": true,
             "type": "string"
@@ -4182,7 +4185,8 @@
               "LOW",
               "HIGH",
               "CRITICAL",
-              "NORMAL"
+              "NORMAL",
+              null
             ],
             "nullable": true,
             "type": "string"
@@ -5113,7 +5117,8 @@
           "preferredLocale": {
             "enum": [
               "bn-BD",
-              "en-BD"
+              "en-BD",
+              null
             ],
             "nullable": true,
             "type": "string"
@@ -5126,7 +5131,8 @@
               "FEMALE",
               "MALE",
               "INTERSEX",
-              "UNKNOWN"
+              "UNKNOWN",
+              null
             ],
             "nullable": true,
             "type": "string"
@@ -5576,7 +5582,8 @@
               "FEMALE",
               "MALE",
               "INTERSEX",
-              "UNKNOWN"
+              "UNKNOWN",
+              null
             ],
             "nullable": true,
             "type": "string"
@@ -5913,9 +5920,6 @@
                 },
                 {
                   "type": "boolean"
-                },
-                {
-                  "nullable": true
                 },
                 {
                   "nullable": true
@@ -7108,7 +7112,8 @@
               "RESCHEDULED",
               "NO_SHOW_POLICY",
               "PAYMENT_NOT_COMPLETED",
-              "OTHER"
+              "OTHER",
+              null
             ],
             "nullable": true,
             "type": "string"
@@ -7601,7 +7606,8 @@
               "MILD",
               "MODERATE",
               "SEVERE",
-              "UNKNOWN"
+              "UNKNOWN",
+              null
             ],
             "nullable": true,
             "type": "string"
@@ -13227,6 +13233,7 @@
             }
           },
           {
+            "description": "Calendar date (no time zone)",
             "in": "query",
             "name": "from",
             "required": true,
@@ -13238,6 +13245,7 @@
             }
           },
           {
+            "description": "Calendar date (no time zone)",
             "in": "query",
             "name": "to",
             "required": true,
@@ -25425,7 +25433,8 @@
                       "LOW",
                       "HIGH",
                       "CRITICAL",
-                      "NORMAL"
+                      "NORMAL",
+                      null
                     ],
                     "nullable": true,
                     "type": "string"

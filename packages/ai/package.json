@@ -30,6 +30,6 @@
     "@hmedic/localization": "workspace:*",
     "@hmedic/observability": "workspace:*",
     "@hmedic/secrets": "workspace:*",
-    "zod": "3.25.76"
+    "zod": "4.6.6"
   }
 }

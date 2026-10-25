@@ -2,7 +2,7 @@
   "name": "@hmedic/api",
   "version": "0.0.0",
   "private": true,
-  "description": "HMedic HTTP API (NestJS 11 + Fastify) \u2014 composition root, no business rules",
+  "description": "HMedic HTTP API (NestJS 11 + Fastify) — composition root, no business rules",
   "main": "./dist/main.js",
   "scripts": {
     "build": "tsc -b",
@@ -42,7 +42,7 @@
     "nestjs-zod": "5.5.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
-    "zod": "3.25.76"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@hmedic/communication": "workspace:*",

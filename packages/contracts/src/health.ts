@@ -17,7 +17,7 @@ export const HealthReady = registry.register(
   'HealthReady',
   z.object({
     status: z.enum(['ready', 'degraded', 'unavailable']),
-    checks: z.record(CheckState),
+    checks: z.record(z.string(), CheckState),
   }),
 );
 

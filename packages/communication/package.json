@@ -34,7 +34,7 @@
     "@hmedic/kernel": "workspace:*",
     "@hmedic/observability": "workspace:*",
     "@hmedic/provider-credentials": "workspace:*",
-    "zod": "3.25.76"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@hmedic/secrets": "workspace:*"

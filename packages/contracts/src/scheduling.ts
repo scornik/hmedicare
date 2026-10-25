@@ -84,7 +84,7 @@ export const Clinic = registry.register(
     id: Uuid,
     name: z.string(),
     smsDisplayName: z.string().nullable(),
-    address: z.record(z.string()).nullable(),
+    address: z.record(z.string(), z.string()).nullable(),
     status: ChamberStatus,
     createdAt: Timestamp,
     updatedAt: Timestamp,
@@ -96,7 +96,7 @@ export const CreateClinicRequest = registry.register(
   z.object({
     name: z.string().trim().min(2).max(200),
     smsDisplayName: z.string().trim().max(40).nullable().optional(),
-    address: z.record(z.string().max(200)).nullable().optional(),
+    address: z.record(z.string(), z.string().max(200)).nullable().optional(),
   }),
 );
 export const UpdateClinicRequest = registry.register(
@@ -105,7 +105,7 @@ export const UpdateClinicRequest = registry.register(
     expectedRowVersion: z.number().int().min(1),
     name: z.string().trim().min(2).max(200).optional(),
     smsDisplayName: z.string().trim().max(40).nullable().optional(),
-    address: z.record(z.string().max(200)).nullable().optional(),
+    address: z.record(z.string(), z.string().max(200)).nullable().optional(),
     status: ChamberStatus.optional(),
   }),
 );

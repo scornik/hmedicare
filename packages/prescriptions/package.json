@@ -43,7 +43,7 @@
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "pdfmake": "0.2.20",
-    "zod": "3.25.76"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@hmedic/storage-adapters-disk": "workspace:*",

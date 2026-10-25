@@ -234,7 +234,7 @@ export function loadConfig<T extends LoadedConfig = LoadedConfig>(app: AppName, 
   if (!result.success) {
     for (const issue of result.error.issues) {
       const name = String(issue.path[0] ?? '(root)');
-      const missing = issue.code === 'invalid_type' && issue.received === 'undefined';
+      const missing = issue.code === 'invalid_type' && env[name] === undefined;
       problems.push(`${name}: ${missing ? 'required but not set' : issue.message}`);
     }
   }
