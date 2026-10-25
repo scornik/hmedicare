@@ -3,3 +3,12 @@
 # (`.set('idempotency-key', '<random-looking string>')`) matched the generic-api-key rule. It is not a secret.
 5a1de2d273c87aaa84e666a07d578a21e0d059af:packages/http-kit/test/integration/http-kit.test.ts:generic-api-key:204
 acabf4d28380d26ebd308b66d0d0836a97cc37a8:packages/http-kit/test/integration/http-kit.test.ts:generic-api-key:204
+# Synthetic API-key literals in integration fixtures. The historical lines explicitly
+# identify them as synthetic test values and are never loaded from deployment config.
+819ffb753329a3c46fd75feb0553f2c8111d044f:apps/api/test/integration/ai-http.test.ts:generic-api-key:283
+15c1bec059b0602f9eb344c53673ecfe47e75f15:apps/api/test/integration/timeline-http.test.ts:generic-api-key:737
+# The same prose validation paragraph in three historical status documents is
+# matched by the generic-key heuristic; it contains no credential value.
+37819bc98028cc72c5804185a7a758364bbe6df5:docs/implementation/IMPLEMENTATION-STATUS.md:generic-api-key:420
+37819bc98028cc72c5804185a7a758364bbe6df5:docs/implementation/AI-IMPLEMENTATION.md:generic-api-key:509
+37819bc98028cc72c5804185a7a758364bbe6df5:docs/implementation/BUILD-TAKEOVER.md:generic-api-key:150
