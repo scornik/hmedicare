@@ -56,6 +56,13 @@ export function hasWebBuild(root: string): boolean {
   return existsSync(path.join(path.resolve(root), 'index.html'));
 }
 
+/** Recover a release-local web build when an absolute setting still points at an older release. */
+export function resolveWebBuild(configuredRoot: string | undefined, apiDistDir: string): string | undefined {
+  if (!configuredRoot || hasWebBuild(configuredRoot)) return configuredRoot;
+  const siblingWebDist = path.resolve(apiDistDir, '../../web/dist');
+  return hasWebBuild(siblingWebDist) ? siblingWebDist : configuredRoot;
+}
+
 export function registerStaticWeb(fastify: FastifyInstance, options: StaticWebOptions): void {
   const root = path.resolve(options.root);
   const indexPath = path.join(root, 'index.html');

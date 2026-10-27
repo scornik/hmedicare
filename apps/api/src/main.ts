@@ -1,6 +1,11 @@
 import 'reflect-metadata';
 import { ConfigError, type ServerConfig, loadConfig } from '@hmedic/config';
-import { applyBuildInfo, recordAppliedMigrations, runGuardedMigrationsSync } from '@hmedic/http-kit';
+import {
+  applyBuildInfo,
+  recordAppliedMigrations,
+  resolveWebBuild,
+  runGuardedMigrationsSync,
+} from '@hmedic/http-kit';
 import { buildApi } from './compose';
 
 /** Entry point (Hostinger Node app `api.<domain>`): fail fast on configuration, then listen on PORT. */
@@ -9,6 +14,7 @@ async function main(): Promise<void> {
   try {
     applyBuildInfo(__dirname);
     config = loadConfig<ServerConfig>('api');
+    config = { ...config, WEB_DIST_DIR: resolveWebBuild(config.WEB_DIST_DIR, __dirname) };
   } catch (error) {
     if (error instanceof ConfigError) {
       process.stderr.write(`${error.message}\n`);
