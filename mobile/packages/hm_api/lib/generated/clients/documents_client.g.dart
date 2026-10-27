@@ -273,8 +273,8 @@ class _DocumentsClient implements DocumentsClient {
     required int partNumber,
     required String xTenantId,
     required String xPartSha256,
+    required File body,
     String? xPatientContext,
-    File? body,
   }) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{};

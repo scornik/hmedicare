@@ -132,7 +132,7 @@ registry.registerPath({
         'application/json': {
           schema: z.object({
             expectedRowVersion: z.number().int().positive(),
-            attestedSource: z.literal(true),
+            attestedSource: z.boolean().refine((value) => value, 'Source attestation is required'),
           }),
         },
       },

@@ -147,7 +147,10 @@ registry.registerPath({
   request: {
     headers: uploadHeaders.extend({ 'X-Part-SHA256': z.string().regex(/^[a-f0-9]{64}$/) }),
     params: uploadParams.extend({ partNumber: z.coerce.number().int().positive() }),
-    body: { content: { 'application/octet-stream': { schema: z.string().openapi({ format: 'binary' }) } } },
+    body: {
+      required: true,
+      content: { 'application/octet-stream': { schema: z.string().openapi({ format: 'binary' }) } },
+    },
   },
   responses: {
     200: ok(
