@@ -58,7 +58,7 @@
     "dev:worker": "pnpm --filter @hmedic/worker run dev",
     "dev:web": "pnpm --filter @hmedic/web run dev",
     "dev:cron": "node scripts/dev-cron.mjs",
-    "hostinger:build:api": "node scripts/host/ensure-pnpm.mjs && pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/api... && pnpm db:migrate && node scripts/host/write-build-info.mjs apps/api",
+    "hostinger:build:api": "node scripts/host/ensure-pnpm.mjs && pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/api... --filter=@hmedic/web... && pnpm db:migrate && node scripts/host/write-build-info.mjs apps/api",
     "hostinger:build:worker": "node scripts/host/ensure-pnpm.mjs && pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/worker... && node scripts/host/write-build-info.mjs apps/worker",
     "hostinger:build:web": "node scripts/host/ensure-pnpm.mjs && pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/web...",
     "hostinger:build:host-probe": "node scripts/host/ensure-pnpm.mjs && pnpm install --frozen-lockfile && turbo run build --filter=@hmedic/host-probe...",
