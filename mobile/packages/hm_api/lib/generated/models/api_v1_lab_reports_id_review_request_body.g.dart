@@ -9,7 +9,7 @@ part of 'api_v1_lab_reports_id_review_request_body.dart';
 ApiV1LabReportsIdReviewRequestBody _$ApiV1LabReportsIdReviewRequestBodyFromJson(
   Map<String, dynamic> json,
 ) => ApiV1LabReportsIdReviewRequestBody(
-  attestedSource: AttestedSource.fromJson(json['attestedSource'] as bool),
+  attestedSource: json['attestedSource'] as bool,
   expectedRowVersion: (json['expectedRowVersion'] as num).toInt(),
 );
 

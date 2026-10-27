@@ -4,8 +4,6 @@
 
 import 'package:json_annotation/json_annotation.dart';
 
-import 'attested_source.dart';
-
 part 'api_v1_lab_reports_id_review_request_body.g.dart';
 
 @JsonSerializable()
@@ -17,7 +15,7 @@ class ApiV1LabReportsIdReviewRequestBody {
   
   factory ApiV1LabReportsIdReviewRequestBody.fromJson(Map<String, Object?> json) => _$ApiV1LabReportsIdReviewRequestBodyFromJson(json);
   
-  final AttestedSource attestedSource;
+  final bool attestedSource;
   final int expectedRowVersion;
 
   Map<String, Object?> toJson() => _$ApiV1LabReportsIdReviewRequestBodyToJson(this);

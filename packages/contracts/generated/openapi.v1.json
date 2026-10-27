@@ -19950,7 +19950,8 @@
                 "type": "string"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -26154,9 +26155,6 @@
               "schema": {
                 "properties": {
                   "attestedSource": {
-                    "enum": [
-                      true
-                    ],
                     "type": "boolean"
                   },
                   "expectedRowVersion": {

@@ -78,8 +78,8 @@ abstract class DocumentsClient {
     @Path('partNumber') required int partNumber,
     @Header('X-Tenant-ID') required String xTenantId,
     @Header('X-Part-SHA256') required String xPartSha256,
+    @Body() required File body,
     @Header('X-Patient-Context') String? xPatientContext,
-    @Body() File? body,
   });
 
   /// Returns the current processing state of a clinical document for an authorized encounter.

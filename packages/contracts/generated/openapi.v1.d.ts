@@ -13546,7 +13546,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
                 "application/octet-stream": string;
             };
@@ -16978,8 +16978,7 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": {
-                    /** @enum {boolean} */
-                    attestedSource: true;
+                    attestedSource: boolean;
                     expectedRowVersion: number;
                 };
             };
