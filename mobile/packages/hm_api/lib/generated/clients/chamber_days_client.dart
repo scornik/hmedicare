@@ -27,6 +27,9 @@ part 'chamber_days_client.g.dart';
 abstract class ChamberDaysClient {
   factory ChamberDaysClient(Dio dio, {String? baseUrl}) = _ChamberDaysClient;
 
+  /// [from] - Calendar date (no time zone).
+  ///
+  /// [to] - Calendar date (no time zone).
   @GET('/api/v1/chamber-days')
   Future<GetApiV1ChamberDaysResponse> listChamberDays({
     @Query('from') required String from,

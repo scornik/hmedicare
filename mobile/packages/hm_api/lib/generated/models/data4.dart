@@ -4,22 +4,21 @@
 
 import 'package:json_annotation/json_annotation.dart';
 
-import 'sms_balance_view.dart';
-import 'sms_credential_view.dart';
+import 'status4.dart';
 
 part 'data4.g.dart';
 
 @JsonSerializable()
 class Data4 {
   const Data4({
-    required this.balance,
-    required this.credential,
+    required this.sessionId,
+    required this.status,
   });
   
   factory Data4.fromJson(Map<String, Object?> json) => _$Data4FromJson(json);
   
-  final SmsBalanceView? balance;
-  final SmsCredentialView credential;
+  final String sessionId;
+  final Status4 status;
 
   Map<String, Object?> toJson() => _$Data4ToJson(this);
 }

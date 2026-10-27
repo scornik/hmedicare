@@ -9,12 +9,14 @@ part 'data5.g.dart';
 @JsonSerializable()
 class Data5 {
   const Data5({
-    required this.accepted,
+    required this.documentId,
+    required this.versionId,
   });
   
   factory Data5.fromJson(Map<String, Object?> json) => _$Data5FromJson(json);
   
-  final bool accepted;
+  final String documentId;
+  final String versionId;
 
   Map<String, Object?> toJson() => _$Data5ToJson(this);
 }

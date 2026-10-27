@@ -22,6 +22,7 @@ import 'clients/follow_up_client.dart';
 import 'clients/prescriptions_client.dart';
 import 'clients/telemedicine_client.dart';
 import 'clients/guardianships_client.dart';
+import 'clients/labs_client.dart';
 import 'clients/me_client.dart';
 import 'clients/serials_client.dart';
 import 'clients/patient_accounts_client.dart';
@@ -62,6 +63,7 @@ class HmApiClient {
   PrescriptionsClient? _prescriptions;
   TelemedicineClient? _telemedicine;
   GuardianshipsClient? _guardianships;
+  LabsClient? _labs;
   MeClient? _me;
   SerialsClient? _serials;
   PatientAccountsClient? _patientAccounts;
@@ -104,6 +106,8 @@ class HmApiClient {
   TelemedicineClient get telemedicine => _telemedicine ??= TelemedicineClient(_dio, baseUrl: _baseUrl);
 
   GuardianshipsClient get guardianships => _guardianships ??= GuardianshipsClient(_dio, baseUrl: _baseUrl);
+
+  LabsClient get labs => _labs ??= LabsClient(_dio, baseUrl: _baseUrl);
 
   MeClient get me => _me ??= MeClient(_dio, baseUrl: _baseUrl);
 

@@ -10,7 +10,7 @@ TenantAiPolicyEventList _$TenantAiPolicyEventListFromJson(
   Map<String, dynamic> json,
 ) => TenantAiPolicyEventList(
   items: (json['items'] as List<dynamic>)
-      .map((e) => Items.fromJson(e as Map<String, dynamic>))
+      .map((e) => Items3.fromJson(e as Map<String, dynamic>))
       .toList(),
 );
 

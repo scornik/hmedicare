@@ -14,6 +14,9 @@ enum PatientSummarySex {
   intersex('INTERSEX'),
   @JsonValue('UNKNOWN')
   unknown('UNKNOWN'),
+  /// The name has been replaced because it contains a keyword. Original name: `null`.
+  @JsonValue('null')
+  valueNull('null'),
   /// Default value for all unparsed values, allows backward compatibility when adding new values on the backend.
   $unknown(null);
 

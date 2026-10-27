@@ -7,23 +7,13 @@ part of 'items.dart';
 // **************************************************************************
 
 Items _$ItemsFromJson(Map<String, dynamic> json) => Items(
-  actorUserId: json['actorUserId'] as String,
-  after: After.fromJson(json['after'] as Map<String, dynamic>),
-  before: Before.fromJson(json['before'] as Map<String, dynamic>),
-  occurredAt: DateTime.parse(json['occurredAt'] as String),
-  policyTextVersion: json['policyTextVersion'] as String,
-  policyVersion: (json['policyVersion'] as num).toInt(),
-  reason: json['reason'] as String,
-  seq: (json['seq'] as num).toInt(),
+  id: json['id'] as String,
+  startedAt: DateTime.parse(json['startedAt'] as String),
+  status: Status3.fromJson(json['status'] as String),
 );
 
 Map<String, dynamic> _$ItemsToJson(Items instance) => <String, dynamic>{
-  'actorUserId': instance.actorUserId,
-  'after': instance.after,
-  'before': instance.before,
-  'occurredAt': instance.occurredAt.toIso8601String(),
-  'policyTextVersion': instance.policyTextVersion,
-  'policyVersion': instance.policyVersion,
-  'reason': instance.reason,
-  'seq': instance.seq,
+  'id': instance.id,
+  'startedAt': instance.startedAt.toIso8601String(),
+  'status': instance.status,
 };
