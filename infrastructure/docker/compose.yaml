@@ -44,8 +44,8 @@ services:
 
   minio:
     profiles: ['storage']
-    # MinIO stopped publishing images to Docker Hub; quay.io mirror pinned by digest (2026-09-18).
-    image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    # Synthetic local S3 only. The former Quay image became private; pin the public community build.
+    image: docker.io/pgsty/minio@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
     command: ['server', '/data', '--console-address', ':9001']
     environment:
       MINIO_ROOT_USER: local-only-minio

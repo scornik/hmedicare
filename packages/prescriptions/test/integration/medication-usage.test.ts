@@ -38,8 +38,6 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await truncateAll();
-  await db.prisma.medicationUsageStat.deleteMany();
-  await db.prisma.medication.deleteMany();
 
   registry = new JobRegistry();
   runner = new JobRunner(db.prisma, registry, { app: 'test', strategy: 'skip_locked' });

@@ -15,12 +15,12 @@ import { buildStorageKey, type ObjectStorageError } from '@hmedic/laboratory-doc
 import { runObjectStorageContract } from '../../../test/contract';
 import { S3ObjectStorage } from '../../src/index';
 
-// Reuse the existing reviewed local image pin; never address a production bucket.
+// Reuse the pinned synthetic local image; never address a production bucket.
 const compose = readFileSync(
   path.resolve(__dirname, '../../../../../infrastructure/docker/compose.yaml'),
   'utf8',
 );
-const image = compose.match(/image:\s*(quay\.io\/minio\/minio@sha256:[a-f0-9]{64})/)?.[1];
+const image = compose.match(/image:\s*(docker\.io\/pgsty\/minio@sha256:[a-f0-9]{64})/)?.[1];
 if (!image) throw new Error('The local MinIO image must be pinned');
 let container: StartedTestContainer;
 let client: S3Client;
