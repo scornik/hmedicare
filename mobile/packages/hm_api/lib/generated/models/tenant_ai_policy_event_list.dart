@@ -4,7 +4,7 @@
 
 import 'package:json_annotation/json_annotation.dart';
 
-import 'items.dart';
+import 'items3.dart';
 
 part 'tenant_ai_policy_event_list.g.dart';
 
@@ -16,7 +16,7 @@ class TenantAiPolicyEventList {
   
   factory TenantAiPolicyEventList.fromJson(Map<String, Object?> json) => _$TenantAiPolicyEventListFromJson(json);
   
-  final List<Items> items;
+  final List<Items3> items;
 
   Map<String, Object?> toJson() => _$TenantAiPolicyEventListToJson(this);
 }

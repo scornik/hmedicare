@@ -10,6 +10,9 @@ enum GuardianshipVerificationMethod {
   staffVerifiedInPerson('STAFF_VERIFIED_IN_PERSON'),
   @JsonValue('STAFF_VERIFIED_DOCUMENT')
   staffVerifiedDocument('STAFF_VERIFIED_DOCUMENT'),
+  /// The name has been replaced because it contains a keyword. Original name: `null`.
+  @JsonValue('null')
+  valueNull('null'),
   /// Default value for all unparsed values, allows backward compatibility when adding new values on the backend.
   $unknown(null);
 

@@ -127,7 +127,7 @@ test('patient OTP login (mock) defaults to Bangla', async ({ page }) => {
   await expect(page.getByRole('status')).toHaveText('কোড পাঠানো হয়েছে।');
   await page.getByLabel('ছয় অঙ্কের কোড').fill('123456');
   await page.getByRole('button', { name: 'যাচাই করুন' }).click();
-  await expect(page).toHaveURL(/\/select-tenant$/);
+  await expect(page).toHaveURL(/\/my\/records$/);
 });
 
 test('403 when the tenant context is forbidden; 404 for unknown deep links (SPA fallback)', async ({

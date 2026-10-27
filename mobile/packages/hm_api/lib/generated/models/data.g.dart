@@ -6,12 +6,6 @@ part of 'data.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-Data _$DataFromJson(Map<String, dynamic> json) => Data(
-  patientId: json['patientId'] as String,
-  targetType: TargetType.fromJson(json['targetType'] as String),
-);
+Data _$DataFromJson(Map<String, dynamic> json) => Data();
 
-Map<String, dynamic> _$DataToJson(Data instance) => <String, dynamic>{
-  'patientId': instance.patientId,
-  'targetType': instance.targetType,
-};
+Map<String, dynamic> _$DataToJson(Data instance) => <String, dynamic>{};

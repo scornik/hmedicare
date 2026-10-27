@@ -9,7 +9,7 @@ part of 'get_api_v1_platform_sms_balance_response.dart';
 GetApiV1PlatformSmsBalanceResponse _$GetApiV1PlatformSmsBalanceResponseFromJson(
   Map<String, dynamic> json,
 ) => GetApiV1PlatformSmsBalanceResponse(
-  data: Data3.fromJson(json['data'] as Map<String, dynamic>),
+  data: Data11.fromJson(json['data'] as Map<String, dynamic>),
   meta: ResponseMeta.fromJson(json['meta'] as Map<String, dynamic>),
 );
 

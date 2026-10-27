@@ -7,15 +7,11 @@ part of 'data4.dart';
 // **************************************************************************
 
 Data4 _$Data4FromJson(Map<String, dynamic> json) => Data4(
-  balance: json['balance'] == null
-      ? null
-      : SmsBalanceView.fromJson(json['balance'] as Map<String, dynamic>),
-  credential: SmsCredentialView.fromJson(
-    json['credential'] as Map<String, dynamic>,
-  ),
+  sessionId: json['sessionId'] as String,
+  status: Status4.fromJson(json['status'] as String),
 );
 
 Map<String, dynamic> _$Data4ToJson(Data4 instance) => <String, dynamic>{
-  'balance': ?instance.balance,
-  'credential': instance.credential,
+  'sessionId': instance.sessionId,
+  'status': instance.status,
 };
