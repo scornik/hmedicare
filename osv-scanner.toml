@@ -1,0 +1,4 @@
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+ignoreUntil = 2026-12-31
+reason = "deepmerge 4.3.1 is patched locally in patches/deepmerge@4.3.1.patch to discard prototype-mutating keys in both inputs; upstream has no fixed release. Reassess when nestjs-zod updates."
