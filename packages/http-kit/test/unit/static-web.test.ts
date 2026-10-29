@@ -61,6 +61,7 @@ it('finds the web build beside the deployed API when the configured release path
     expect(resolveWebBuild(stale, apiDist)).toBe(webDist);
     expect(resolveWebBuild(webDist, apiDist)).toBe(webDist);
     expect(resolveWebBuild(undefined, apiDist)).toBeUndefined();
+    expect(resolveWebBuild(undefined, apiDist, true)).toBe(webDist);
   } finally {
     await rm(release, { recursive: true, force: true });
   }

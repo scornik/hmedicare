@@ -14,7 +14,14 @@ async function main(): Promise<void> {
   try {
     applyBuildInfo(__dirname);
     config = loadConfig<ServerConfig>('api');
-    config = { ...config, WEB_DIST_DIR: resolveWebBuild(config.WEB_DIST_DIR, __dirname) };
+    config = {
+      ...config,
+      WEB_DIST_DIR: resolveWebBuild(
+        config.WEB_DIST_DIR,
+        __dirname,
+        config.APP_ENV === 'production' && config.JOB_RUNNER_MODE === 'embedded',
+      ),
+    };
   } catch (error) {
     if (error instanceof ConfigError) {
       process.stderr.write(`${error.message}\n`);
