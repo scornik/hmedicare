@@ -1,7 +1,8 @@
 import { createRequire } from 'node:module';
+import path from 'node:path';
 import { expect, it } from 'vitest';
 
-const require = createRequire(import.meta.url);
+const require = createRequire(path.resolve(__dirname, '../../package.json'));
 const merge = createRequire(require.resolve('nestjs-zod'))('deepmerge') as (
   target: object,
   source: object,
