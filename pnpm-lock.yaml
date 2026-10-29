@@ -244,6 +244,9 @@ importers:
       '@hmedic/tenant-org':
         specifier: workspace:*
         version: link:../../packages/tenant-org
+      '@hmedic/web':
+        specifier: workspace:*
+        version: link:../web
       '@types/supertest':
         specifier: 7.2.1
         version: 7.2.1
