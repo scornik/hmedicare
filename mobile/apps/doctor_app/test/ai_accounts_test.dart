@@ -58,6 +58,7 @@ class AccountAdapter implements HttpClientAdapter {
         return json({
           'aiEnabled': true,
           'freeTierAiAllowed': false,
+          'rawMediaAllowed': false,
           'freeTierEffective': false,
           'freeTierForcedOffByProductionGate': false,
           'minimizationRequiredForNoTraining': true,
