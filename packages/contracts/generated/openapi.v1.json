@@ -8253,6 +8253,9 @@
           "policyVersion": {
             "type": "integer"
           },
+          "rawMediaAllowed": {
+            "type": "boolean"
+          },
           "rawOutputRetentionDays": {
             "type": "integer"
           },
@@ -8263,6 +8266,7 @@
         "required": [
           "aiEnabled",
           "freeTierAiAllowed",
+          "rawMediaAllowed",
           "minimizationRequiredForNoTraining",
           "rawOutputRetentionDays",
           "allowedProviderCodes",
@@ -8303,6 +8307,9 @@
           "policyTextVersion": {
             "type": "string"
           },
+          "rawMediaAllowed": {
+            "type": "boolean"
+          },
           "rawOutputRetentionDays": {
             "type": "integer"
           },
@@ -8316,6 +8323,7 @@
         "required": [
           "aiEnabled",
           "freeTierAiAllowed",
+          "rawMediaAllowed",
           "minimizationRequiredForNoTraining",
           "rawOutputRetentionDays",
           "allowedProviderCodes",
@@ -8358,6 +8366,9 @@
                     "policyTextVersion": {
                       "type": "string"
                     },
+                    "rawMediaAllowed": {
+                      "type": "boolean"
+                    },
                     "rawOutputRetentionDays": {
                       "type": "integer"
                     }
@@ -8365,6 +8376,7 @@
                   "required": [
                     "aiEnabled",
                     "freeTierAiAllowed",
+                    "rawMediaAllowed",
                     "minimizationRequiredForNoTraining",
                     "rawOutputRetentionDays",
                     "allowedProviderCodes",
@@ -8396,6 +8408,9 @@
                     "policyTextVersion": {
                       "type": "string"
                     },
+                    "rawMediaAllowed": {
+                      "type": "boolean"
+                    },
                     "rawOutputRetentionDays": {
                       "type": "integer"
                     }
@@ -8403,6 +8418,7 @@
                   "required": [
                     "aiEnabled",
                     "freeTierAiAllowed",
+                    "rawMediaAllowed",
                     "minimizationRequiredForNoTraining",
                     "rawOutputRetentionDays",
                     "allowedProviderCodes",

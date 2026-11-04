@@ -40,6 +40,7 @@ export interface AIPolicyActor {
 export interface AIPolicyDecisionInput {
   aiEnabled: boolean;
   freeTierAiAllowed: boolean;
+  rawMediaAllowed: boolean;
   minimizationRequiredForNoTraining: boolean;
   rawOutputRetentionDays: number;
   allowedProviderCodes: readonly string[];
@@ -54,6 +55,7 @@ export interface AIPolicyDecisionInput {
 export interface AIPolicySnapshot {
   aiEnabled: boolean;
   freeTierAiAllowed: boolean;
+  rawMediaAllowed: boolean;
   minimizationRequiredForNoTraining: boolean;
   rawOutputRetentionDays: number;
   allowedProviderCodes: string[];
@@ -82,6 +84,7 @@ export function defaultPolicySnapshot(policyTextVersion: string): AIPolicySnapsh
   return {
     aiEnabled: false,
     freeTierAiAllowed: false,
+    rawMediaAllowed: false,
     minimizationRequiredForNoTraining: true,
     rawOutputRetentionDays: 30,
     allowedProviderCodes: [],
@@ -93,6 +96,7 @@ export function defaultPolicySnapshot(policyTextVersion: string): AIPolicySnapsh
 const snapshotOf = (row: PolicyRow): AIPolicySnapshot => ({
   aiEnabled: row.aiEnabled,
   freeTierAiAllowed: row.freeTierAiAllowed,
+  rawMediaAllowed: row.rawMediaAllowed,
   minimizationRequiredForNoTraining: row.minimizationRequiredForNoTraining,
   rawOutputRetentionDays: row.rawOutputRetentionDays,
   allowedProviderCodes: Array.isArray(row.allowedProviderCodes) ? (row.allowedProviderCodes as string[]) : [],
@@ -260,6 +264,7 @@ export class TenantAIPolicyStore {
         const after: AIPolicySnapshot = {
           aiEnabled: input.aiEnabled,
           freeTierAiAllowed: input.freeTierAiAllowed,
+          rawMediaAllowed: input.rawMediaAllowed,
           minimizationRequiredForNoTraining: input.minimizationRequiredForNoTraining,
           rawOutputRetentionDays: input.rawOutputRetentionDays,
           allowedProviderCodes: allowed,

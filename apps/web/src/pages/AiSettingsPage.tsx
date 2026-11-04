@@ -24,6 +24,7 @@ function PolicyForm({
   const say = (en: string, bn: string) => (locale === 'bn-BD' ? bn : en);
   const [enabled, setEnabled] = useState(policy.aiEnabled);
   const [free, setFree] = useState(policy.freeTierAiAllowed);
+  const [rawMedia, setRawMedia] = useState(policy.rawMediaAllowed);
   const [minimize, setMinimize] = useState(policy.minimizationRequiredForNoTraining);
   const [providers, setProviders] = useState(policy.allowedProviderCodes.join(', '));
   const [busy, setBusy] = useState(false);
@@ -41,6 +42,7 @@ function PolicyForm({
         body: {
           aiEnabled: enabled,
           freeTierAiAllowed: free,
+          rawMediaAllowed: rawMedia,
           minimizationRequiredForNoTraining: minimize,
           allowedProviderCodes: providers
             .split(',')
@@ -131,6 +133,13 @@ function PolicyForm({
           <label className="ai-check">
             <input type="checkbox" checked={free} onChange={(e) => setFree(e.target.checked)} />
             {say('Allow free-tier providers', 'বিনামূল্যের প্রোভাইডার ব্যবহারের অনুমতি দিন')}
+          </label>
+          <label className="ai-check">
+            <input type="checkbox" checked={rawMedia} onChange={(e) => setRawMedia(e.target.checked)} />
+            {say(
+              'Allow audio for transcription when the feature is available',
+              'সুবিধাটি উপলব্ধ হলে ট্রান্সক্রিপশনের জন্য অডিওর অনুমতি দিন',
+            )}
           </label>
           <label className="ai-check">
             <input type="checkbox" checked={minimize} onChange={(e) => setMinimize(e.target.checked)} />

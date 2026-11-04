@@ -32,6 +32,7 @@ const ok = <T extends z.ZodTypeAny>(schema: T, description: string) => ({
 const PolicySnapshot = z.object({
   aiEnabled: z.boolean(),
   freeTierAiAllowed: z.boolean(),
+  rawMediaAllowed: z.boolean(),
   minimizationRequiredForNoTraining: z.boolean(),
   rawOutputRetentionDays: z.number().int(),
   allowedProviderCodes: z.array(z.string()),

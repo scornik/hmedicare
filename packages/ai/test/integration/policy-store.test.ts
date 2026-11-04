@@ -94,6 +94,7 @@ async function actor(role: 'tenant_owner' | 'clinic_admin' = 'tenant_owner'): Pr
 const decision = (over: Partial<AIPolicyDecisionInput> = {}): AIPolicyDecisionInput => ({
   aiEnabled: true,
   freeTierAiAllowed: false,
+  rawMediaAllowed: false,
   minimizationRequiredForNoTraining: true,
   rawOutputRetentionDays: 30,
   allowedProviderCodes: ['mock'],
@@ -120,6 +121,7 @@ describe('tenant AI policy', () => {
     // ADR-017 §3: the default is off, and nothing here is permissive.
     expect(view.aiEnabled).toBe(false);
     expect(view.freeTierAiAllowed).toBe(false);
+    expect(view.rawMediaAllowed).toBe(false);
     expect(view.minimizationRequiredForNoTraining).toBe(true);
     expect(view.allowedProviderCodes).toEqual([]);
     expect(view.policyVersion).toBe(0);
@@ -145,6 +147,24 @@ describe('tenant AI policy', () => {
     // The before/after pair is what makes the event reviewable on its own.
     expect(events[0]!.before.aiEnabled).toBe(false);
     expect(events[0]!.after.aiEnabled).toBe(true);
+  });
+
+  it('records raw-media consent as a separate reversible decision', async () => {
+    const a = await actor();
+    const allowed = await store().decide(a, decision({ rawMediaAllowed: true }));
+    expect(allowed.rawMediaAllowed).toBe(true);
+    expect((await store().get(a)).rawMediaAllowed).toBe(true);
+    const denied = await store().decide(
+      a,
+      decision({
+        rawMediaAllowed: false,
+        expectedRowVersion: allowed.rowVersion,
+        reason: 'SYNTHETIC: withdraw audio permission',
+      }),
+    );
+    expect(denied.rawMediaAllowed).toBe(false);
+    const events = await store().events(a);
+    expect(events.map((event) => event.after.rawMediaAllowed)).toEqual([false, true]);
   });
 
   it('refuses a reader without the manage permission', async () => {

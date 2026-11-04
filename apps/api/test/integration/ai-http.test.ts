@@ -124,6 +124,7 @@ async function fixture() {
 const DECISION = {
   aiEnabled: true,
   freeTierAiAllowed: false,
+  rawMediaAllowed: false,
   minimizationRequiredForNoTraining: true,
   rawOutputRetentionDays: 30,
   allowedProviderCodes: ['mock'],
@@ -137,15 +138,15 @@ describe('AI policy over HTTP', () => {
     const f = await fixture();
 
     const before = await request(server).get('/api/v1/tenant/ai-policy').set(f.owner.headers).expect(200);
-    expect(before.body.data).toMatchObject({ aiEnabled: false, policyVersion: 0 });
+    expect(before.body.data).toMatchObject({ aiEnabled: false, rawMediaAllowed: false, policyVersion: 0 });
 
     const decided = await request(server)
       .put('/api/v1/tenant/ai-policy')
       .set(f.owner.headers)
       .set('idempotency-key', idem())
-      .send(DECISION)
+      .send({ ...DECISION, rawMediaAllowed: true })
       .expect(200);
-    expect(decided.body.data).toMatchObject({ aiEnabled: true, policyVersion: 1 });
+    expect(decided.body.data).toMatchObject({ aiEnabled: true, rawMediaAllowed: true, policyVersion: 1 });
 
     const events = await request(server)
       .get('/api/v1/tenant/ai-policy/events')
@@ -153,6 +154,7 @@ describe('AI policy over HTTP', () => {
       .expect(200);
     expect(events.body.data.items).toHaveLength(1);
     expect(events.body.data.items[0]).toMatchObject({ seq: 1, reason: 'SYNTHETIC: pilot clinic' });
+    expect(events.body.data.items[0].after.rawMediaAllowed).toBe(true);
   });
 
   it('refuses a doctor the policy decision', async () => {
@@ -524,6 +526,7 @@ describe('AI jobs over HTTP (AI-001)', () => {
         tenantId: f.tenantId,
         aiEnabled: true,
         freeTierAiAllowed: true,
+        rawMediaAllowed: false,
         allowedProviderCodes: ['mock'],
         policyTextVersion: CURRENT_ACK_TEXT_VERSION,
         createdAt: now,
