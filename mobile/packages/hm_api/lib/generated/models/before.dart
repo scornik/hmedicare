@@ -15,6 +15,7 @@ class Before {
     required this.minAiConsentPolicyVersion,
     required this.minimizationRequiredForNoTraining,
     required this.policyTextVersion,
+    required this.rawMediaAllowed,
     required this.rawOutputRetentionDays,
   });
   
@@ -26,6 +27,7 @@ class Before {
   final int minAiConsentPolicyVersion;
   final bool minimizationRequiredForNoTraining;
   final String policyTextVersion;
+  final bool rawMediaAllowed;
   final int rawOutputRetentionDays;
 
   Map<String, Object?> toJson() => _$BeforeToJson(this);

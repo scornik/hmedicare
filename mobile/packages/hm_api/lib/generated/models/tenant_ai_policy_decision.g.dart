@@ -18,6 +18,7 @@ TenantAiPolicyDecision _$TenantAiPolicyDecisionFromJson(
   minimizationRequiredForNoTraining:
       json['minimizationRequiredForNoTraining'] as bool,
   policyTextVersion: json['policyTextVersion'] as String,
+  rawMediaAllowed: json['rawMediaAllowed'] as bool,
   rawOutputRetentionDays: (json['rawOutputRetentionDays'] as num).toInt(),
   reason: json['reason'] as String,
   expectedRowVersion: (json['expectedRowVersion'] as num?)?.toInt(),
@@ -34,6 +35,7 @@ Map<String, dynamic> _$TenantAiPolicyDecisionToJson(
   'minimizationRequiredForNoTraining':
       instance.minimizationRequiredForNoTraining,
   'policyTextVersion': instance.policyTextVersion,
+  'rawMediaAllowed': instance.rawMediaAllowed,
   'rawOutputRetentionDays': instance.rawOutputRetentionDays,
   'reason': instance.reason,
 };

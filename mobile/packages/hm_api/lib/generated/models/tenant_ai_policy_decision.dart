@@ -15,6 +15,7 @@ class TenantAiPolicyDecision {
     required this.minAiConsentPolicyVersion,
     required this.minimizationRequiredForNoTraining,
     required this.policyTextVersion,
+    required this.rawMediaAllowed,
     required this.rawOutputRetentionDays,
     required this.reason,
     this.expectedRowVersion,
@@ -29,6 +30,7 @@ class TenantAiPolicyDecision {
   final int minAiConsentPolicyVersion;
   final bool minimizationRequiredForNoTraining;
   final String policyTextVersion;
+  final bool rawMediaAllowed;
   final int rawOutputRetentionDays;
 
   /// Why, in the owner’s words. Recorded in the policy event and never defaulted
