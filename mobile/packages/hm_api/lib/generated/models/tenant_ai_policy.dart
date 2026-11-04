@@ -20,6 +20,7 @@ class TenantAiPolicy {
     required this.minimizationRequiredForNoTraining,
     required this.policyTextVersion,
     required this.policyVersion,
+    required this.rawMediaAllowed,
     required this.rawOutputRetentionDays,
     required this.rowVersion,
   });
@@ -41,6 +42,7 @@ class TenantAiPolicy {
   final bool minimizationRequiredForNoTraining;
   final String policyTextVersion;
   final int policyVersion;
+  final bool rawMediaAllowed;
   final int rawOutputRetentionDays;
   final int rowVersion;
 

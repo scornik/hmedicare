@@ -33,8 +33,10 @@ overrides:
   fastify@5.11.3: 5.12.6 # NestJS 11 platform-fastify pins 5.11.3
   fastify@5.12.5: 5.12.6
   file-type@21.0.0: 21.3.4
+  glob: 14.0.2 # GHSA-3g3m-2fjr-6pw4; older majors have no patched release
   mariadb@3.4.5: 3.5.4 # @prisma/adapter-mariadb transitive version
   mysql2@3.15.3: 3.24.4 # GHSA-3f6p-5ww8-9rcr, GHSA-rgwj-5xj2-c3m3 (prisma CLI 7.10.0, dev only)
+  minimatch: 11.0.1 # GHSA-g3hv-75wg-m249; older majors have no patched release
   source-map-js@1.2.1: 1.2.2
   undici@8.10.2: 8.12.2
 

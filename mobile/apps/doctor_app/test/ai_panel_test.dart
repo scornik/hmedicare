@@ -39,6 +39,7 @@ class AiAdapter implements HttpClientAdapter {
         data = {
           'aiEnabled': true,
           'freeTierAiAllowed': true,
+          'rawMediaAllowed': false,
           'freeTierEffective': true,
           'freeTierForcedOffByProductionGate': false,
           'allowedProviderCodes': ['mock'],

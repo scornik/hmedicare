@@ -16,6 +16,7 @@ Before _$BeforeFromJson(Map<String, dynamic> json) => Before(
   minimizationRequiredForNoTraining:
       json['minimizationRequiredForNoTraining'] as bool,
   policyTextVersion: json['policyTextVersion'] as String,
+  rawMediaAllowed: json['rawMediaAllowed'] as bool,
   rawOutputRetentionDays: (json['rawOutputRetentionDays'] as num).toInt(),
 );
 
@@ -27,5 +28,6 @@ Map<String, dynamic> _$BeforeToJson(Before instance) => <String, dynamic>{
   'minimizationRequiredForNoTraining':
       instance.minimizationRequiredForNoTraining,
   'policyTextVersion': instance.policyTextVersion,
+  'rawMediaAllowed': instance.rawMediaAllowed,
   'rawOutputRetentionDays': instance.rawOutputRetentionDays,
 };

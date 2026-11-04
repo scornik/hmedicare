@@ -2631,6 +2631,7 @@ model TenantAiPolicy {
   tenantId String @map("tenant_id") @db.VarChar(36)
   aiEnabled Boolean @default(false) @map("ai_enabled")
   freeTierAiAllowed Boolean @default(false) @map("free_tier_ai_allowed")
+  rawMediaAllowed Boolean @default(false) @map("raw_media_allowed")
   minimizationRequiredForNoTraining Boolean @default(true) @map("minimization_required_for_no_training")
   rawOutputRetentionDays Int @default(30) @map("raw_output_retention_days") @db.UnsignedSmallInt
   allowedProviderCodes Json @map("allowed_provider_codes")

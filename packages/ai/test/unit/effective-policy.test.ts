@@ -15,6 +15,7 @@ function fixture(): AIPolicyInput {
     tenant: {
       aiEnabled: true,
       freeTierAiAllowed: true,
+      rawMediaAllowed: false,
       minimizationRequiredForNoTraining: true,
       allowedProviderCodes: ['fixture'],
     },
@@ -146,6 +147,8 @@ describe('effective AI policy', () => {
     const input = fixture();
     input.metadata!.dataUsePolicy = 'NO_TRAINING_CONTRACTUAL';
     input.acknowledgementCurrent = input.tenant.freeTierAiAllowed = false;
+    expect(evaluateAIPolicy(input)).toMatchObject({ allowed: true, allowRawMedia: false });
+    input.tenant.rawMediaAllowed = true;
     expect(evaluateAIPolicy(input)).toMatchObject({
       allowed: true,
       requireMinimization: true,

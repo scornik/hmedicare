@@ -128,6 +128,7 @@ async function fixture(options: { aiEnabled?: boolean; consent?: boolean; acknow
       tenantId: base.tenantId,
       aiEnabled: options.aiEnabled ?? true,
       freeTierAiAllowed: true,
+      rawMediaAllowed: false,
       allowedProviderCodes: ['mock'],
       policyTextVersion: CURRENT_ACK_TEXT_VERSION,
       createdAt: now,

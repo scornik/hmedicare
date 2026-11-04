@@ -335,6 +335,7 @@ export class AIJobStore {
       tenant: {
         aiEnabled: policy?.aiEnabled ?? false,
         freeTierAiAllowed: policy?.freeTierAiAllowed ?? false,
+        rawMediaAllowed: policy?.rawMediaAllowed ?? false,
         minimizationRequiredForNoTraining: policy?.minimizationRequiredForNoTraining ?? true,
         allowedProviderCodes: Array.isArray(policy?.allowedProviderCodes)
           ? (policy.allowedProviderCodes as string[])

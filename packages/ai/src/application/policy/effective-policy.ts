@@ -26,6 +26,7 @@ export interface AIPolicyInput {
   tenant: {
     aiEnabled: boolean;
     freeTierAiAllowed: boolean;
+    rawMediaAllowed: boolean;
     minimizationRequiredForNoTraining: boolean;
     allowedProviderCodes: readonly string[];
   };
@@ -122,6 +123,7 @@ export function evaluateAIPolicy(input: AIPolicyInput): AIPolicyDecision {
       dataUsePolicy === 'MAY_TRAIN_OR_REVIEW' || tenant.minimizationRequiredForNoTraining !== false,
     allowRawMedia:
       dataUsePolicy === 'NO_TRAINING_CONTRACTUAL' &&
+      tenant.rawMediaAllowed === true &&
       input.rawMediaFeatureEnabled === true &&
       (metadata.capabilities.includes('audio') || metadata.capabilities.includes('vision')),
     usageRestrictions: [...metadata.usageRestrictions],

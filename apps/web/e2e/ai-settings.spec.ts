@@ -6,6 +6,7 @@ async function prepare(page: Page, manage = true, conflict = false) {
   let policy = {
     aiEnabled: false,
     freeTierAiAllowed: true,
+    rawMediaAllowed: false,
     freeTierEffective: false,
     freeTierForcedOffByProductionGate: true,
     minimizationRequiredForNoTraining: true,
@@ -68,7 +69,13 @@ async function prepare(page: Page, manage = true, conflict = false) {
         const body = route.request().postDataJSON() as Record<string, unknown>;
         state.writes.push(body);
         if (conflict) return json({ code: 'STALE_VERSION' }, 409);
-        policy = { ...policy, aiEnabled: body.aiEnabled as boolean, rowVersion: 5, policyVersion: 2 };
+        policy = {
+          ...policy,
+          aiEnabled: body.aiEnabled as boolean,
+          rawMediaAllowed: body.rawMediaAllowed as boolean,
+          rowVersion: 5,
+          policyVersion: 2,
+        };
       }
       return json(policy);
     }
@@ -85,6 +92,7 @@ test('tenant owner sees effective policy and saves a versioned decision', async 
   await expect(page.getByText('The server currently blocks free-tier use', { exact: false })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save policy', exact: true })).toBeDisabled();
   await page.getByLabel('Enable AI assistance', { exact: true }).check();
+  await page.getByLabel('Allow audio for transcription when the feature is available').check();
   await page.getByLabel('Reason for change').fill('Enable synthetic doctor workflow');
   await page.getByRole('button', { name: 'Save policy', exact: true }).click();
   await expect(page.getByText('Policy version: 2', { exact: true })).toBeVisible();
@@ -92,6 +100,7 @@ test('tenant owner sees effective policy and saves a versioned decision', async 
     expect.objectContaining({
       expectedRowVersion: 4,
       aiEnabled: true,
+      rawMediaAllowed: true,
       reason: 'Enable synthetic doctor workflow',
       rawOutputRetentionDays: 30,
       allowedProviderCodes: ['mock'],

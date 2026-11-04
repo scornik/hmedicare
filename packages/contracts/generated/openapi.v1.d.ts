@@ -5595,6 +5595,7 @@ export interface components {
             minimizationRequiredForNoTraining: boolean;
             policyTextVersion: string;
             policyVersion: number;
+            rawMediaAllowed: boolean;
             rawOutputRetentionDays: number;
             rowVersion: number;
         };
@@ -5606,6 +5607,7 @@ export interface components {
             minAiConsentPolicyVersion: number;
             minimizationRequiredForNoTraining: boolean;
             policyTextVersion: string;
+            rawMediaAllowed: boolean;
             rawOutputRetentionDays: number;
             /** @description Why, in the owner’s words. Recorded in the policy event and never defaulted */
             reason: string;
@@ -5624,6 +5626,7 @@ export interface components {
                     minAiConsentPolicyVersion: number;
                     minimizationRequiredForNoTraining: boolean;
                     policyTextVersion: string;
+                    rawMediaAllowed: boolean;
                     rawOutputRetentionDays: number;
                 };
                 before: {
@@ -5633,6 +5636,7 @@ export interface components {
                     minAiConsentPolicyVersion: number;
                     minimizationRequiredForNoTraining: boolean;
                     policyTextVersion: string;
+                    rawMediaAllowed: boolean;
                     rawOutputRetentionDays: number;
                 };
                 /**

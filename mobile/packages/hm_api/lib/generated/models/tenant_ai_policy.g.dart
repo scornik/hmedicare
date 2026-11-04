@@ -26,6 +26,7 @@ TenantAiPolicy _$TenantAiPolicyFromJson(Map<String, dynamic> json) =>
           json['minimizationRequiredForNoTraining'] as bool,
       policyTextVersion: json['policyTextVersion'] as String,
       policyVersion: (json['policyVersion'] as num).toInt(),
+      rawMediaAllowed: json['rawMediaAllowed'] as bool,
       rawOutputRetentionDays: (json['rawOutputRetentionDays'] as num).toInt(),
       rowVersion: (json['rowVersion'] as num).toInt(),
     );
@@ -45,6 +46,7 @@ Map<String, dynamic> _$TenantAiPolicyToJson(TenantAiPolicy instance) =>
           instance.minimizationRequiredForNoTraining,
       'policyTextVersion': instance.policyTextVersion,
       'policyVersion': instance.policyVersion,
+      'rawMediaAllowed': instance.rawMediaAllowed,
       'rawOutputRetentionDays': instance.rawOutputRetentionDays,
       'rowVersion': instance.rowVersion,
     };
